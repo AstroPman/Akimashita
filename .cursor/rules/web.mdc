@@ -1,0 +1,169 @@
+---
+description: Webアプリの設計・実装方針
+globs: ["apps/web/**/*"]
+alwaysApply: false
+---
+
+# Web アプリ概要
+
+ユーザがセラピストを指定し、空き枠が出たら通知を受け取るためのフロントエンド。Next.js App Router を使い、Supabase（Auth / DB）と連携する。プロジェクト全体の目的・技術スタックの骨格は `core.mdc` を参照。
+
+# 技術スタック（Web 固有）
+
+- **Next.js 16**（App Router）
+- **React 19**
+- **TypeScript**
+- **Tailwind CSS v4**（`@import "tailwindcss"`、`globals.css` の `@theme inline`）
+- **shadcn/ui**（Radix ベース、`components.json` で管理。CLI でコンポーネントを追加）
+- **日付**: **dayjs** または **date-fns**（プロジェクトでどちらか一方に統一）。タイムゾーンは **`Asia/Tokyo`** を明示。
+- **バリデーション**: **zod**（フォーム・Server Actions・API Body を共通スキーマで型安全に）。
+- **トースト**: **sonner** または shadcn の **toast**（保存・削除・エラーなどの即時フィードバック）。
+- **共有パッケージ** `@alimashita/shared`（サイト種別・ドメイン型など）
+
+認証・DB クライアント（`@supabase/supabase-js` / `@supabase/ssr` 等）は未導入の場合がある。導入時は Server Component / Route Handler でのセッション扱いを公式パターンに合わせる。
+
+# ディレクトリと責務
+
+```
+apps/web/
+├── components.json    # shadcn/ui の設定（スタイル・エイリアス・CSS パス）
+├── src/app/           # App Router（layout.tsx, page.tsx, route groups など）
+├── src/components/ui/ # shadcn が生成するプリミティブ（button 等）。手編集可
+├── src/lib/utils.ts   # cn()（clsx + tailwind-merge）
+├── src/lib/schema/    # zod スキーマ（フォーム・Server Action 入力の共通化）
+├── public/            # 静的アセット（画像・favicon 等）
+├── src/app/globals.css
+└── next.config.ts
+```
+
+- **ページ・レイアウト**: `src/app/` 以下に配置。認証後エリアは `(authenticated)` のような route group でラップするなど、URL とファイル構造を一致させやすくする。
+- **UI プリミティブ**: **shadcn のコンポーネントを優先**する。必要なら `cd apps/web && npx shadcn@latest add <name>` で追加（例: `input`, `label`, `card`, `dialog`, `dropdown-menu`）。追加後のソースはリポジトリにコミットする。
+- **ドメイン用 UI**: `src/components/` にページ横断のブロックを置く場合は、中身は `@/components/ui/*` を組み合わせて組み立てる。
+- **サーバー専用ロジック**: `src/lib/` などに Supabase サーバークライアント生成やクエリ関数をまとめる。
+- **バリデーションスキーマ**: `src/lib/schema/` に zod を集約し、クライアント・サーバー双方から import する。
+
+共有の型・定数は `@alimashita/shared` を優先し、Web だけの型は `apps/web` 内に閉じる。
+
+# 開発フローコマンド
+
+リポジトリルートが npm workspaces の場合:
+
+```bash
+cd apps/web && npm run dev    # 開発サーバー（デフォルト http://localhost:3000）
+npm run build                 # 本番ビルド検証
+npm run lint                  # ESLint（eslint-config-next）
+```
+
+環境変数は `.env.local` に置き、`NEXT_PUBLIC_*` はクライアントに露出する前提で命名する。
+
+## shadcn/ui
+
+- **初期化済み**の前提で、`Button` 等は `@/components/ui/*` から import する。
+- **クラス結合**は `cn(...)`（`@/lib/utils`）を使い、Tailwind の競合を避ける。
+- **テーマ**は `globals.css` の CSS 変数（`:root` / `.dark`）と `@theme inline` が一体。色や半径を変えるときは **変数を起点**にし、個別ページだけ孤立した色コードを増やさない。
+- **ダークモード**は `.dark` クラス前提のスタイルが含まれる。システム連動やトグルが必要なら `next-themes` 等で `<html>` に `class="dark"` を付け替える運用を検討（未導入ならライトのみでも可）。
+- **アイコン**はプロジェクト設定どおり **lucide-react** を優先する。
+
+# ページ構成（ロードマップ）
+
+現状は初期テンプレートのトップのみ。ドメイン（`users`, `therapists`, `watch_settings`, `watch_schedules`, `notification_logs` 等）に沿って、次を想定する。
+
+| 領域 | 目的 | 例（パス案） |
+|------|------|----------------|
+| ランディング / 説明 | サービス説明・利用開始導線 | `/` |
+| 認証 | サインアップ・ログイン・パスワードリセット | `/login`, `/signup`, `/auth/callback`（Supabase 準拠で調整） |
+| 通知予約リスト | 登録した監視設定の一覧・有効/無効・削除 | `/watches` など |
+| 監視の作成・編集 | セラピスト選択、通知チャネル、希望日時（`watch_schedules`） | `/watches/new`, `/watches/[id]/edit` |
+| セラピスト探索 | サイト・サロン経由で `therapists` を検索・選択 | `/salons`, `/therapists` など（UX に応じて統合可） |
+| アカウント | メール・LINE 連携（`users.line_user_id`）プロフィール | `/account` または `/settings` |
+| 通知履歴 | `notification_logs` をユーザ向けに閲覧 | `/notifications`（任意・MVP 後でも可） |
+
+実装順は MVP を優先し、「監視の登録・一覧・通知設定」が動くことを先に満たす。
+
+# Supabase・認証の方針
+
+- **RLS**: DB は Row Level Security 前提。クライアントから直接 Supabase に触れる場合は `auth.uid()` とポリシーに合わせたクエリのみ。
+- **秘密情報**は Server Actions / Route Handler 経由に寄せ、必要なら service role はサーバー専用・環境変数で管理。
+- **コールバック URL**・リダイレクトは環境（ローカル / 本番）ごとに設定を分ける。
+
+# デザインルール
+
+## ブランド・文言
+
+- **利用者向け UI の言語は日本語**（`layout.tsx` の `<html lang="ja">` を基本とする）。
+- サービス名・メタデータ（`metadata`）はプロダクト名に合わせて更新し、テンプレートの "Create Next App" を残さない。
+
+## タイポグラフィ・フォント
+
+- **Geist Sans** を本文、`Geist Mono` をコード・数値などに使用（`layout.tsx` の CSS 変数 `--font-geist-sans` / `--font-geist-mono`。`globals.css` の `@theme` で `--font-sans` に接続）。
+- 見出しレベルはページ内で階層を飛ばさない（`h1` → `h2` → `h3`）。
+
+## カラー・テーマ
+
+- **shadcn のセマンティックトークン**（`background`, `foreground`, `primary`, `muted`, `destructive`, `border` 等）と Tailwind の `bg-*`, `text-*` を基本とする。単色の任意クラスよりトークンを優先する。
+- **ダークモード**は `.dark` 配下の変数で定義済み。システム自動だけにしたい場合は、`prefers-color-scheme` と `.dark` の両立を設計するか、`next-themes` で統一する。
+
+## レイアウト
+
+- ルートレイアウトは `min-h-full` / `flex flex-col` でフル高を確保済み。新規ページも **メインコンテンツが伸びる構造**（フッター固定など）を崩さないよう注意。
+- **モバイルファースト**。主要フローは狭い幅でも操作できるタップ領域（最低約 44px 相当）を確保。
+
+## コンポーネントの見た目
+
+- **ボタン・フォーム・ダイアログ等**: shadcn にあるものは `@/components/ui/*` を使う。無い場合のみ追加コマンドで取り込むか、トークンに沿った自作にする。
+- **リンク**: 視認性のあるコントラスト、フォーカスリング（キーボード操作を想定）。
+- **フォーム**: ラベル・エラー文言を日本語で明示。`aria-*` を必要に応じて付与。
+- **読み込み・空状態**: 一覧はスケルトンまたは簡潔なメッセージ、データゼロは「まだ監視がありません」など具体文言。
+
+# 実装ルール
+
+- **デフォルトは Server Component**。インタラクションやブラウザ API が必要な部分だけ Client Component（`"use client"`）に切り出す。
+- **データ取得**は可能ならサーバー側で完了させ、ウォーターフォールを避ける（並列は `Promise.all` 等）。
+- **フォーム**は Server Actions または Route Handler と組み合わせ、バリデーション結果をユーザに返す。
+- **画像**は `next/image` を使用し、`alt` を必ず付与。
+- **外部リンク**は `rel="noopener noreferrer"` と `target="_blank"` をセットで検討。
+
+# タイムゾーンと日付操作（厳格化）
+
+予約ドメインでは「25:00（翌 1:00）」のような表現や **タイムゾーンのズレ** が、通知が届かない・遅れて届くなど **致命的な不具合** に直結する。次を徹底する。
+
+- **ライブラリ**: サーバー・クライアントともに **`Date` の素の演算だけに頼らず**、**dayjs** または **date-fns** のいずれか（プロジェクトで統一）で加算・比較・フォーマットする。タイムゾーンは **`Asia/Tokyo`（JST）** を基準に業務ロジックを組む。
+- **DB（Supabase / PostgreSQL）**: **保存は UTC**（`timestamptz` 等）を前提とし、アプリ側では **表示・入力の解釈・「今日はいつか」** を JST に揃える。ブラウザのローカルタイムに依存したまま「日付だけ」を送らないよう、明示的に TZ を固定する。
+- **スクレイパー連携**: 外部サイトの時刻表現が深夜跨ぎや特殊表記の場合は、**正規化した時刻レンジ** をドメインルールとして `packages/shared` または `src/lib` に文書化し、Web とワーカーで解釈を一致させる。
+
+# Zod による型安全なバリデーション
+
+App Router の **Server Actions** とフォームを組むときは、フロントとサーバーでバリデーションを **共通化** するのが定石とする。
+
+- **スキーマの場所**: **`src/lib/schema/`** に zod のスキーマをまとめる。ファイルは機能単位（例: `watch-settings.ts`）でもよいが、肥大化したら分割する。
+- **利用範囲**: フォーム入力、Server Action の引数、Route Handler の JSON Body など **境界で必ず zod** を通す。サーバー側だけ／クライアントだけの重複定義は避ける。
+- **型の流れ**: `z.infer<typeof schema>` で TypeScript 型を導き、Action の戻り値も「成功・フィールドエラー」を型で表現すると安全。
+
+# トースト（通知）の運用ルール
+
+監視の保存・削除・エラーなど、**ユーザーへのフィードバックが成果に直結**する。
+
+- **実装**: **sonner**、または shadcn の **toast**（`npx shadcn@latest add sonner` 等で揃える）を用い、操作直後に結果を見せる。
+- **文言**: **日本語で統一**する。例: 「〜を保存しました」「〜に失敗しました」「入力内容を確認してください」。成功・失敗・バリデーションエラーをトーンで区別できるとよい。
+- **過剰通知**: 連続操作でトーストが積み上がりすぎないよう、同一画面ではルールを決める（例: 直前の同一種類は置き換え）。
+
+# リアルタイム更新の指針
+
+ブラウザを開いたまま **通知履歴や空き関連の更新を即時反映**したい場合に備える。
+
+- **Supabase Realtime**: `notification_logs` など **リアルタイム性が求められる一覧**では、**Realtime の Subscribe** を検討する。ポリシー・RLS と購読条件を設計し、ユーザが自分の行だけ受け取れるようにする。
+- **Client Component**: 購読は **`useEffect` 内で開始し、クリーンアップで必ず unsubscribe** する（タブ切り替え・ナビ離脱・Strict Mode 再実行でもリークしないようにする）。
+- **フォールバック**: Realtime が使えない環境では、ポーリングやページ再読み込みなど **劣化運用** を検討してもよい。
+
+# ローディング・状態管理の具体化（UX）
+
+Next.js 16 / React 19 の API を前提に、**体感の速さと誤操作防止** を両立する。
+
+- **フォーム送信**: **`useFormStatus`**（送信ボタンを包む子コンポーネント）や **`useTransition`** を使い、送信中は **ボタンを `disabled`** にする・ローディング表示を出すなど、**必ずローディング状態を実装**する。Server Action と組み合わせる場合は **`useActionState`**（旧 useFormState）でエラー・成功メッセージを扱う流れも推奨。
+- **楽観的 UI**: 監視の **有効 / 無効トグル** など、サーバー応答を待つと気持ち悪い操作は、可能な範囲で **`useOptimistic`** を適用し、即座に UI を更新してからサーバー結果で確定／巻き戻しする。
+- **一貫性**: 楽観的更新したあと Realtime や再取得で一覧が上書きされる場合、**表示のちらつき**が出ないよう順序を設計する。
+
+# このリポジトリでの注意
+
+- **スクレイパー・バッチの仕様**は `.cursor/rules/scraper.mdc`。Web はあくまでユーザ操作と Supabase 連携が中心で、スクレイピング処理は含めない。
+- 変更は **要件に必要な範囲に限定**し、テンプレート由来のデモ用コードはプロダクトに合わせて差し替える。

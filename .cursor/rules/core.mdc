@@ -1,0 +1,52 @@
+---
+description: プロジェクトの基本情報・ディレクトリ構成
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# プロジェクト概要
+メンズエステの予約争奪戦に勝つためのサービス。
+ユーザが事前に指定したセラピストについて、予約の空き情報を定期的に取得し空きが出来次第、ユーザに通知する。
+
+# 技術スタック
+- Next.js 16
+- Typescript
+- Tailwind CSS
+- Supabase(Auth, DB)
+
+
+# ディレクトリ構成
+
+```
+.
+├── apps/
+│   ├── scraper/                    # 予約サイトのスクレイピング・通知ワーカー
+│   │   └── package.json
+│   └── web/                        # Next.js フロントエンド
+│       ├── README.md
+│       ├── eslint.config.mjs       # ESLint設定
+│       ├── next-env.d.ts           # Next.js TypeScript型定義（自動生成）
+│       ├── next.config.ts          # Next.js設定ファイル
+│       ├── package.json
+│       ├── postcss.config.mjs      # PostCSS設定（Tailwind用）
+│       ├── public/                 # 静的ファイル置き場（画像・SVGなど）
+│       │   ├── file.svg
+│       │   ├── globe.svg
+│       │   ├── next.svg
+│       │   ├── vercel.svg
+│       │   └── window.svg
+│       ├── src/
+│       │   └── app/                # Next.js App Router のルーティング
+│       │       ├── favicon.ico
+│       │       ├── globals.css     # グローバルCSS（Tailwindのimportなど）
+│       │       ├── layout.tsx      # 全ページ共通レイアウト
+│       │       └── page.tsx        # トップページ（/）
+│       └── tsconfig.json           # TypeScript設定
+├── package-lock.json
+├── package.json                    # ルート：npmワークスペース設定
+├── packages/
+│   └── shared/                     # webとscraperで共通利用する型定義・ユーティリティ
+│       └── package.json
+└── supabase/
+    └── config.toml                 # Supabaseローカル開発環境の設定
+```

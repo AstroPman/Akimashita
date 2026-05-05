@@ -1,0 +1,188 @@
+---
+description: scraperアプリの設計・実装方針
+globs: ["apps/scraper/**/*"]
+alwaysApply: false
+---
+
+# Scraper 概要
+
+予約サイトを定期的にスクレイピングし、セラピストの空き状況をSupabase（ローカル）に保存する。
+差分検知により、新たに空きが発生した場合のみ通知フラグを立てる。
+
+# ステージ設計
+
+スクレイピング処理は3つのステージに分割して独立実行できる。
+全量を毎回実行すると膨大になるため、ステージごとに頻度・対象を制御する。
+
+```
+Stage 1: サロン発見     → salons テーブルにupsert        （手動 or 週1回）
+Stage 2: セラピスト同期 → therapists テーブルにupsert    （1日1回）
+Stage 3: 空き枠クロール → availability テーブルにupsert  （1分間隔）
+```
+
+## ステージ間の依存関係
+
+```
+Stage 1 → salons が存在しないと Stage 2 が動かない
+Stage 2 → therapists が存在しないと Stage 3 が動かない
+Stage 3 → watch_settings が存在しないと通知されない
+```
+
+## 実行方法
+
+コマンドライン引数でステージを指定して個別実行する。
+
+```bash
+npx ts-node src/index.ts --stage=salons        # Stage 1
+npx ts-node src/index.ts --stage=therapists    # Stage 2
+npx ts-node src/index.ts --stage=availability  # Stage 3
+```
+
+## 各ステージの詳細
+
+### Stage 1: サロン発見
+- 入力: sites テーブル
+- 処理: 各サイトのサロン一覧を取得
+- 出力: salons テーブルにupsert
+- 頻度: 手動 or 週1回
+- 備考: MVPフェーズは手動でseed.sqlに登録。自動化は将来対応
+
+### Stage 2: セラピスト同期
+- 入力: salons テーブル（deleted_at が null のサロン）
+- 処理: サロンごとにセラピスト一覧ページをスクレイピング
+- 出力: therapists テーブルにupsert
+- 頻度: 1日1回
+- 効率化: last_synced_at が古いサロンから優先して処理する
+
+### Stage 3: 空き枠クロール
+- 入力: therapists テーブル（watch_settings に登録済みのセラピストのみ）
+- 処理: セラピストごとに空き枠を取得・差分検知・通知
+- 出力: availability テーブルにupsert、通知があれば notification_logs に記録
+- 頻度: 1分間隔（GitHub Actions: 5分CronでJob内1分×5回ループ）
+- 効率化: watch_settings に登録されていないセラピストはスキップ
+
+## 差分検知ロジック
+
+以下のいずれかの条件で通知対象と判定する。
+
+```
+パターン1: 既存枠が空きに変わった
+  previous_is_available = false AND is_available = true
+
+パターン2: 新規枠が追加されてかつ空き
+  first_seen_at = updated_at AND is_available = true
+```
+
+通知済みチェックは notification_logs を参照し、同一枠への重複通知を防ぐ。
+
+# 対象サイト
+
+## 1. Caskan (https://r.caskan.jp/)
+
+- メンズエステ向け予約システムのSaaS
+- 予約枠データはSSRでHTMLに直接埋め込まれている（内部APIなし）
+- 予約枠は5分刻みでHTMLに列挙されている
+- PlaywrightでHTMLを取得しDOMをパースする必要がある
+
+### URL構造
+- セラピスト一覧: https://r.caskan.jp/{shop_id}/cast
+- セラピスト個別（スケジュール確認）: https://r.caskan.jp/{shop_id}/cast/{cast_id}
+- 日付別予約枠: https://r.caskan.jp/{shop_id}?cast_id={cast_id}&date={YYYY-MM-DD}
+
+### スクレイピング戦略
+- セラピスト一覧ページでセラピスト一覧を取得（Stage 2）
+- セラピスト個別ページで出勤日一覧を取得し、日付ごとに予約枠ページへアクセス（Stage 3）
+- 1日1リクエスト必要なため、監視対象日数分だけリクエストが発生する
+
+## 2. grow-appt.com (https://grow-appt.com/)
+
+- Next.js製のSPA。ページ遷移はURLの `page` パラメータで管理
+- 内部APIが存在するため、ブラウザ操作不要でfetchを直接叩ける
+- 空き時間は15分刻み、`displaydaynum=14` で最大14日分を一括取得可能
+
+### API構造
+- セラピスト一覧:
+  GET /reserve/api/reserve/{SID}/menu
+  ?sid={SID}&staff_no={staff_no}&coupon_no=
+
+- 空き時間:
+  GET /reserve/api/reserve/{SID}/status
+  ?sid={SID}&staff_no={staff_no}&menu_no={menu_no}
+  &seldate={YYYY/MM/DD}&displaydaynum=14&coupon_no=&customer_no=
+
+### パラメータ
+- SID: 店舗識別子（例: u15Vr2S7zV）
+- staff_no: セラピスト識別子（例: 116452）
+- menu_no: コース識別子（例: 2481）
+- seldate: 取得開始日（YYYY/MM/DD形式）
+- displaydaynum: 取得日数（最大14）
+
+# 技術スタック
+
+- Runtime: Node.js + TypeScript
+- スクレイピング:
+  - caskan.jp → Playwright（SSR HTMLをパース）
+  - grow-appt.com → fetch（内部APIを直接叩く）
+- DB: Supabase（開発時はローカル）
+
+# ディレクトリ構成
+
+```
+apps/scraper/
+├── src/
+│   ├── scrapers/
+│   │   ├── caskan/
+│   │   │   ├── salons.ts        # Stage 1: サロン発見
+│   │   │   ├── therapists.ts    # Stage 2: セラピスト同期
+│   │   │   └── availability.ts  # Stage 3: 空き枠クロール
+│   │   └── grow/
+│   │       ├── salons.ts        # Stage 1: サロン発見
+│   │       ├── therapists.ts    # Stage 2: セラピスト同期
+│   │       └── availability.ts  # Stage 3: 空き枠クロール
+│   ├── jobs/
+│   │   ├── salons.ts            # Stage 1 ジョブ（全サイト横断）
+│   │   ├── therapists.ts        # Stage 2 ジョブ（全サイト横断）
+│   │   └── availability.ts      # Stage 3 ジョブ（全サイト横断）
+│   ├── lib/
+│   │   └── supabase.ts          # Supabaseクライアント
+│   └── index.ts                 # エントリポイント（--stage引数で振り分け）
+├── tsconfig.json
+└── package.json
+```
+
+# 共通インターフェース
+
+各サイトのスクレイパーは以下のインターフェースを実装する。
+
+```typescript
+interface SalonScraper {
+  run(): Promise<SalonRecord[]>
+}
+
+interface TherapistScraper {
+  run(salon: Salon): Promise<TherapistRecord[]>
+}
+
+interface AvailabilityScraper {
+  run(therapist: Therapist): Promise<AvailabilityRecord[]>
+}
+```
+
+# ローカル開発
+
+```bash
+# ローカルSupabase起動
+npx supabase start
+
+# 各ステージの実行
+npx ts-node src/index.ts --stage=salons
+npx ts-node src/index.ts --stage=therapists
+npx ts-node src/index.ts --stage=availability
+```
+
+# 環境変数
+
+```
+SUPABASE_URL=http://localhost:54321
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+```
