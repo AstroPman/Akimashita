@@ -1,0 +1,75 @@
+"use server";
+
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { SignupSchema } from "@/lib/schema/auth";
+import { createClient } from "@/lib/supabase/server";
+
+export type SignupState = {
+  ok: boolean;
+  message?: string;
+  fieldErrors?: Partial<Record<"email" | "password", string[]>>;
+  emailSent?: boolean;
+};
+
+// アプリ内部のパスのみを許可するためのバリデーション
+function safeNext(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  if (!value.startsWith("/")) return undefined;
+  // プロトコル相対 (//) や 多段リダイレクト防止
+  if (value.startsWith("//")) return undefined;
+  return value;
+}
+
+export async function signupAction(
+  _prev: SignupState | undefined,
+  formData: FormData,
+): Promise<SignupState> {
+  const parsed = SignupSchema.safeParse({
+    email: formData.get("email"),
+    password: formData.get("password"),
+  });
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message: "入力内容を確認してください",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  const supabase = await createClient();
+  const headerList = await headers();
+  const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
+  const protocol = headerList.get("x-forwarded-proto") ?? "http";
+  const origin = host ? `${protocol}://${host}` : undefined;
+
+  const next = safeNext(formData.get("next"));
+  const callbackUrl = origin
+    ? next
+      ? `${origin}/auth/callback?next=${encodeURIComponent(next)}`
+      : `${origin}/auth/callback`
+    : undefined;
+
+  const { data, error } = await supabase.auth.signUp({
+    email: parsed.data.email,
+    password: parsed.data.password,
+    options: callbackUrl ? { emailRedirectTo: callbackUrl } : undefined,
+  });
+
+  if (error) {
+    return {
+      ok: false,
+      message: error.message ?? "登録に失敗しました",
+    };
+  }
+
+  // メール確認が必要な構成では session が返らない
+  if (!data.session) {
+    return { ok: true, emailSent: true };
+  }
+
+  revalidatePath("/", "layout");
+  redirect(next ?? "/pricing");
+}

@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 250" width="100%" height="100%">
+  <defs>
+    <linearGradient id="popGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="50%" stop-color="#FF1493" />
+      <stop offset="50.1%" stop-color="#FFD700" />
+    </linearGradient>
+
+    <pattern id="dots" x="0" y="0" width="12" height="12" patternUnits="userSpaceOnUse">
+      <circle cx="4" cy="4" r="3" fill="rgba(255, 255, 255, 0.4)" />
+    </pattern>
+
+    <style>
+      .txt {
+        /* 丸みのあるフォントを指定してポップさを強調 */
+        font-family: 'Hiragino Maru Gothic ProN', 'Rounded M+ 1c', 'M PLUS Rounded 1c', 'Comic Sans MS', 'Meiryo', sans-serif;
+        font-size: 100px;
+        font-weight: 900;
+        text-anchor: middle;
+        dominant-baseline: central;
+        letter-spacing: 5px;
+      }
+      .decor {
+        stroke: #111;
+        stroke-width: 4;
+        stroke-linejoin: round;
+      }
+    </style>
+  </defs>
+
+  <g class="decor">
+    <circle cx="90" cy="180" r="16" fill="#00E5FF" />
+    <circle cx="630" cy="70" r="22" fill="#FF1493" />
+    <circle cx="130" cy="50" r="10" fill="#FFEB3B" />
+    <circle cx="590" cy="200" r="12" fill="#00FF7F" />
+
+    <path d="M 160 50 L 165 65 L 180 65 L 168 75 L 172 90 L 160 80 L 148 90 L 152 75 L 140 65 L 155 65 Z" fill="#FF5DE4" />
+    <path d="M 520 40 L 524 50 L 534 50 L 526 57 L 529 67 L 520 61 L 511 67 L 514 57 L 506 50 L 516 50 Z" fill="#FFEB3B" />
+  </g>
+
+  <text x="50%" y="50%" transform="translate(14, 14)" class="txt" fill="#111" stroke="#111" stroke-width="28" stroke-linejoin="round">アキマシタ</text>
+
+  <text x="50%" y="50%" transform="translate(14, 14)" class="txt" fill="#00E5FF" stroke="#00E5FF" stroke-width="12" stroke-linejoin="round">アキマシタ</text>
+
+  <text x="50%" y="50%" class="txt" fill="#111" stroke="#111" stroke-width="26" stroke-linejoin="round">アキマシタ</text>
+
+  <text x="50%" y="50%" class="txt" fill="#FFF" stroke="#FFF" stroke-width="16" stroke-linejoin="round">アキマシタ</text>
+
+  <text x="50%" y="50%" class="txt" fill="url(#popGrad)" stroke="#111" stroke-width="4" stroke-linejoin="round">アキマシタ</text>
+  
+  <text x="50%" y="50%" class="txt" fill="url(#dots)" pointer-events="none">アキマシタ</text>
+
+  <text x="50%" y="47%" class="txt" fill="rgba(255,255,255,0.25)" pointer-events="none">アキマシタ</text>
+</svg>

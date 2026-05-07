@@ -1,0 +1,48 @@
+import Link from "next/link";
+
+const FOOTER_LINKS = [
+  { href: "/", label: "ホーム" },
+  { href: "/#features", label: "予約通知" },
+  { href: "/pricing", label: "料金" },
+  { href: "/salons", label: "対応サロン" },
+  { href: "/waitlist", label: "ウェイトリスト" },
+  { href: "/contact", label: "お問い合わせ" },
+];
+
+export function SiteFooter() {
+  return (
+    <footer className="border-t border-neutral-200/80 bg-white/90 backdrop-blur-sm">
+      <div className="mx-auto w-full max-w-6xl px-4 py-12">
+        <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
+          <Link href="/" className="flex items-center gap-2" aria-label="アキマシタ">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.svg" alt="" className="h-10 w-auto" />
+            <span className="text-sm font-semibold tracking-tight text-foreground">
+              アキマシタ
+            </span>
+          </Link>
+          <nav className="flex flex-wrap gap-x-6 gap-y-3 text-sm text-muted-foreground">
+            {FOOTER_LINKS.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="transition-colors hover:text-foreground"
+              >
+                {item.label}
+              </Link>
+            ))}
+            <Link href="/terms" className="transition-colors hover:text-foreground">
+              利用規約
+            </Link>
+            <Link href="/privacy" className="transition-colors hover:text-foreground">
+              プライバシー
+            </Link>
+          </nav>
+        </div>
+        <p className="mt-10 border-t border-neutral-200/70 pt-8 text-center text-xs text-muted-foreground sm:text-left">
+          &copy; {new Date().getFullYear()} アキマシタ
+        </p>
+      </div>
+    </footer>
+  );
+}
