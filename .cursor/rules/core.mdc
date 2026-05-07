@@ -14,6 +14,13 @@ alwaysApply: true
 - Tailwind CSS
 - Supabase(Auth, DB)
 
+# Supabase Projects
+| 環境 |プロジェクトID|
+| --- | ----------- |
+| Local(ローカル、開発) |  |
+| Staging(ステージング) | zhvmhchwapavylwrchoe |
+| Production(本番)| TBA |
+
 
 # ディレクトリ構成
 
