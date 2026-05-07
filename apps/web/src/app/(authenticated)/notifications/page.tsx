@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { NotificationTimingDisclaimer } from "@/components/notification-timing-disclaimer";
 import { createClient } from "@/lib/supabase/server";
 import { NotificationList } from "./_components/notification-list";
 import type {
@@ -89,11 +90,14 @@ export default async function NotificationsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">通知一覧</h1>
-        <p className="text-sm text-muted-foreground">
-          空き枠のメール通知履歴と運営からのお知らせを確認できます。
-        </p>
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">通知一覧</h1>
+          <p className="text-sm text-muted-foreground">
+            空き枠のメール通知履歴と運営からのお知らせを確認できます。
+          </p>
+        </div>
+        <NotificationTimingDisclaimer />
       </div>
 
       {error ? (
