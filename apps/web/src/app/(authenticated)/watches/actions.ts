@@ -63,9 +63,26 @@ export async function toggleActive(input: {
   }
   await requireActiveSubscription(user.id);
 
+  // OFF→ON の遷移なら baseline_at を「いま」に更新し、
+  // 停止期間中に積み上がった状態変化が再開直後に通知されないようにする。
+  const { data: current, error: fetchError } = await supabase
+    .from("watch_settings")
+    .select("is_active")
+    .eq("id", parsed.data.id)
+    .maybeSingle();
+  if (fetchError || !current) {
+    return failure("更新に失敗しました", fetchError);
+  }
+
+  const turningOn =
+    current.is_active === false && parsed.data.is_active === true;
+
   const { error } = await supabase
     .from("watch_settings")
-    .update({ is_active: parsed.data.is_active })
+    .update({
+      is_active: parsed.data.is_active,
+      ...(turningOn ? { baseline_at: new Date().toISOString() } : {}),
+    })
     .eq("id", parsed.data.id);
 
   if (error) {
@@ -231,6 +248,23 @@ export async function updateWatch(
     };
   }
 
+  // 監視を OFF→ON に切り替えた場合、または対象セラピストを差し替えた場合は
+  // baseline_at を「いま」に更新する。これらの操作は実質的に監視を「いま始め直す」
+  // 意味合いを持つため、過去の状態変化が再開直後に通知されないようにリセットする。
+  const { data: current, error: currentError } = await supabase
+    .from("watch_settings")
+    .select("is_active, therapist_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (currentError || !current) {
+    return failure("監視設定の更新に失敗しました", currentError);
+  }
+
+  const refreshBaseline =
+    parsed.data.is_active === true &&
+    (current.is_active === false ||
+      current.therapist_id !== parsed.data.therapist_id);
+
   const { error: updateError } = await supabase
     .from("watch_settings")
     .update({
@@ -238,6 +272,7 @@ export async function updateWatch(
       is_active: parsed.data.is_active,
       notify_line: parsed.data.notify_line,
       notify_email: parsed.data.notify_email,
+      ...(refreshBaseline ? { baseline_at: new Date().toISOString() } : {}),
     })
     .eq("id", id);
 
