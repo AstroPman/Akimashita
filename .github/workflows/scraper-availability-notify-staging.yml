@@ -1,0 +1,13 @@
+name: scraper-availability-notify (staging)
+
+# ステージングは任意のタイミングで動作確認したいため、手動実行のみ。
+# 定期実行は本番向けワークフロー側で行う。
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    uses: ./.github/workflows/scraper-availability-notify.yml
+    with:
+      environment: staging
+    secrets: inherit

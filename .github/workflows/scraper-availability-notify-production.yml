@@ -1,0 +1,20 @@
+name: scraper-availability-notify (production)
+
+# 本番は毎分スケジュール + 手動実行。
+#
+# NOTE: GitHub Actions の `schedule` は毎分起動を保証しない。実運用では
+# リポジトリのアクティビティやランナー負荷により 5〜15 分の遅延・スキップが
+# 発生し得る。要件通り `* * * * *` で記述するが、運用後しばらくして
+# 実際の発火頻度・スクレイピング負荷を見ながら間引く（5 分間隔等への変更）
+# 判断ができるようにしておく。
+on:
+  schedule:
+    - cron: '* * * * *'
+  workflow_dispatch:
+
+jobs:
+  run:
+    uses: ./.github/workflows/scraper-availability-notify.yml
+    with:
+      environment: production
+    secrets: inherit

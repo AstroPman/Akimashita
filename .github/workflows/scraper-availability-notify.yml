@@ -1,0 +1,65 @@
+name: scraper-availability-notify (reusable)
+
+# apps/scraper の Stage 3 (--stage=availability) と Stage 4 (--stage=notify) を
+# 1 ジョブ内で順番に実行する共通ワークフロー。
+# availability ステップ内部で enqueue_notifications RPC を呼んで通知キューを作り、
+# 続く notify ステップがそのキューを消化してメール送信する。
+#
+# 単独では起動せず、staging / production それぞれのトリガー用ワークフローから
+# `workflow_call` で呼び出される。Secrets はジョブの `environment:` に紐付いた
+# GitHub Environment から解決される（呼び出し側で inputs.environment に
+# staging / production を渡す）。
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'GitHub Environment 名 (staging | production)'
+        type: string
+        required: true
+
+# 環境ごとに直列化する。production は毎分 cron で起動するため、ここで
+# group を分けることで前 run が走っている間は待機キューに 1 件だけ積まれ、
+# さらに新しいトリガーが来ると GitHub が古い待機分を自動キャンセルする
+# （= 過剰にキューが溜まらない）。`cancel-in-progress: false` で
+# 実行中の処理は最後まで走らせる。
+concurrency:
+  group: scraper-availability-notify-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: Sync availability & notify (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    # 毎分 cron で詰まらせないため therapists (60 分) より短めに設定。
+    timeout-minutes: 10
+    environment: ${{ inputs.environment }}
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+      APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+      NOTIFY_USERS_PER_RUN: ${{ secrets.NOTIFY_USERS_PER_RUN }}
+      NOTIFY_USER_INTERVAL_MS: ${{ secrets.NOTIFY_USER_INTERVAL_MS }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run scraper (--stage=availability)
+        working-directory: apps/scraper
+        run: npm run dev:availability
+
+      - name: Run scraper (--stage=notify)
+        working-directory: apps/scraper
+        run: npm run dev:notify
