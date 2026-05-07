@@ -214,19 +214,58 @@ async function transitionToSending(
   return ((data ?? []) as { id: string }[]).map((r) => r.id);
 }
 
-async function markSent(rowIds: string[]): Promise<void> {
+async function markSent(
+  rowIds: string[],
+  emailId: string | null,
+): Promise<void> {
   if (rowIds.length === 0) return;
+  const update: Record<string, unknown> = {
+    status: 'sent',
+    sent_at: new Date().toISOString(),
+    error: null,
+  };
+  if (emailId) {
+    update.email_id = emailId;
+  }
   const { error } = await supabase
     .from('notification_logs')
-    .update({
-      status: 'sent',
-      sent_at: new Date().toISOString(),
-      error: null,
-    })
+    .update(update)
     .in('id', rowIds);
   if (error) {
     throw new Error(`Failed to mark rows as sent: ${error.message}`);
   }
+}
+
+/**
+ * 送信したメール本文のスナップショットを notification_emails に保存する。
+ * インボックス画面（/notifications）で 1 メール = 1 カードで表示するための親レコード。
+ * 失敗してもメール送信自体には影響しないよう、呼び出し側で吸収する。
+ */
+async function recordEmailSnapshot(args: {
+  userId: string;
+  subject: string;
+  text: string;
+  html: string;
+}): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('notification_emails')
+    .insert({
+      user_id: args.userId,
+      subject: args.subject,
+      body_text: args.text,
+      body_html: args.html,
+      sent_at: new Date().toISOString(),
+    })
+    .select('id')
+    .single();
+  if (error || !data) {
+    log.warn('Failed to record notification_emails', {
+      user_id: args.userId,
+      error: error?.message,
+    });
+    return null;
+  }
+  return (data as { id: string }).id;
 }
 
 async function markFailed(rowIds: string[], message: string): Promise<void> {
@@ -359,13 +398,20 @@ export async function dispatchEmailNotifications(
         text,
         html,
       });
-      await markSent(sendingIds);
+      const emailId = await recordEmailSnapshot({
+        userId: batch.userId,
+        subject,
+        text,
+        html,
+      });
+      await markSent(sendingIds, emailId);
       result.succeededUsers += 1;
       result.succeededRows += sendingIds.length;
       log.info('Sent', {
         user_id: batch.userId,
         to: batch.userEmail,
         slot_count: sendingIds.length,
+        email_id: emailId,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
