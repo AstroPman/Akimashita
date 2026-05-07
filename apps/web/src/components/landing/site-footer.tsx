@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NotificationTimingDisclaimer } from "@/components/notification-timing-disclaimer";
 
 const FOOTER_LINKS = [
   { href: "/", label: "ホーム" },
@@ -39,9 +40,12 @@ export function SiteFooter() {
             </Link>
           </nav>
         </div>
-        <p className="mt-10 border-t border-neutral-200/70 pt-8 text-center text-xs text-muted-foreground sm:text-left">
-          &copy; {new Date().getFullYear()} アキマシタ
-        </p>
+        <div className="mt-10 border-t border-neutral-200/70 pt-8">
+          <NotificationTimingDisclaimer className="mx-auto max-w-3xl text-center sm:text-left" />
+          <p className="mt-6 text-center text-xs text-muted-foreground sm:text-left">
+            &copy; {new Date().getFullYear()} アキマシタ
+          </p>
+        </div>
       </div>
     </footer>
   );
