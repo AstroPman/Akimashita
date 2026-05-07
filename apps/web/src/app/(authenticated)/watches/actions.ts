@@ -6,6 +6,7 @@ import { z } from "zod";
 import { WatchFormSchema, type WatchFormInput } from "@/lib/schema/watch";
 import { createClient } from "@/lib/supabase/server";
 import { isSubscriptionActive } from "@/lib/seats";
+import { MAX_WATCH_SETTINGS_PER_USER } from "@/lib/watches/limits";
 
 async function requireActiveSubscription(userId: string) {
   const active = await isSubscriptionActive(userId);
@@ -20,8 +21,8 @@ export type ActionResult =
       ok: false;
       message: string;
       fieldErrors?: Record<string, string[]>;
-      /** 同一セラピストの監視が既にあるなど */
-      code?: "duplicate";
+      /** duplicate: 同一セラピストの監視が既にある / limit_reached: 監視設定の上限に到達 */
+      code?: "duplicate" | "limit_reached";
     };
 
 // 開発時は Supabase のエラー詳細をクライアントにも返してデバッグしやすくする。
@@ -149,6 +150,22 @@ export async function createWatch(input: WatchFormInput): Promise<ActionResult> 
     return { ok: false, message: "ログインが必要です" };
   }
   await requireActiveSubscription(user.id);
+
+  const { count: existingCount, error: countError } = await supabase
+    .from("watch_settings")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .is("deleted_at", null);
+  if (countError) {
+    return failure("監視設定数の確認に失敗しました", countError);
+  }
+  if ((existingCount ?? 0) >= MAX_WATCH_SETTINGS_PER_USER) {
+    return {
+      ok: false,
+      message: `監視設定は最大 ${MAX_WATCH_SETTINGS_PER_USER} 件までです。不要な設定を削除してから登録してください。`,
+      code: "limit_reached",
+    };
+  }
 
   const { data: existingForTherapist } = await supabase
     .from("watch_settings")

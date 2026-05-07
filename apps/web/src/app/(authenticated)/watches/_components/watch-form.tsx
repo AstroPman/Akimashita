@@ -159,7 +159,7 @@ export function WatchForm({
         if (res.fieldErrors) {
           setErrors(res.fieldErrors);
         }
-        if (res.code === "duplicate") {
+        if (res.code === "duplicate" || res.code === "limit_reached") {
           toast.warning(res.message);
         } else {
           toast.error(res.message);

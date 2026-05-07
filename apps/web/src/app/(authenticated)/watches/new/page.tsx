@@ -4,7 +4,9 @@ import { ChevronLeftIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { WatchForm } from "../_components/watch-form";
+import { WatchQuotaIndicator } from "../_components/watch-quota-indicator";
 import { defaultWatchFormValues } from "@/lib/schema/watch";
+import { getWatchQuota } from "@/lib/watches/quota";
 
 export const metadata: Metadata = {
   title: "新しく登録",
@@ -12,11 +14,14 @@ export const metadata: Metadata = {
 
 export default async function NewWatchPage() {
   const supabase = await createClient();
-  const { data: salons } = await supabase
-    .from("salons")
-    .select("id, name, sites!inner (id)")
-    .is("deleted_at", null)
-    .order("name", { ascending: true });
+  const [{ data: salons }, quota] = await Promise.all([
+    supabase
+      .from("salons")
+      .select("id, name, sites!inner (id)")
+      .is("deleted_at", null)
+      .order("name", { ascending: true }),
+    getWatchQuota(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -32,11 +37,30 @@ export default async function NewWatchPage() {
           サロン・セラピストを選び、通知チャネルと希望日時を設定してください。
         </p>
       </div>
-      <WatchForm
-        mode="create"
-        salons={(salons ?? []) as never}
-        defaultValues={defaultWatchFormValues}
-      />
+
+      <WatchQuotaIndicator quota={quota} />
+
+      {quota.isFull ? (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-6">
+          <h2 className="text-base font-semibold text-destructive">
+            監視設定の上限に達しています
+          </h2>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            1 アカウントあたり最大 {quota.max} 件まで登録できます。新しく登録するには、一覧から不要な監視を削除してください。
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button asChild>
+              <Link href="/watches">一覧を確認する</Link>
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <WatchForm
+          mode="create"
+          salons={(salons ?? []) as never}
+          defaultValues={defaultWatchFormValues}
+        />
+      )}
     </div>
   );
 }
