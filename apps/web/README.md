@@ -107,3 +107,4 @@ curl -i -H "Authorization: Bearer $CRON_SECRET" \
 ```
 
 `type` は `availability-production` / `availability-staging` / `therapists-production` のいずれか。これらは `.github/workflows/scraper-*.yml` の `repository_dispatch.types` と一致している。
+
