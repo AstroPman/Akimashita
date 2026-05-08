@@ -42,6 +42,18 @@ insert into salons (site_id, shop_id, name, url) values
     'エルテラス',
     'https://r.caskan.jp/elteras'
   ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'aromaaria',
+    '麻布十番・品川メンズエステ【aromaARIA】',
+    'https://r.caskan.jp/aromaaria'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'kichijojiallie',
+    'アリー 吉祥寺・高円寺',
+    'https://r.caskan.jp/kichijojiallie'
+  ),
   -- grow-appt.com
   (
     '00000000-0000-0000-0000-000000000002',
@@ -72,4 +84,22 @@ insert into salons (site_id, shop_id, name, url) values
     'RyqGG4NSpF',
     'Tokyo Panic 〜トウキョウパニック 〜',
     'https://grow-appt.com/reserve?SID=RyqGG4NSpF'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '3CwfyEXRvL',
+    'SWEET MIST -スイートミスト-',
+    'https://grow-appt.com/reserve?SID=3CwfyEXRvL'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '6076wZxqhK',
+    'Pearl -パール-',
+    'https://grow-appt.com/reserve?SID=6076wZxqhK'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'k5qd05p000',
+    'エステの王様 五反田店',
+    'https://grow-appt.com/reserve?SID=k5qd05p000'
   );
