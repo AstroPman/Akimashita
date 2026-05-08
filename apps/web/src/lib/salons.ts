@@ -9,39 +9,30 @@ export interface PublicSalon {
 
 export async function getPublicSalons(): Promise<PublicSalon[]> {
   const supabase = await createClient();
+  const pageSize = 1000;
+  const rows: { id: string; name: string; therapist_count: number }[] = [];
 
-  const [salonsResult, therapistsResult] = await Promise.all([
-    supabase
-      .from("salons")
-      .select("id, name")
-      .is("deleted_at", null)
-      .order("name", { ascending: true }),
-    supabase.from("therapists").select("salon_id").is("deleted_at", null),
-  ]);
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .rpc("get_public_salons")
+      .range(offset, offset + pageSize - 1);
 
-  if (salonsResult.error) {
-    console.error("getPublicSalons (salons):", salonsResult.error.message);
-    return [];
+    if (error) {
+      console.error("getPublicSalons (rpc):", error.message);
+      return [];
+    }
+
+    const chunk = (data ?? []) as { id: string; name: string; therapist_count: number }[];
+    rows.push(...chunk);
+
+    if (chunk.length < pageSize) {
+      break;
+    }
   }
 
-  if (therapistsResult.error) {
-    console.error(
-      "getPublicSalons (therapists):",
-      therapistsResult.error.message,
-    );
-  }
-
-  const countBySalon = new Map<string, number>();
-  for (const row of therapistsResult.data ?? []) {
-    const sid = row.salon_id as string;
-    countBySalon.set(sid, (countBySalon.get(sid) ?? 0) + 1);
-  }
-
-  const salons = (salonsResult.data ?? []) as { id: string; name: string }[];
-
-  return salons.map((s) => ({
-    id: s.id,
-    name: s.name,
-    therapistCount: countBySalon.get(s.id) ?? 0,
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    therapistCount: row.therapist_count ?? 0,
   }));
 }
