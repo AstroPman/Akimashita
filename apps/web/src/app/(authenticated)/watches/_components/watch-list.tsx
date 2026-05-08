@@ -94,7 +94,7 @@ export function WatchList({ items }: { items: WatchItem[] }) {
   );
 
   return (
-    <ul className="grid gap-4">
+    <ul className="grid w-full gap-4">
       {optimisticItems.map((item) => (
         <WatchRow key={item.id} item={item} onOptimistic={applyOptimistic} />
       ))}
@@ -144,8 +144,8 @@ function WatchRow({
   );
 
   return (
-    <li className="rounded-xl border bg-card text-card-foreground">
-      <div className="flex items-start justify-between gap-4 p-5">
+    <li className="w-full min-w-0 overflow-hidden rounded-xl border bg-card text-card-foreground">
+      <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:p-5">
         <Link
           href={`/watches/${item.id}`}
           aria-label={`${item.therapists.name} の詳細を見る`}
@@ -206,7 +206,7 @@ function WatchRow({
           </div>
         </Link>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex w-full items-center justify-end gap-2 sm:w-auto sm:shrink-0">
           <Switch
             aria-label="監視の有効/無効"
             checked={item.is_active}
