@@ -4,6 +4,7 @@ import { useOptimistic, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
+  ChevronRightIcon,
   MailIcon,
   MoreHorizontalIcon,
   PencilIcon,
@@ -145,7 +146,11 @@ function WatchRow({
   return (
     <li className="rounded-xl border bg-card text-card-foreground">
       <div className="flex items-start justify-between gap-4 p-5">
-        <div className="flex min-w-0 flex-1 gap-4">
+        <Link
+          href={`/watches/${item.id}`}
+          aria-label={`${item.therapists.name} の詳細を見る`}
+          className="group/link flex min-w-0 flex-1 gap-4 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
           <div className="relative size-14 shrink-0 overflow-hidden rounded-lg bg-muted">
             {imageSrc ? (
               // eslint-disable-next-line @next/next/no-img-element -- 予約サイト由来でホストが不定のため next/image の許可リストに載せない
@@ -166,8 +171,14 @@ function WatchRow({
             )}
           </div>
           <div className="min-w-0 flex-1 space-y-1">
-            <h3 className="truncate text-base font-semibold">
-              {item.therapists.name}
+            <h3 className="flex items-center gap-1 truncate text-base font-semibold">
+              <span className="truncate group-hover/link:underline">
+                {item.therapists.name}
+              </span>
+              <ChevronRightIcon
+                className="size-4 shrink-0 text-muted-foreground transition-transform group-hover/link:translate-x-0.5"
+                aria-hidden
+              />
             </h3>
             <p className="truncate text-xs text-muted-foreground">
               {item.therapists.salons.name}
@@ -193,7 +204,7 @@ function WatchRow({
               </p>
             )}
           </div>
-        </div>
+        </Link>
 
         <div className="flex shrink-0 items-center gap-2">
           <Switch

@@ -119,9 +119,11 @@ function parseSales(sales: StatusResponse['sales']): AvailabilityRecord[] {
 
     const status = Array.isArray(entries) && entries.length > 0 ? entries[0]?.status : undefined;
     // status: 1 = 出勤なし、2 = 埋まり、4 = 予約可能（grow-appt API）
-    const isAvailable = status === 4;
-
-    records.push({ date, start_time: startTime, is_available: isAvailable });
+    // 出勤なし（1）は availability に書かない。書いてしまうと「シフト＝行が存在する」
+    // という派生ルールが成り立たなくなり、シフト日数の集計や "次の出勤日" の算出が
+    // 不正確になる。埋まり（2）と予約可能（4）はどちらもシフト中なので両方書く。
+    if (status !== 2 && status !== 4) continue;
+    records.push({ date, start_time: startTime, is_available: status === 4 });
   }
 
   records.sort((a, b) =>
