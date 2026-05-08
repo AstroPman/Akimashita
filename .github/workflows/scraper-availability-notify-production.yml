@@ -1,16 +1,17 @@
 name: scraper-availability-notify (production)
 
-# 本番は毎分スケジュール + 手動実行。
+# 本番は Vercel Cron からの repository_dispatch で起動 + 手動実行。
 #
-# NOTE: GitHub Actions の `schedule` は毎分起動を保証しない。実運用では
-# リポジトリのアクティビティやランナー負荷により 5〜15 分の遅延・スキップが
-# 発生し得る。要件通り `* * * * *` で記述するが、運用後しばらくして
-# 実際の発火頻度・スクレイピング負荷を見ながら間引く（5 分間隔等への変更）
-# 判断ができるようにしておく。
+# 旧: GitHub Actions の `schedule` (`* * * * *`) を直接トリガーにしていたが、
+# 毎分起動を保証せず実運用で 5〜15 分の遅延・スキップが頻発したため、
+# Vercel Cron 側でスケジュールを管理し、Vercel から GitHub の
+# repository_dispatch API を叩いて本ワークフローを起動する構成に変更した。
+# Vercel Cron 設定は apps/web/vercel.json、ディスパッチ用 Route Handler は
+# apps/web/src/app/api/cron/dispatch-scrape/route.ts を参照。
 on:
-  schedule:
-    - cron: '* * * * *'
   workflow_dispatch:
+  repository_dispatch:
+    types: [availability-production]
 
 jobs:
   run:

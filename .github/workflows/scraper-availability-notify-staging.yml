@@ -1,11 +1,12 @@
 name: scraper-availability-notify (staging)
 
-# ステージング: 30分ごと定期実行 + 手動実行。
-# GitHub の schedule は UTC。`*/30 * * * *` は毎時0分・30分。
+# ステージング: Vercel Cron からの repository_dispatch で起動 + 手動実行。
+# Vercel Cron 側で `*/30 * * * *` を管理し、本ワークフローは
+# repository_dispatch を受け取って実行する。
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "*/30 * * * *"
+  repository_dispatch:
+    types: [availability-staging]
 
 jobs:
   run:
