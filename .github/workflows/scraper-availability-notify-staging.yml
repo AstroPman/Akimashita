@@ -1,11 +1,11 @@
 name: scraper-availability-notify (staging)
 
-# ステージング: 毎時定期実行 + 手動実行。
-# GitHub の schedule は UTC。`0 * * * *` は毎時0分（日本時間でも毎時ちょうど）。
+# ステージング: 30分ごと定期実行 + 手動実行。
+# GitHub の schedule は UTC。`*/30 * * * *` は毎時0分・30分。
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "*/30 * * * *"
 
 jobs:
   run:
