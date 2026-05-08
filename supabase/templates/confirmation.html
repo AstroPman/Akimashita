@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
+    <title>メールアドレスの確認 | アキマシタ</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f6f6f5;font-family:'Noto Sans JP','Hiragino Sans','Yu Gothic','Meiryo',sans-serif;color:#171717;">
+    <span style="display:none !important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;mso-hide:all;">アキマシタへのご登録ありがとうございます。メールアドレスの確認をお願いします。</span>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f6f6f5;">
+      <tr>
+        <td align="center" style="padding:32px 16px;">
+          <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:#ffffff;border:1px solid #e5e5e5;border-radius:12px;">
+            <tr>
+              <td style="padding:28px 32px 20px;border-bottom:1px solid #f0f0f0;">
+                <div style="font-size:18px;font-weight:600;letter-spacing:0.02em;color:#171717;">アキマシタ</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:28px 32px;">
+                <h1 style="margin:0 0 16px;font-size:20px;line-height:1.5;color:#171717;">メールアドレスの確認</h1>
+                <p style="margin:0 0 20px;font-size:14px;line-height:1.8;color:#404040;">
+                  アキマシタ にご登録いただきありがとうございます。下のボタンからメールアドレスを確認し、登録を完了してください。
+                </p>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
+                  <tr>
+                    <td bgcolor="#171717" style="border-radius:8px;">
+                      <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:12px 24px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">メールアドレスを確認する</a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:0 0 8px;font-size:12px;color:#737373;line-height:1.7;">
+                  ボタンが反応しない場合は、以下の URL をブラウザに貼り付けてアクセスしてください。
+                </p>
+                <p style="margin:0 0 20px;font-size:12px;color:#737373;line-height:1.7;word-break:break-all;">
+                  <a href="{{ .ConfirmationURL }}" style="color:#404040;">{{ .ConfirmationURL }}</a>
+                </p>
+                <p style="margin:0;font-size:12px;color:#737373;line-height:1.7;">
+                  このリンクは発行から約 1 時間で無効になります。心当たりがない場合は本メールを破棄してください。アキマシタ側でアカウントが作成されることはありません。
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 32px 28px;border-top:1px solid #f0f0f0;">
+                <p style="margin:0 0 6px;font-size:12px;color:#737373;line-height:1.7;">
+                  アキマシタ ― メンズエステの予約空き枠を逃さないための通知サービス
+                </p>
+                <p style="margin:0;font-size:12px;color:#737373;line-height:1.7;">
+                  <a href="{{ .SiteURL }}" style="color:#404040;text-decoration:underline;">サイトを開く</a>
+                  <span style="color:#d4d4d4;"> ・ </span>
+                  <a href="{{ .SiteURL }}/contact" style="color:#404040;text-decoration:underline;">お問い合わせ</a>
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
