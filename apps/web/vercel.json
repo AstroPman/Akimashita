@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/dispatch-scrape?type=availability-production",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/dispatch-scrape?type=availability-staging",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/dispatch-scrape?type=therapists-production",
+      "schedule": "0 19 * * 0"
+    }
+  ]
+}

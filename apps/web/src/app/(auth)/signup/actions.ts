@@ -1,9 +1,9 @@
 "use server";
 
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { SignupSchema } from "@/lib/schema/auth";
+import { getPublicOrigin } from "@/lib/public-origin";
 import { createClient } from "@/lib/supabase/server";
 
 export type SignupState = {
@@ -40,10 +40,7 @@ export async function signupAction(
   }
 
   const supabase = await createClient();
-  const headerList = await headers();
-  const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
-  const protocol = headerList.get("x-forwarded-proto") ?? "http";
-  const origin = host ? `${protocol}://${host}` : undefined;
+  const origin = await getPublicOrigin();
 
   const next = safeNext(formData.get("next"));
   const callbackUrl = origin

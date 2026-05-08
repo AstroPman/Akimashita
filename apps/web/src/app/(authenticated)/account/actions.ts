@@ -1,12 +1,12 @@
 "use server";
 
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
   UpdateEmailSchema,
   DeleteAccountSchema,
 } from "@/lib/schema/account";
+import { getPublicOrigin } from "@/lib/public-origin";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/server";
@@ -31,13 +31,6 @@ function failure(
     if (detail) return { ok: false, message: `${message}: ${detail}` };
   }
   return { ok: false, message };
-}
-
-async function getOrigin() {
-  const headerList = await headers();
-  const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
-  const protocol = headerList.get("x-forwarded-proto") ?? "http";
-  return host ? `${protocol}://${host}` : undefined;
 }
 
 export async function updateEmailAction(
@@ -72,7 +65,7 @@ export async function updateEmailAction(
     };
   }
 
-  const origin = await getOrigin();
+  const origin = await getPublicOrigin();
   const { error } = await supabase.auth.updateUser(
     { email: parsed.data.email },
     origin ? { emailRedirectTo: `${origin}/auth/callback?next=/account` } : undefined,
@@ -94,7 +87,7 @@ export async function sendPasswordResetEmailAction(): Promise<AccountActionState
     return { ok: false, message: "ログインが必要です" };
   }
 
-  const origin = await getOrigin();
+  const origin = await getPublicOrigin();
   const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
     redirectTo: origin
       ? `${origin}/auth/callback?next=/reset-password`
@@ -176,7 +169,7 @@ export async function openCustomerPortalAction(): Promise<void> {
     redirect("/pricing");
   }
 
-  const origin = await getOrigin();
+  const origin = await getPublicOrigin();
   const stripe = getStripe();
   const session = await stripe.billingPortal.sessions.create({
     customer: customerId,

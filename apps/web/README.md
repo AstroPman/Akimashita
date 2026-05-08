@@ -26,6 +26,10 @@ npm run dev   # http://localhost:3000
 | `NEXT_PUBLIC_STRIPE_PRICE_YEARLY` | 年額プランの Price ID |
 | `NEXT_PUBLIC_MAX_SEATS` | 限定サービスの席数上限（既定 30） |
 | `NEXT_PUBLIC_SITE_URL` | 公開 URL（sitemap / OG / robots 用） |
+| `CRON_SECRET` | Vercel Cron 起動時の認証用シークレット（後述） |
+| `GITHUB_DISPATCH_TOKEN` | スクレイピング GH Actions を起動する fine-grained PAT |
+| `GITHUB_OWNER` | リポジトリのオーナー名（例: `your-account`） |
+| `GITHUB_REPO` | リポジトリ名（例: `akimashita`） |
 
 ## 主要画面
 
@@ -70,3 +74,36 @@ returning email, invite_token;
 - Stripe: 月額・年額の Price を本番モードで作成し、ID を `.env` に反映
 - 法的書面: `/terms` `/privacy` `/contact` の文面を確定（テンプレ警告コメントを削除）
 - `NEXT_PUBLIC_MAX_SEATS` を運用方針に合わせて確定
+
+## Vercel Cron でスクレイピングを起動する
+
+スクレイピング GH Actions（`.github/workflows/scraper-*.yml`）は、`schedule:` の遅延が大きいため Vercel Cron 経由で起動する構成になっている。
+
+- スケジュール定義: [`vercel.json`](./vercel.json) の `crons`
+- ディスパッチ用 Route Handler: [`src/app/api/cron/dispatch-scrape/route.ts`](./src/app/api/cron/dispatch-scrape/route.ts)
+- Vercel Cron は **Production デプロイのみ** で稼働する。毎分実行は **Pro プラン以上** が必要
+
+Vercel ダッシュボード（Project Settings → Environment Variables → Production）に以下を登録する。
+
+| 変数 | 用途 | 値 |
+|------|------|----|
+| `CRON_SECRET` | Vercel Cron が `Authorization: Bearer` で送る値。Route 側で照合 | 16 文字以上のランダム文字列 |
+| `GITHUB_DISPATCH_TOKEN` | GitHub `POST /repos/{owner}/{repo}/dispatches` の認証 | fine-grained PAT |
+| `GITHUB_OWNER` | リポジトリオーナー | 例: `your-account` |
+| `GITHUB_REPO` | リポジトリ名 | 例: `akimashita` |
+
+Fine-grained PAT は次の権限のみ付与し、対象リポジトリを本リポジトリ 1 件に絞る。
+
+- Repository permissions → **Contents: Read and write**
+- Repository permissions → **Metadata: Read-only**（自動で必須付与）
+
+動作確認:
+
+```bash
+curl -i -H "Authorization: Bearer $CRON_SECRET" \
+  "https://<site>/api/cron/dispatch-scrape?type=availability-staging"
+# → 200 {"ok":true,"type":"availability-staging"} かつ
+#   GitHub Actions 側で scraper-availability-notify (staging) が起動すれば OK
+```
+
+`type` は `availability-production` / `availability-staging` / `therapists-production` のいずれか。これらは `.github/workflows/scraper-*.yml` の `repository_dispatch.types` と一致している。

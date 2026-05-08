@@ -1,7 +1,7 @@
 "use server";
 
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getPublicOrigin } from "@/lib/public-origin";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/server";
@@ -122,10 +122,7 @@ export async function startCheckoutAction(formData: FormData): Promise<void> {
       .eq("user_id", user.id);
   }
 
-  const headerList = await headers();
-  const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
-  const protocol = headerList.get("x-forwarded-proto") ?? "http";
-  const origin = host ? `${protocol}://${host}` : "";
+  const origin = (await getPublicOrigin()) ?? "";
 
   const stripe = getStripe();
   const session = await stripe.checkout.sessions.create({
