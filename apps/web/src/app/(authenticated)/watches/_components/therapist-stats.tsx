@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { CalendarDaysIcon, FlameIcon, TimerIcon, UsersIcon } from "lucide-react";
 import { dayjs, JST, formatJstDate } from "@/lib/date";
 import { cn } from "@/lib/utils";
@@ -7,8 +8,7 @@ export type TherapistStats = {
   recent_shift_days: number;
   recent_opening_count: number;
   median_kill_seconds: number | null;
-  hourly_heatmap: { hour: number; count: number }[];
-  dow_heatmap: { dow: number; count: number }[];
+  dow_hour_heatmap: { dow: number; hour: number; count: number }[];
   watcher_count: number;
   window_days: number;
 };
@@ -51,12 +51,6 @@ function colorForCount(count: number, max: number): string {
   return "bg-primary/20";
 }
 
-function textOnFill(count: number, max: number): string {
-  if (max === 0 || count === 0) return "text-muted-foreground";
-  const ratio = count / max;
-  return ratio >= 0.6 ? "text-primary-foreground" : "text-foreground";
-}
-
 function SummaryStat({
   icon,
   label,
@@ -86,76 +80,73 @@ function SummaryStat({
   );
 }
 
-function HourlyHeatmap({ data }: { data: { hour: number; count: number }[] }) {
-  const counts = new Map(data.map((d) => [d.hour, d.count]));
-  const max = data.reduce((m, d) => Math.max(m, d.count), 0);
-  const cells = Array.from({ length: 24 }, (_, hour) => ({
-    hour,
-    count: counts.get(hour) ?? 0,
-  }));
+function DowHourHeatmap({
+  data,
+}: {
+  data: { dow: number; hour: number; count: number }[];
+}) {
+  const counts = new Map<string, number>();
+  let max = 0;
+  for (const d of data) {
+    counts.set(`${d.dow}:${d.hour}`, d.count);
+    if (d.count > max) max = d.count;
+  }
+
+  const HOURS = Array.from({ length: 24 }, (_, h) => h);
+  const DOWS = Array.from({ length: 7 }, (_, d) => d);
 
   return (
     <div>
       <div className="flex items-baseline justify-between">
-        <h3 className="text-sm font-semibold">時間帯別の空き出現</h3>
-        <span className="text-xs text-muted-foreground">
-          0〜23時 / 直近の総出現数
-        </span>
+        <h3 className="text-sm font-semibold">曜日 × 時間帯の空き出現</h3>
+        <span className="text-xs text-muted-foreground">日〜土 / 0〜23時</span>
       </div>
-      <div className="mt-3 grid grid-cols-12 gap-1">
-        {cells.map(({ hour, count }) => (
-          <div
-            key={hour}
-            className={cn(
-              "flex aspect-square flex-col items-center justify-center rounded-md text-[10px] font-medium tabular-nums",
-              colorForCount(count, max),
-              textOnFill(count, max),
-            )}
-            title={`${hour}時台 ${count}回`}
-            aria-label={`${hour}時台 ${count}回`}
-          >
-            <span className="leading-none">{hour}</span>
-            {count > 0 ? (
-              <span className="mt-0.5 leading-none">{count}</span>
-            ) : null}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
-function DowHeatmap({ data }: { data: { dow: number; count: number }[] }) {
-  const counts = new Map(data.map((d) => [d.dow, d.count]));
-  const max = data.reduce((m, d) => Math.max(m, d.count), 0);
-  const cells = Array.from({ length: 7 }, (_, dow) => ({
-    dow,
-    count: counts.get(dow) ?? 0,
-  }));
+      <div className="mt-3 overflow-x-auto">
+        <div
+          className="grid min-w-max gap-1"
+          style={{
+            gridTemplateColumns: "auto repeat(24, minmax(0.875rem, 1fr))",
+          }}
+        >
+          <div aria-hidden />
+          {HOURS.map((hour) => (
+            <div
+              key={`h-${hour}`}
+              className="text-center text-[10px] tabular-nums leading-none text-muted-foreground"
+            >
+              {hour % 3 === 0 ? hour : ""}
+            </div>
+          ))}
 
-  return (
-    <div>
-      <div className="flex items-baseline justify-between">
-        <h3 className="text-sm font-semibold">曜日別の空き出現</h3>
-        <span className="text-xs text-muted-foreground">日〜土</span>
-      </div>
-      <div className="mt-3 grid grid-cols-7 gap-1">
-        {cells.map(({ dow, count }) => (
-          <div
-            key={dow}
-            className={cn(
-              "flex aspect-square flex-col items-center justify-center rounded-md text-xs font-medium tabular-nums",
-              colorForCount(count, max),
-              textOnFill(count, max),
-              dow === 0 && "ring-1 ring-rose-300/40",
-              dow === 6 && "ring-1 ring-sky-300/40",
-            )}
-            title={`${DOW_LABELS[dow]}曜 ${count}回`}
-          >
-            <span className="leading-none">{DOW_LABELS[dow]}</span>
-            <span className="mt-0.5 text-[10px] leading-none">{count}</span>
-          </div>
-        ))}
+          {DOWS.map((dow) => (
+            <Fragment key={`row-${dow}`}>
+              <div
+                className={cn(
+                  "flex items-center justify-end pr-1 text-xs font-medium leading-none",
+                  dow === 0 && "text-rose-500",
+                  dow === 6 && "text-sky-500",
+                )}
+              >
+                {DOW_LABELS[dow]}
+              </div>
+              {HOURS.map((hour) => {
+                const count = counts.get(`${dow}:${hour}`) ?? 0;
+                return (
+                  <div
+                    key={`c-${dow}-${hour}`}
+                    className={cn(
+                      "aspect-square rounded-sm",
+                      colorForCount(count, max),
+                    )}
+                    title={`${DOW_LABELS[dow]}曜 ${hour}時台 ${count}回`}
+                    aria-label={`${DOW_LABELS[dow]}曜 ${hour}時台 ${count}回`}
+                  />
+                );
+              })}
+            </Fragment>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -165,9 +156,7 @@ export function TherapistStatsBlock({ stats }: { stats: TherapistStats }) {
   const next = formatNextShift(stats.next_shift_date);
   const windowLabel = `直近${stats.window_days}日`;
   const hasAnyEvent =
-    stats.recent_opening_count > 0 ||
-    stats.hourly_heatmap.length > 0 ||
-    stats.dow_heatmap.length > 0;
+    stats.recent_opening_count > 0 || stats.dow_hour_heatmap.length > 0;
 
   return (
     <div className="space-y-4">
@@ -182,7 +171,7 @@ export function TherapistStatsBlock({ stats }: { stats: TherapistStats }) {
           icon={<CalendarDaysIcon className="size-4" />}
           label={`${windowLabel}のシフト日数`}
           value={`${stats.recent_shift_days}日`}
-          helper="DBに記録された出勤日数"
+          helper="記録された出勤日数"
         />
         <SummaryStat
           icon={<FlameIcon className="size-4" />}
@@ -212,9 +201,8 @@ export function TherapistStatsBlock({ stats }: { stats: TherapistStats }) {
       </div>
 
       {hasAnyEvent ? (
-        <div className="space-y-4 rounded-xl border bg-card p-4">
-          <HourlyHeatmap data={stats.hourly_heatmap} />
-          <DowHeatmap data={stats.dow_heatmap} />
+        <div className="rounded-xl border bg-card p-4">
+          <DowHourHeatmap data={stats.dow_hour_heatmap} />
         </div>
       ) : (
         <div className="rounded-xl border bg-card p-6 text-center text-sm text-muted-foreground">
