@@ -1,4 +1,4 @@
-export type SiteName = 'caskan' | 'grow';
+export type SiteName = 'caskan' | 'grow' | 'edc';
 
 export interface Site {
   id: string;
