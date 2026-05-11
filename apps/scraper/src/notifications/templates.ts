@@ -60,6 +60,102 @@ interface SlotsByTherapist {
   slots: NotifySlot[];
 }
 
+interface SlotRange {
+  date: string;
+  startTime: string; // 範囲の先頭スロットの開始時刻 (HH:mm:ss)
+  endStartTime: string; // 範囲の末尾スロットの開始時刻 (HH:mm:ss)
+  count: number;
+}
+
+function timeToMinutes(time: string): number {
+  const [h = '0', m = '0'] = time.split(':');
+  return Number(h) * 60 + Number(m);
+}
+
+/**
+ * 同一セラピストのスロット集合を「同一日付内で連続している枠」ごとに範囲化する。
+ *
+ * 連続性の判定は「その日付内のスロット同士の最小間隔 step」を、そのセラピスト・
+ * その日付の典型的な刻み幅とみなして、隣接するスロットの差が step と一致する間は
+ * 同じ範囲に束ねる方式。サイト・店舗ごとに刻み幅 (5/10/15/30 分等) が異なるため、
+ * 固定値ではなく実データから推定している。
+ *
+ * 入力 slots は呼び出し側で date, startTime 昇順にソート済みであることを前提とする。
+ */
+function groupConsecutiveRanges(slots: NotifySlot[]): SlotRange[] {
+  const buckets = new Map<string, NotifySlot[]>();
+  for (const slot of slots) {
+    const list = buckets.get(slot.date);
+    if (list) {
+      list.push(slot);
+    } else {
+      buckets.set(slot.date, [slot]);
+    }
+  }
+
+  const ranges: SlotRange[] = [];
+  const dates = Array.from(buckets.keys()).sort();
+  for (const date of dates) {
+    const dayslots = buckets.get(date)!;
+    if (dayslots.length === 1) {
+      const only = dayslots[0]!;
+      ranges.push({
+        date,
+        startTime: only.startTime,
+        endStartTime: only.startTime,
+        count: 1,
+      });
+      continue;
+    }
+
+    let step = Number.POSITIVE_INFINITY;
+    for (let i = 1; i < dayslots.length; i++) {
+      const diff =
+        timeToMinutes(dayslots[i]!.startTime) -
+        timeToMinutes(dayslots[i - 1]!.startTime);
+      if (diff > 0 && diff < step) step = diff;
+    }
+
+    let rangeStart = dayslots[0]!;
+    let rangeEnd = dayslots[0]!;
+    let rangeCount = 1;
+
+    const flush = () => {
+      ranges.push({
+        date,
+        startTime: rangeStart.startTime,
+        endStartTime: rangeEnd.startTime,
+        count: rangeCount,
+      });
+    };
+
+    for (let i = 1; i < dayslots.length; i++) {
+      const prev = dayslots[i - 1]!;
+      const cur = dayslots[i]!;
+      const diff = timeToMinutes(cur.startTime) - timeToMinutes(prev.startTime);
+      if (diff === step) {
+        rangeEnd = cur;
+        rangeCount += 1;
+      } else {
+        flush();
+        rangeStart = cur;
+        rangeEnd = cur;
+        rangeCount = 1;
+      }
+    }
+    flush();
+  }
+
+  return ranges;
+}
+
+function formatRangeTime(range: SlotRange): string {
+  if (range.count <= 1) {
+    return formatTime(range.startTime);
+  }
+  return `${formatTime(range.startTime)}〜${formatTime(range.endStartTime)}`;
+}
+
 function groupByTherapist(slots: NotifySlot[]): SlotsByTherapist[] {
   const map = new Map<string, SlotsByTherapist>();
   for (const slot of slots) {
@@ -90,12 +186,20 @@ function groupByTherapist(slots: NotifySlot[]): SlotsByTherapist[] {
   );
 }
 
-function buildSubject(slots: NotifySlot[], groups: SlotsByTherapist[]): string {
-  if (slots.length === 1) {
-    const only = slots[0]!;
-    return `[akimashita] ${only.therapistName} の空きが出ました（${formatDate(
-      only.date,
-    )} ${formatTime(only.startTime)}）`;
+function buildSubject(
+  slots: NotifySlot[],
+  groups: SlotsByTherapist[],
+  groupRanges: SlotRange[][],
+): string {
+  // 全セラピストを通して range が 1 つだけのときは、その range を件名に展開する。
+  // 単独枠なら "5月12日(火) 15:00"、連続枠なら "5月12日(火) 15:00〜15:15"。
+  const totalRanges = groupRanges.reduce((sum, rs) => sum + rs.length, 0);
+  if (totalRanges === 1 && groups.length === 1) {
+    const onlyGroup = groups[0]!;
+    const onlyRange = groupRanges[0]![0]!;
+    return `[akimashita] ${onlyGroup.therapistName} の空きが出ました（${formatDate(
+      onlyRange.date,
+    )} ${formatRangeTime(onlyRange)}）`;
   }
   return `[akimashita] 空きが出ました（${slots.length}件 / セラピスト${groups.length}名）`;
 }
@@ -115,37 +219,38 @@ export function buildNotifyEmail(slots: NotifySlot[]): NotifyEmailContent {
   }
 
   const groups = groupByTherapist(slots);
-  const subject = buildSubject(slots, groups);
+  const groupRanges = groups.map((g) => groupConsecutiveRanges(g.slots));
+  const subject = buildSubject(slots, groups, groupRanges);
   const watchesUrl = `${env.APP_BASE_URL.replace(/\/$/, '')}/watches`;
 
   const textLines: string[] = [];
   textLines.push('監視中のセラピストに空きが出ました。');
   textLines.push('');
-  for (const group of groups) {
+  groups.forEach((group, gi) => {
     const heading = group.salonName
       ? `▼ ${group.therapistName}（${group.salonName}）`
       : `▼ ${group.therapistName}`;
     textLines.push(heading);
-    for (const slot of group.slots) {
+    for (const range of groupRanges[gi]!) {
       const url = buildReservationUrl({
         site: group.site,
         shopId: group.shopId,
         therapistId: group.therapistId,
-        date: slot.date,
+        date: range.date,
       });
       textLines.push(
-        `  - ${formatDate(slot.date)} ${formatTime(slot.startTime)}  ${url}`,
+        `  - ${formatDate(range.date)} ${formatRangeTime(range)}  ${url}`,
       );
     }
     textLines.push('');
-  }
+  });
   textLines.push('──');
   textLines.push(`通知設定の変更: ${watchesUrl}`);
   const text = textLines.join('\n');
 
   const htmlParts: string[] = [];
   htmlParts.push('<p>監視中のセラピストに空きが出ました。</p>');
-  for (const group of groups) {
+  groups.forEach((group, gi) => {
     const heading = group.salonName
       ? `${escapeHtml(group.therapistName)}<span style="color:#666">（${escapeHtml(
           group.salonName,
@@ -153,21 +258,21 @@ export function buildNotifyEmail(slots: NotifySlot[]): NotifyEmailContent {
       : escapeHtml(group.therapistName);
     htmlParts.push(`<h3 style="margin:16px 0 4px">${heading}</h3>`);
     htmlParts.push('<ul style="margin:0 0 12px 20px;padding:0">');
-    for (const slot of group.slots) {
+    for (const range of groupRanges[gi]!) {
       const url = buildReservationUrl({
         site: group.site,
         shopId: group.shopId,
         therapistId: group.therapistId,
-        date: slot.date,
+        date: range.date,
       });
       htmlParts.push(
-        `<li>${escapeHtml(formatDate(slot.date))} ${escapeHtml(
-          formatTime(slot.startTime),
+        `<li>${escapeHtml(formatDate(range.date))} ${escapeHtml(
+          formatRangeTime(range),
         )} <a href="${escapeHtml(url)}">予約ページを開く</a></li>`,
       );
     }
     htmlParts.push('</ul>');
-  }
+  });
   htmlParts.push(
     `<hr style="margin:16px 0;border:none;border-top:1px solid #eee" /><p style="font-size:12px;color:#666">通知設定の変更: <a href="${escapeHtml(
       watchesUrl,
