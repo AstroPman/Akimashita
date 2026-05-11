@@ -16,4 +16,14 @@ module "scraper" {
   source = "./modules/scraper"
 
   name_prefix = local.name_prefix
+
+  image_tag      = var.scraper_image_tag
+  schedules      = var.scraper_schedules
+  schedule_state = var.scraper_schedule_state
+
+  supabase_url = var.supabase_url
+  email_from   = var.email_from
+  app_base_url = var.app_base_url
+
+  alert_emails = var.alert_emails
 }

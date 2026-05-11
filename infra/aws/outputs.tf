@@ -23,3 +23,23 @@ output "scraper_ecr_repository_url" {
   description = "スクレイパー用 ECR リポジトリ URL"
   value       = module.scraper.ecr_repository_url
 }
+
+output "scraper_lambda_function_names" {
+  description = "ステージ → Lambda Function 名"
+  value       = module.scraper.lambda_function_names
+}
+
+output "scraper_schedule_arns" {
+  description = "ステージ → EventBridge Schedule ARN"
+  value       = module.scraper.schedule_arns
+}
+
+output "scraper_alerts_topic_arn" {
+  description = "アラート用 SNS Topic ARN"
+  value       = module.scraper.alerts_topic_arn
+}
+
+output "scraper_ssm_parameter_names" {
+  description = "手動投入が必要な SSM Parameter 名"
+  value       = module.scraper.ssm_parameter_names
+}

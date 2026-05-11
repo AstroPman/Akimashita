@@ -1,5 +1,33 @@
+data "aws_region" "current" {}
+
 locals {
   ecr_repo_name = "${var.name_prefix}-scraper"
+
+  # SSM Parameter Store のパス。例: /akimashita-staging/scraper/SUPABASE_SERVICE_ROLE_KEY
+  ssm_path_base = "/${var.name_prefix}/scraper"
+
+  # 各ステージの Lambda 設定。新ステージを追加したい場合はここに 1 行足すだけで
+  # Lambda + Log Group + Schedule + Alarm が一式生える。
+  stages = {
+    therapists = {
+      handler            = "therapists.handler"
+      memory_mb          = 1769
+      timeout_seconds    = 120
+      log_retention_days = 14
+    }
+    availability = {
+      handler            = "availability.handler"
+      memory_mb          = 1769
+      timeout_seconds    = 120
+      log_retention_days = 14
+    }
+    notify = {
+      handler            = "notify.handler"
+      memory_mb          = 256
+      timeout_seconds    = 60
+      log_retention_days = 14
+    }
+  }
 }
 
 # ----------------------------------------------------------------------------

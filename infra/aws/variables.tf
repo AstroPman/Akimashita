@@ -7,3 +7,47 @@ variable "environment" {
     error_message = "environment は production または staging のいずれかを指定してください。"
   }
 }
+
+# === Scraper モジュール入力 =================================================
+
+variable "scraper_image_tag" {
+  description = "Lambda が参照する ECR イメージタグ。Makefile 経由で git 短縮 SHA が渡される前提。"
+  type        = string
+}
+
+variable "scraper_schedule_state" {
+  description = "EventBridge Schedule の有効状態。初期は DISABLED でスモークテスト後に ENABLED へ。"
+  type        = string
+  default     = "DISABLED"
+}
+
+variable "scraper_schedules" {
+  description = "ステージごとの cron 式（UTC）。空文字 / 未指定のステージは Schedule を作らない。"
+  type        = map(string)
+  default = {
+    therapists   = "cron(0 19 * * ? *)"  # JST 04:00 daily
+    availability = "cron(*/10 * * * ? *)" # 5 分間隔
+    notify       = "cron(*/10 * * * ? *)" # 5 分間隔（availability 直後）
+  }
+}
+
+variable "supabase_url" {
+  description = "Supabase API URL（公開情報、Lambda 環境変数）。"
+  type        = string
+}
+
+variable "email_from" {
+  description = "Resend で送信元として使うメールアドレス。"
+  type        = string
+}
+
+variable "app_base_url" {
+  description = "通知メール内のリンクで使う Web アプリのベース URL。"
+  type        = string
+}
+
+variable "alert_emails" {
+  description = "Lambda 失敗時のアラート通知先メール（複数可）。初回 confirmation を手動承認すること。"
+  type        = list(string)
+  default     = []
+}
