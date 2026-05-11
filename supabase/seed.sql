@@ -10,7 +10,8 @@
 -- ============================================================
 insert into sites (id, name, base_url, search_query) values
   ('00000000-0000-0000-0000-000000000001', 'caskan',  'https://r.caskan.jp',   'site:r.caskan.jp'),
-  ('00000000-0000-0000-0000-000000000002', 'grow',    'https://grow-appt.com', 'site:grow-appt.com')
+  ('00000000-0000-0000-0000-000000000002', 'grow',    'https://grow-appt.com', 'site:grow-appt.com'),
+  ('00000000-0000-0000-0000-000000000003', 'edc',     'https://esthe-datacenter.com',   'site:esthe-datacenter.com')
 on conflict (id) do nothing;
 
 
@@ -1865,5 +1866,227 @@ insert into salons (site_id, shop_id, name, url) values
     'CC3EE9TynW',
     'YSY 旧OGT',
     'https://grow-appt.com/reserve/CC3EE9TynW/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1004153',
+    'CELESTIA (セレスティア)',
+    'http://reserve-1004153.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1003471',
+    'メンエス案内所',
+    'http://reserve-1003471.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1005229',
+    'アンジュ 金沢店',
+    'http://reserve-1005229.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1005261',
+    'エンジェルフェザー 旧天使のエステ',
+    'http://reserve-1005261.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1005325',
+    'アクア',
+    'http://reserve-1005325.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1005266',
+    'アロマコットン',
+    'http://reserve-1005266.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1005355',
+    'アロマピーチ 大宮',
+    'http://reserve-1005355.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1005447',
+    'ブリスフル',
+    'http://reserve-1005447.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1004129',
+    'Carezza (カレッツァ)',
+    'http://reserve-1004129.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1005329',
+    'チェリースパ',
+    'http://reserve-1005329.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1004093',
+    'Cuore (クオーレ)',
+    'http://reserve-1004093.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1004555',
+    'レイ (REI) 旧メロディー',
+    'http://reserve-1004555.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1005301',
+    'ニューハーフメンズエステkirara',
+    'http://reserve-1005301.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1005345',
+    'ララ (LaLa) 武蔵小金井',
+    'http://reserve-1005345.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1000267',
+    'L&A (エルアンドエー)',
+    'http://reserve-1000267.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1004055',
+    'QueenBee (クイーンビー)',
+    'http://reserve-1004055.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1003917',
+    '都 miyako',
+    'http://reserve-1003917.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1005259',
+    'Aroma Grit (アロマグリット) 西明石店',
+    'http://reserve-1005259.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1001606',
+    'Aroma Grit (アロマグリット) 沼津店',
+    'http://reserve-1001606.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1003960',
+    'one feeling (ワンフィーリング)',
+    'http://reserve-1003960.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1004152',
+    'ピーチネクスト 旧ピーチサロン',
+    'https://reserve-1004152.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1005367',
+    'プレステージスパ 小山',
+    'http://reserve-1005367.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1005441',
+    'ラッドスパ (RAD SPA)',
+    'http://reserve-1005441.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1005403',
+    'Reflection (リフレクション)',
+    'http://reserve-1005403.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1005269',
+    'リスタイル',
+    'http://reserve-1005269.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1000303',
+    'The Royal Class (ロイヤルクラス)',
+    'https://reserve-1000303.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1005409',
+    'ROYAL SPA (ロイヤルスパ) 町田',
+    'http://reserve-1005409.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1000172',
+    'Secret Mode (シークレットモード) 四日市',
+    'https://reserve-1000172.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1002956',
+    'Spa Allure (スパアリュール)',
+    'http://reserve-1002956.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1005356',
+    'SPA Real (レアル) 渋谷',
+    'http://reserve-1005356.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1005358',
+    'スイートクラス',
+    'http://reserve-1005358.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1000167',
+    'Sweet Room (スウィートルーム) 宮崎',
+    'https://reserve-1000167.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1000276',
+    'Plenty (プレンティ)',
+    'http://reserve-1000276.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1005394',
+    'AXER (アクサー)',
+    'http://reserve-1005394.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1004497',
+    'Madam Lilly (マダムリリー)',
+    'http://reserve-1004497.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1000152',
+    'Mrs.Mermaid (ミセスマーメイド)',
+    'https://reserve-1000152.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1003989',
+    'ZERO first (ゼロファースト)',
+    'https://reserve-1003989.esthe-datacenter.com/reserve/'
   )
 on conflict (site_id, shop_id) do nothing;
