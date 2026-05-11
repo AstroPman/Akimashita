@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/cron/dispatch-scrape?type=availability-staging",
-      "schedule": "*/10 * * * *"
+      "schedule": "*/30 * * * *"
     },
     {
       "path": "/api/cron/dispatch-scrape?type=therapists-staging",
