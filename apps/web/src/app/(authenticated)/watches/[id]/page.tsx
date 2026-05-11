@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
+import { resolveTherapistImageSrc } from "@/lib/therapist-image";
 import {
   TherapistStatsBlock,
   type TherapistStats,
@@ -33,21 +34,6 @@ type WatchDetail = {
     };
   };
 };
-
-function resolveTherapistImageSrc(
-  imageUrl: string | null,
-  profileUrl: string | null,
-): string | null {
-  if (!imageUrl?.trim()) return null;
-  const trimmed = imageUrl.trim();
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  if (!profileUrl) return null;
-  try {
-    return new URL(trimmed, profileUrl).href;
-  } catch {
-    return null;
-  }
-}
 
 export default async function WatchDetailPage({
   params,

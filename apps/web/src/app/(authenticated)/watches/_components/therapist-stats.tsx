@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import { CalendarDaysIcon, FlameIcon, TimerIcon, UsersIcon } from "lucide-react";
 import { dayjs, JST, formatJstDate } from "@/lib/date";
+import { formatKillSeconds } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export type TherapistStats = {
@@ -26,19 +27,6 @@ function formatNextShift(date: string | null): {
   const secondary =
     diff === 0 ? "今日" : diff === 1 ? "明日" : diff > 0 ? `${diff}日後` : "予定済";
   return { primary: formatJstDate(date), secondary };
-}
-
-function formatKillSeconds(seconds: number | null): string {
-  if (seconds === null || seconds < 0) return "—";
-  if (seconds < 60) return `${seconds}秒`;
-  if (seconds < 3600) {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return s === 0 ? `${m}分` : `${m}分${s}秒`;
-  }
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  return m === 0 ? `${h}時間` : `${h}時間${m}分`;
 }
 
 function colorForCount(count: number, max: number): string {
