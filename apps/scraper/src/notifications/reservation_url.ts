@@ -18,5 +18,9 @@ export function buildReservationUrl(input: ReservationUrlInput): string {
       // TODO: grow-appt.com の確定的な予約 URL（メニュー/日付ディープリンク）が
       // わかったら差し替える。現状はホストへのフォールバック。
       return 'https://grow-appt.com/';
+    case 'edc':
+      // EDC は Step 進行型のため特定セラピスト/日時に直接リンクできない。
+      // 店舗の予約フォーム TOP にフォールバックする。
+      return `https://reserve-${encodeURIComponent(shopId)}.esthe-datacenter.com/reserve/`;
   }
 }
