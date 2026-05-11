@@ -13,6 +13,8 @@ alwaysApply: true
 - Typescript
 - Tailwind CSS
 - Supabase(Auth, DB)
+- AWS
+- Terraform >= v1.15.2
 
 # Supabase Projects
 | 環境 |プロジェクトID|
@@ -21,6 +23,9 @@ alwaysApply: true
 | Staging(ステージング) | zhvmhchwapavylwrchoe |
 | Production(本番)| TBA |
 
+# AWS アカウント
+- アカウント名: KoppePan
+- アカウントID: 695668793500
 
 # ディレクトリ構成
 
@@ -49,6 +54,9 @@ alwaysApply: true
 │       │       ├── layout.tsx      # 全ページ共通レイアウト
 │       │       └── page.tsx        # トップページ（/）
 │       └── tsconfig.json           # TypeScript設定
+├── infra/
+│   ├── bootstrap/                  # 予約サイトのスクレイピング・通知ワーカー
+│   └── aws/                        # Next.js フロントエンド
 ├── package-lock.json
 ├── package.json                    # ルート：npmワークスペース設定
 ├── packages/

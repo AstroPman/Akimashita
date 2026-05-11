@@ -1,0 +1,395 @@
+---
+description: メインAWSインフラ（infra/aws）の設計・実装方針
+globs: ["infra/aws/**/*"]
+alwaysApply: false
+---
+
+# 設計原則（最優先）
+
+## 無料であることを最優先する
+
+このサービスは個人プロジェクトであり、**AWS の Always Free / 12-month Free Tier の範囲内** で動かすことを最重要の設計目標とする。
+
+- bootstrap で `$1/月` の Budgets を仕掛けている前提を踏まえ、**「課金が発生しない構成」を既存技術の踏襲より優先**する。
+- 同じ機能を実現できる選択肢があれば、**料金体系がシンプル＆無料枠が大きいサービス**を選ぶ。
+- 無料枠の閾値（リクエスト数 / GB-秒 / GB-転送）は **設計時に明記**し、想定使用量が枠内に収まることを確認する。
+- やむを得ず有料リソースを使う場合は、**理由と想定月額を PR 説明に明記**する。
+- **新規リソース追加時は「無料枠への影響」を必ず評価**する。
+
+## 採用する基本スタック
+
+| 役割 | サービス | 無料枠（Always Free） |
+|------|----------|----------------------|
+| スケジューリング | **EventBridge Scheduler** | 14M invocations / 月 |
+| メッセージキュー | **Amazon SQS** | 1M requests / 月 |
+| 実行ランタイム | **AWS Lambda**（zip / container image） | 1M requests + 400,000 GB-秒 / 月 |
+| ログ | CloudWatch Logs | 5GB ingest + 5GB archive / 月 |
+| シークレット | SSM Parameter Store (Standard / SecureString) | 完全無料（10,000 params まで） |
+| コンテナレジストリ | ECR (private) | 500MB ストレージ / 月（Always Free） |
+| IAM | IAM Role / Policy | 完全無料 |
+
+## 採用しないもの（理由）
+
+- **ECS / Fargate**: 秒課金で Lambda より割高。Always Free 枠もない。
+- **VPC / Subnet / Security Group / Route Table**: Lambda はデフォルトで AWS 管理ネットワーク上で動作するため不要。
+- **NAT Gateway**: 約 $32/月 + 転送料。利用不可。
+- **Secrets Manager**: 1 シークレット約 $0.40/月。SSM Parameter Store SecureString で代替。
+- **API Gateway**: スクレイパーは内部実行のため不要。
+- **DynamoDB**: 状態保管は Supabase 側で完結。
+- **CloudWatch Container Insights / X-Ray**: 課金対象になりやすい。MVP では使わない。
+
+# infra/aws 概要
+
+`infra/aws` は **akimashita のサーバーサイドリソース** を AWS 上で管理する Terraform 構成。
+スクレイパーは **EventBridge Scheduler → (SQS) → Lambda** の構成で動かす。bootstrap が用意した S3 バックエンドにステートを保存する。
+
+bootstrap との責務分離：
+
+- **bootstrap**: 「Terraform を回すための前提リソース」（State 用 S3 / Budgets / CI 用 OIDC）
+- **infra/aws**: 「アプリケーションを動かすためのリソース」（Lambda / SQS / Scheduler / IAM / Logs / ECR / SSM）
+
+# スコープ（infra/aws で作るもの）
+
+- **EventBridge Scheduler**
+  - ステージごとの cron 起動（Stage 1 = 週次、Stage 2 = 日次、Stage 3 = 1〜5 分間隔）
+  - ターゲットは Lambda 直接、または SQS（fan-out が必要な場合）
+- **Amazon SQS**
+  - スクレイピングジョブをファンアウト・バッファリングするキュー
+  - **DLQ（Dead Letter Queue）** を併設し、失敗メッセージを救済
+- **AWS Lambda**
+  - **grow-appt 系（fetch のみ）**: Node.js / TypeScript の **zip デプロイ**（軽量・高速コールドスタート）
+  - **caskan 系（Playwright）**: Chromium 同梱の **コンテナイメージデプロイ**
+  - メモリ・タイムアウトは無料枠を意識して最小限に設定
+  - reserved_concurrency で対象サイトと Supabase に優しい同時実行数に絞る
+- **ECR**（コンテナイメージ Lambda 用）
+  - caskan スクレイパー用リポジトリ
+  - ライフサイクルポリシーで古いイメージを自動削除（**500MB 無料枠を超えないこと**）
+- **CloudWatch Log Group**
+  - Lambda ごと（`/aws/lambda/akimashita-<env>-<purpose>`）
+  - 保持期間 **7〜14 日**（5GB ingest 制限を意識）
+- **SSM Parameter Store**（SecureString）
+  - Supabase URL / Service Role Key 等。Lambda 環境変数として注入
+- **IAM Role / Policy**
+  - Lambda 実行ロール（CloudWatch Logs / SSM 読取 / SQS 受信）
+  - EventBridge Scheduler ロール（Lambda 起動 / SQS 送信）
+- **CloudWatch Alarms**（最小限）
+  - Lambda Errors、SQS DLQ 滞留 を SNS → メール（bootstrap の通知メールを共用）
+
+# スコープ外（infra/aws で作らないもの）
+
+- **State 用 S3 / Budgets / GitHub OIDC**: `infra/bootstrap` 側
+- **VPC / Subnet / Security Group / NAT Gateway / Route Table**: 不要（Lambda はデフォルトネットワーク）
+- **ECS / Fargate / EC2**: 採用しない
+- **Secrets Manager**: SSM Parameter Store で代替
+- **Web フロントエンド（`apps/web`）**: Vercel デプロイ前提
+- **Supabase**: Supabase 側で管理
+- **DNS / ドメイン / ACM**: 必要になった段階で別途検討（ただし Route 53 ホストゾーン自体は $0.50/月 で課金対象なので慎重に）
+
+# State 管理方針
+
+- バックエンド: bootstrap が作った S3 バケット `akimashita-terraform-state`
+- キー: 環境ごとに分離する（`aws/production.tfstate` / `aws/staging.tfstate`）
+- リージョン: `ap-northeast-1`
+- ロック: **S3 ネイティブロック**（`use_lockfile = true`、Terraform 1.10+）
+- 暗号化: `encrypt = true`（バケット側 SSE と二重防御）
+- backend 設定の渡し方: **partial backend config**（`infra/aws/versions.tf` は `backend "s3" {}` のみ宣言し、具体値は `terraform init -backend-config=env/<env>/backend.hcl` で外部から注入）
+
+# ディレクトリ構成
+
+```
+infra/aws/
+├── versions.tf              # required_providers / required_version / backend "s3" {}（partial）
+├── providers.tf             # provider "aws"（region / allowed_account_ids / default_tags）
+├── variables.tf             # environment 等の入力（default なし、必須）
+├── main.tf                  # data ソース・locals + モジュール呼び出し
+├── outputs.tf               # 各モジュールの出力を集約
+├── env/
+│   ├── production/
+│   │   ├── backend.hcl      # backend "s3" の具体値（key = "aws/production.tfstate"）
+│   │   └── terraform.tfvars # environment = "production"
+│   └── staging/
+│       ├── backend.hcl      # backend "s3" の具体値（key = "aws/staging.tfstate"）
+│       └── terraform.tfvars # environment = "staging"
+├── modules/                 # 機能単位のリソース定義（実体はここ）
+│   ├── <feature_a>/
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+│   └── <feature_b>/
+│       └── ...
+└── .gitignore               # *.tfstate*, .terraform/, *.tfvars (env/*/*.tfvars は除外)
+```
+
+# モジュール設計方針
+
+**`infra/aws` はルートモジュールであり、リソース定義は基本的にここには置かない**。リソースは `modules/` 配下の **機能単位モジュール** に集約し、ルートモジュールから `module "..." { source = "./modules/..." }` で組み立てる。
+
+## ルートモジュールの責務（infra/aws 直下）
+
+- **環境固有の設定**: `provider`、`backend`、`var.environment`、`locals.name_prefix`
+- **横断的な data ソース**: `aws_caller_identity`、`aws_region`
+- **モジュールの組み立て**: 各 `modules/<feature>/` を呼び出し、必要な変数を注入し、依存関係（モジュール間の入出力受け渡し）を結線する
+- **出力の集約**: 各モジュールの `outputs` を `outputs.tf` で再エクスポート
+
+ルート直下に `aws_xxx` リソースを直接書くのは **禁止**（厳密には例外として data ソースのみ許容）。新しいリソースが必要になったら、まず **どのモジュールに属すべきか** を考え、適切なモジュールが無ければ新規作成する。
+
+## モジュールの粒度
+
+- **「機能単位（feature）」で分ける**。AWS のサービス単位（`iam` / `sqs` / `lambda` …）でモジュールを切らない。サービス横断でも、**1 つの機能を成立させる最小セット** を 1 モジュールにまとめる。
+- **MVP では小さく始める**。最初は 1 モジュール内に複数リソースが同居していてよい。**早すぎる抽象化を避ける**。
+- 抽出の判断基準：
+  - 同じ構造を **2 個目以上** で別文脈から呼びたくなったら抽出
+  - 機能境界が明確に分かれた（lifecycle が独立した）ら抽出
+- **モジュールは「呼び出されて意味を成す」単位**。1 リソースだけのモジュールは原則作らない。
+
+## モジュール構成（MVP）
+
+MVP では **`modules/scraper/` 1 つに集約**する。スクレイパーの 3 ステージ（`therapists` / `availability` / `notify`）は **共通点が多く（同一コンテナイメージ、共通の実行ロールで足りる）、ライフサイクルも同期**するため、分割せず単一モジュールでまとめる。
+
+```
+modules/scraper/
+├── main.tf       # ECR / IAM Role / Lambda×N / Log Group×N / Scheduler×N / SNS / Alarms
+├── locals.tf     # stages マップ（ステージ → handler / memory / timeout / log retention）
+├── variables.tf  # name_prefix / image_tag / schedules / alert_emails / supabase 関連 SSM 参照
+└── outputs.tf    # ECR URL / Function ARN（ステージ別）/ Schedule ARN / SNS Topic ARN
+```
+
+モジュール内では **`local.stages` マップ × `for_each`** で per-stage リソース（Lambda / Log Group / Schedule）を生成し、共有リソース（ECR / IAM Role / SNS Topic）は単一定義する。
+
+### ステージ定義（locals 例）
+
+```hcl
+# modules/scraper/locals.tf
+locals {
+  stages = {
+    therapists = {
+      handler            = "therapists.handler"
+      memory_mb          = 256
+      timeout_seconds    = 60
+      log_retention_days = 14
+    }
+    availability = {
+      handler            = "availability.handler"
+      memory_mb          = 256
+      timeout_seconds    = 60
+      log_retention_days = 14
+    }
+    notify = {
+      handler            = "notify.handler"
+      memory_mb          = 256
+      timeout_seconds    = 60
+      log_retention_days = 14
+    }
+  }
+}
+```
+
+ステージを増やす場合は `local.stages` にエントリを足すだけで Lambda + Log Group + Schedule が一式生える。
+
+### ルートからの呼び出し例
+
+```hcl
+# infra/aws/main.tf
+module "scraper" {
+  source = "./modules/scraper"
+
+  name_prefix = local.name_prefix
+  image_tag   = var.scraper_image_tag
+
+  schedules = {
+    therapists   = "cron(0 19 * * ? *)"   # JST 04:00 daily
+    availability = "cron(*/5 * * * ? *)"  # 5分間隔
+    notify       = "cron(*/5 * * * ? *)"  # 5分間隔
+  }
+
+  alert_emails = var.alert_emails
+}
+```
+
+## 将来の分割タイミング
+
+以下のいずれかが起きたら、`modules/scraper/` から切り出すことを検討する：
+
+- **Lambda を使う非スクレイパー機能**（Web 用 Webhook、画像変換 等）が増えた → 共有部（IAM 基盤・SNS）を `modules/lambda_runtime/` のような共通モジュールに抽出
+- **fan-out が必要になった**（セラピストごとに並列処理） → `modules/job_queue/` を後追いで追加し `modules/scraper/` から呼ぶ
+- **大量の cron 設定が必要**になった → `modules/stage_schedule/` を抽出
+- **ECR リポジトリを Web フロントエンドや別サービスでも使う** → `modules/container_registry/` に抽出
+
+## モジュールの実装規約
+
+- **インターフェース最小化**: モジュールの `variables.tf` は **入力に必須なものだけ** を露出する。`name_prefix` などは渡す（モジュール内で `var.environment` を再宣言しない）。
+- **`outputs.tf` で必要な ARN/URL を明示**: 他モジュールから参照される値（ARN / URL / Name）は必ず output に出す。隠さない。
+- **タグ**: ルートの `provider.default_tags` で全リソースに自動付与されるため、モジュール内では **default_tags を上書きしない**。機能固有タグは個別リソースの `tags` に追加してよい。
+- **命名**: モジュール内で生成するリソース名は `${var.name_prefix}-<feature>-<role>` のテンプレートで揃える（例: `akimashita-production-availability-dlq`）。
+- **モジュール内で `provider` を再宣言しない**（ルートから継承）。
+- **`for_each` / `count` をモジュール呼び出し側で多用しない**。同種のものを複数生成したい場合は、モジュール内で `for_each` を持たせるか、モジュール自体を複数回 `module ".."` で呼び出す（後者を推奨）。
+
+## モジュール追加時のチェックリスト
+
+- [ ] `modules/<feature>/` ディレクトリに `main.tf` / `variables.tf` / `outputs.tf` を作る
+- [ ] `name_prefix` を入力で受け取る
+- [ ] 出力に必要な ARN/URL/Name を `outputs.tf` で公開
+- [ ] ルート `infra/aws/main.tf` で `module "..."` 呼び出しを追加
+- [ ] `terraform fmt -recursive` を通す
+- [ ] `terraform validate` を通す
+- [ ] PR 説明に **無料枠への影響と想定月額** を明記
+
+# 命名・タグ規約
+
+- **リソース名**: `akimashita-${var.environment}-<purpose>` を基本とする。
+  - 例: `akimashita-production-availability`、`akimashita-production-availability-dlq`
+- **`locals.name_prefix`** に `akimashita-${var.environment}` を集約済み。各 `.tf` ではこれを参照する。
+- **タグ**: `provider "aws"` の `default_tags` で以下を全リソースに自動付与。
+  - `Project = "akimashita"`
+  - `ManagedBy = "terraform"`（bootstrap 側の `terraform-bootstrap` と区別）
+  - `Environment = var.environment`
+- 個別リソースで意味のあるタグ（`Stage = "availability"` など）は追加してよい。
+
+# 環境戦略
+
+- 環境は **`production` / `staging` の 2 つ**を MVP 段階から構造として分離する。アカウントは同一（`KoppePan` / `695668793500`）。
+- 分離方法: **Terraform Workspaces は使わない**。代わりに以下の組み合わせで環境を切り替える。
+  - **backend の State キーを分ける**（`aws/production.tfstate` / `aws/staging.tfstate`）
+  - **`var.environment`** をリソース命名・タグに反映（`locals.name_prefix = "akimashita-${var.environment}"`）
+- **実行コマンドは Makefile 経由を必須**とする（生 `terraform` を直接叩かない）。
+  ```bash
+  # 例: staging に init / plan
+  make aws-init  ENV=staging
+  make aws-plan  ENV=staging
+  make aws-apply ENV=staging
+
+  # 例: production に切替（.terraform/ を再初期化する必要あり）
+  make aws-clean
+  make aws-init  ENV=production
+  make aws-plan  ENV=production
+  ```
+- **環境切替時は必ず `make aws-clean && make aws-init ENV=...`**。`.terraform/` には前回の backend キャッシュが残っているため、再 init を忘れると別環境に書き込み事故が起きる。`make aws-init` は `-reconfigure` 付きなので明示的に backend を再構成する。
+- **`var.environment` には default を設定しない**。tfvars 経由で必ず明示し、誤って production 設定が漏れないようにする。
+- **ENV 未指定時のデフォルトは `staging`**（Makefile）。production への apply は必ず `ENV=production` を明示する運用にして、誤適用を防ぐ。
+
+# スクレイパー実行環境の設計
+
+## アーキテクチャ
+
+基本パターン（fan-out あり）：
+
+```
+EventBridge Scheduler  ──(cron)──▶  Lambda(dispatcher)
+                                          │
+                                          │ enqueue per-therapist messages
+                                          ▼
+                                       SQS Queue ──(失敗 N回)──▶  DLQ
+                                          │
+                                          │ event source mapping
+                                          ▼
+                                     Lambda(worker)
+                                          │
+                                          ▼
+                                       Supabase
+```
+
+シンプル版（fan-out 不要なら）：
+
+```
+EventBridge Scheduler  ──▶  Lambda  ──▶  Supabase
+```
+
+## ステージ別の実装方針
+
+| ステージ | 頻度 | 構成 |
+|---------|------|------|
+| Stage 1 (salons) | 手動 / 週1回 | Scheduler (weekly) → Lambda（直接実行）|
+| Stage 2 (therapists) | 1日1回 | Scheduler (daily JST 04:00) → Lambda（dispatcher）→ SQS → Lambda（worker）|
+| Stage 3 (availability) | 1〜5 分間隔 | Scheduler → Lambda（dispatcher）→ SQS → Lambda（worker）|
+
+EventBridge Scheduler は **1 分間隔の cron** をネイティブに表現できるため、ECS 時代に検討した「5分 cron + ループ」のテクニックは不要。**頻度は無料枠と相談して決める**（後述の試算参照）。
+
+## Lambda 実装方針
+
+- **grow-appt（fetch のみ）**: Node.js / TypeScript の **zip デプロイ**。メモリ 256MB 程度から開始。
+- **caskan（Playwright）**: Chromium 同梱の **コンテナイメージデプロイ**。メモリ 1024MB 程度（Playwright は要メモリ）。
+  - **イメージサイズが ECR 500MB 無料枠を超えないように圧縮**（マルチステージビルド、最小限の依存）。
+  - 無料枠への影響が大きいので、対象を絞るか頻度を下げる判断を惜しまない。
+- **タイムアウト**: 30〜60 秒を上限に。長時間処理は SQS でメッセージ単位に分割。
+- **同時実行数**: `reserved_concurrency` で制限し、Supabase / 対象サイトに優しい挙動にする。
+
+## 無料枠の試算（目安）
+
+Stage 3（最も頻度が高い）の概算：
+
+- **5 分間隔の場合**: 12 回/時 × 24 × 30 = **8,640 invocations/月** → Lambda 1M / EventBridge 14M に対して余裕。
+- **1 分間隔の場合**: 60 × 24 × 30 = **43,200 invocations/月** → 同様に余裕だが、ワーカー側の fan-out 数次第で SQS 1M に近づく。
+- **コンピュート (GB-秒)**: 400,000 GB-秒/月 が上限。たとえばワーカー Lambda が 256MB × 2 秒 × 43,200 回 = 約 22,000 GB-秒。Playwright を使うと 1024MB × 10 秒 × 1,000 回 で 10,000 GB-秒。**ワーカー実行回数の総和** で見積もる。
+
+無料枠を超えそうな場合のレバー：
+
+1. **cron 頻度を下げる**（1分 → 5分 → 10分）
+2. **対象セラピストを絞る**（watch_settings 登録分のみ実行）
+3. **caskan の Playwright Lambda の頻度を別建て**にする
+4. **Lambda メモリを下げる**（コールドスタート時間とのトレードオフ）
+
+## シークレット注入
+
+- `SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY` などは **SSM Parameter Store（SecureString）** に格納。
+- Lambda の環境変数として `secrets` 相当の方法（`aws_lambda_function` の `environment` で SSM から解決、もしくはランタイム側で SSM SDK 取得）で注入。
+- パラメータ名規約: `/akimashita/${var.environment}/scraper/<KEY>`
+  - 例: `/akimashita/production/scraper/SUPABASE_SERVICE_ROLE_KEY`
+- **値の投入は手動**（Terraform 管理外、`aws ssm put-parameter` で投入）。Terraform 側は `aws_ssm_parameter` を **`lifecycle { ignore_changes = [value] }`** で枠だけ作る。
+
+## ログ・失敗検知
+
+- CloudWatch Log Group: `/aws/lambda/akimashita-<env>-<purpose>`、保持 **7〜14 日**
+- SQS の **DLQ にメッセージが入った瞬間**に CloudWatch Alarm でメール通知（SNS Topic 経由）
+- Lambda の Errors メトリクスでも Alarm を仕掛ける
+
+# CI/CD 方針
+
+- **GitHub Actions** から OIDC AssumeRole（bootstrap で後ほど作成）で AWS にアクセス。
+- 主なジョブ:
+  1. `apps/scraper` の Lambda zip ビルド or Docker イメージビルド → S3 / ECR にアップロード
+  2. `infra/aws` の `terraform plan / apply`（plan は PR、apply は手動承認 or main マージ）
+- **イメージ tag や zip キーは変数で渡し**、`terraform apply` で Lambda の新バージョンを発行する。
+
+# 運用ルール
+
+- **適用は CI から**を基本とする。手元からの apply は緊急時のみ。
+  ```bash
+  # ローカル実行（Makefile 経由）
+  make aws-init  ENV=staging
+  make aws-plan  ENV=staging
+  make aws-apply ENV=staging
+  ```
+- **destroy は基本禁止**。リソース削除は個別に `terraform destroy -target=...` または `.tf` から外して `apply` で行う。
+- 重要リソース（ECR・SSM Parameter）は **`lifecycle { prevent_destroy = true }`** を検討。
+- **コスト/無料枠の使用量を月次で確認**する（AWS Billing コンソール / CloudWatch Metrics）。bootstrap の Budgets 通知が届いたら **即原因調査**。
+- 新規リソース追加時は **無料枠への影響と想定月額** を PR 説明に明記。
+
+# bootstrap との連携
+
+- bootstrap が出力する値（State バケット名・OIDC ロール ARN 等）は **remote state では参照しない**。
+- 参照方針:
+  - **バケット名**などはハードコード（`backend "s3"` の `bucket = "akimashita-terraform-state"` のように）
+  - **OIDC ロール ARN** などは `data.aws_iam_role` で名前から引く
+- これにより両層を疎結合に保ち、bootstrap 側を後から変えても infra/aws の plan を壊さない。
+
+# 参考: 一般的な追加フロー
+
+1. `apps/scraper` を Lambda 実行用に整える（コンテナイメージで全ステージ統一）
+2. `modules/scraper/` を作成（ECR / IAM / Lambda×N / Logs×N / Scheduler×N / SNS / Alarms 一式）
+3. `infra/aws/main.tf` で `module "scraper" {}` を呼び出し
+4. `make aws-apply ENV=staging` でまず ECR を作成（イメージがまだ無い場合は Lambda は後回しにできるよう設計）
+5. ECR にコンテナイメージを push（手動 or GitHub Actions）
+6. SSM Parameter に Supabase 認証情報など秘密値を投入（`aws ssm put-parameter`）
+7. `make aws-plan ENV=staging` で **無料枠への影響とコスト見積** を確認
+8. `make aws-apply ENV=staging` で Lambda + Scheduler + Alarms を作成
+9. EventBridge Scheduler を手動起動でスモークテスト
+10. staging で疎通確認後、`make aws-apply ENV=production` で本番反映
+
+## ステージを追加するフロー
+
+1. `apps/scraper/src/handlers/<stage>.ts` にハンドラを追加して `npm run build` でバンドル確認
+2. `apps/scraper/Dockerfile` のビルドで自動的に新ハンドラも含まれることを確認（CMD は Lambda 側で上書きするため変更不要）
+3. `modules/scraper/locals.tf` の `stages` マップに新エントリを追加
+4. ルート側で `schedules` map に新ステージの cron を追加（必要なら）
+5. `make aws-plan ENV=staging` → `make aws-apply ENV=staging`
+6. 新しい Lambda + Log Group + Schedule が一括生成される

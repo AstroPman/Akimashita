@@ -1,0 +1,107 @@
+---
+description: インフラBootstrapの設計・実装方針
+globs: ["infra/bootstrap/**/*"]
+alwaysApply: false
+---
+
+# Bootstrap 概要
+
+`infra/bootstrap` は **「メインの Terraform 構成（`infra/aws`）を動かすための前提リソース」** だけを管理するレイヤ。
+通常の `infra/aws` とは別ディレクトリ・別ステートで運用し、**鶏と卵問題（chicken-and-egg）** を解消する。
+
+メインの `infra/aws` は **S3 バックエンド** にステートを保存する設計（`infra/aws/versions.tf` 参照）だが、その S3 バケット自体を Terraform で作るには「ステートを保存する場所がまだ無い」状態を経由する必要がある。
+この初期化に必要な最小限のリソースを bootstrap で先行して作成する。
+
+# スコープ（bootstrap で作るもの）
+
+bootstrap で扱うのは **「メイン Terraform 構成の前提となる、ライフサイクルが極めて長く、滅多に変更しない」** リソースに限定する。
+
+想定リソース：
+
+- **Terraform State 用 S3 バケット**（`akimashita-terraform-state`）
+  - Versioning 有効
+  - パブリックアクセス完全ブロック
+  - サーバーサイド暗号化（SSE-S3 or SSE-KMS）
+  - ライフサイクルポリシー（古いバージョンの整理）
+- **State ロック**
+  - Terraform 1.10+ の **S3 ネイティブロック**（`use_lockfile = true`）を採用するため、DynamoDB は **作らない方針**。
+  - 将来的に DynamoDB ロックへ切り替える場合のみ `aws_dynamodb_table` を追加する。
+- **GitHub Actions 用 OIDC プロバイダ＆IAM ロール**（CI/CD から AWS にアクセスするため）
+  - `aws_iam_openid_connect_provider`
+  - GitHub Actions から AssumeRole するための `aws_iam_role`（信頼ポリシーで `repo:owner/repo:*` を絞る）
+- **KMS キー**（必要なら）
+  - State 暗号化用、もしくは横断的に使う共通鍵
+- **請求アラート（AWS Budgets）**
+  - `aws_budgets_budget` でアカウント全体の月次コストを監視
+  - 「少しでも請求が発生したら通知」したいので、低額予算（$1/月）に対して `ACTUAL` の 1% / 50% / 100% と `FORECASTED` 100% を通知
+  - 通知先メールは `variables.tf` の `billing_alert_emails` で受け取り、値は `terraform.tfvars`（gitignore）で渡す
+
+# スコープ外（bootstrap で作らないもの）
+
+以下は **`infra/aws` 側で管理**する。bootstrap には書かない。
+
+- VPC・サブネット・セキュリティグループ
+- ECR・ECS・EventBridge・Lambda などのアプリ実行リソース
+- スクレイパー（`apps/scraper`）の実行基盤
+- アプリで使う Secrets Manager / SSM Parameter Store のエントリ
+- CloudWatch Logs などアプリ周辺のログ・監視リソース
+
+# State 管理方針
+
+bootstrap は **メイン Terraform のバックエンドそのもの** を作るため、自分自身は S3 バックエンドに置けない。
+
+- **ステートはローカルで管理**する（`backend "local"` か、`backend` ブロックを書かない＝デフォルトの local）。
+- **ステートファイル（`terraform.tfstate` / `*.tfstate.backup`）は Git にコミットしない**。
+- ただし bootstrap のリソースは **再現性が重要**なので、誰がやっても同じ結果になるよう **入力（リソース名・タグ・リージョン）はハードコードまたは固定の `tfvars`** で揃える。
+- 万一ステートを失っても **`terraform import`** で復旧できるよう、リソース名は推測可能・固定にする（例: `akimashita-terraform-state`）。
+
+# ディレクトリ構成（想定）
+
+```
+infra/bootstrap/
+├── README.md           # 初回構築手順・リカバリ手順
+├── versions.tf         # required_providers / required_version（backend は local）
+├── providers.tf        # provider "aws" の region 等
+├── main.tf             # 実リソース定義（S3 / OIDC / IAM Role など）
+├── variables.tf        # 必要なら（基本は固定値で OK）
+├── outputs.tf          # メイン Terraform から参照したい値（バケット名・ロール ARN）
+└── .gitignore          # *.tfstate*, .terraform/, *.tfvars（必要に応じて）
+```
+
+# 命名・タグ規約
+
+- **リソース名のプレフィックス**: `akimashita-` を基本とする（例: `akimashita-terraform-state`）。
+- **タグ**: 全リソースに以下を共通付与する。
+  - `Project = "akimashita"`
+  - `ManagedBy = "terraform-bootstrap"`
+  - `Environment = "shared"`（bootstrap は環境横断）
+- `ManagedBy` を **`terraform-bootstrap`** にすることで、メイン側（`terraform`）と区別できるようにする。
+
+# 運用ルール
+
+- **適用は手元から手動**で行う。CI からは **bootstrap を実行しない**（CI 自身の権限が bootstrap 由来のため、循環を避ける）。
+  ```bash
+  cd infra/bootstrap
+  terraform init
+  terraform plan
+  terraform apply
+  ```
+- **destroy は基本禁止**。ステートバケットを消すと `infra/aws` のステートが失われる。撤去が必要な場合は **手順書を更新したうえで、明示的に承認**を得てから実施する。
+- **変更頻度は最小**に保ち、追加・変更があった場合は **README** に経緯を残す（誰が・なぜ・いつ）。
+- **アカウント**: AWS アカウント `KoppePan`（ID: `695668793500`）に対してのみ適用する。誤適用を防ぐため、provider 側で `allowed_account_ids` を指定するのが望ましい。
+
+# `infra/aws` との関係
+
+- `infra/aws/versions.tf` の `backend "s3"` で参照している **バケット名（`akimashita-terraform-state`）** は bootstrap が作る S3 バケット名と **完全一致**させる。
+- bootstrap → `infra/aws` の順で適用する。
+  1. `infra/bootstrap` で S3 バケット等を作成
+  2. `infra/aws` で `terraform init` → S3 バックエンドへ接続
+- bootstrap の `outputs.tf` で出力した値（バケット名・KMS キー ARN・OIDC ロール ARN 等）は、`infra/aws` 側では **`data` ソースで参照**するか、**ハードコードで参照**する（remote state は使わない方針）。
+
+# 参考: 初回構築フロー
+
+1. `infra/bootstrap/` に必要な `.tf` ファイルを作成
+2. AWS 認証情報をローカルにセットアップ（`aws sso login` など）
+3. `terraform init` → `terraform plan` → `terraform apply`（local state）
+4. 作成された S3 バケット名を `infra/aws/versions.tf` の `backend "s3"` と一致確認
+5. `infra/aws/` に移動して `terraform init`（S3 バックエンドが有効化される）
