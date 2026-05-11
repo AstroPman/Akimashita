@@ -1,0 +1,9 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+# env/ 配下の terraform.tfvars / backend.hcl は環境定義としてコミット対象。
+!env/*/terraform.tfvars
+!env/*/backend.hcl
+crash.log
+crash.*.log
