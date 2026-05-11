@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase.js';
 import { createLogger } from '../lib/logger.js';
 import { caskanTherapistScraper } from '../scrapers/caskan/therapists.js';
 import { growTherapistScraper } from '../scrapers/grow/therapists.js';
+import { edcTherapistScraper } from '../scrapers/edc/therapists.js';
 
 const log = createLogger('job:therapists');
 
@@ -21,6 +22,8 @@ function pickScraper(siteName: SiteName): TherapistScraper {
       return caskanTherapistScraper;
     case 'grow':
       return growTherapistScraper;
+    case 'edc':
+      return edcTherapistScraper;
   }
 }
 

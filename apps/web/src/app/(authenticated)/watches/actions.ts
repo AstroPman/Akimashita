@@ -82,7 +82,12 @@ export async function toggleActive(input: {
     .from("watch_settings")
     .update({
       is_active: parsed.data.is_active,
-      ...(turningOn ? { baseline_at: new Date().toISOString() } : {}),
+      ...(turningOn
+        ? {
+            baseline_at: new Date().toISOString(),
+            first_availability_synced_at: null,
+          }
+        : {}),
     })
     .eq("id", parsed.data.id);
 
@@ -289,7 +294,12 @@ export async function updateWatch(
       is_active: parsed.data.is_active,
       notify_line: parsed.data.notify_line,
       notify_email: parsed.data.notify_email,
-      ...(refreshBaseline ? { baseline_at: new Date().toISOString() } : {}),
+      ...(refreshBaseline
+        ? {
+            baseline_at: new Date().toISOString(),
+            first_availability_synced_at: null,
+          }
+        : {}),
     })
     .eq("id", id);
 

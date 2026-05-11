@@ -217,3 +217,14 @@ export const httpGrow = createHttp({
     Origin: 'https://grow-appt.com',
   },
 });
+
+// EDC 系 (esthe-datacenter.com) の汎用予約システム。
+// 店舗ごとにサブドメイン (reserve-{shop_id}.esthe-datacenter.com) が分かれるため、
+// therapists 取得用の共有プリセット。
+// availability ではセラピスト単位で wizardCode セッションを完全分離する必要があるため、
+// scrapers/edc/availability.ts 側で createHttp(...) を毎回呼んで CookieJar を独立させる。
+export const httpEdc = createHttp({
+  name: 'edc',
+  baseUrl: 'https://esthe-datacenter.com',
+  headers: {},
+});

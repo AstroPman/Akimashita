@@ -160,6 +160,7 @@ function WatchRow({
                 className="size-full object-cover"
                 loading="lazy"
                 decoding="async"
+                referrerPolicy="no-referrer"
               />
             ) : (
               <div

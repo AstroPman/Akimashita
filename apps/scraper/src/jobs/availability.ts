@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase.js';
 import { createLogger } from '../lib/logger.js';
 import { caskanAvailabilityScraper } from '../scrapers/caskan/availability.js';
 import { growAvailabilityScraper } from '../scrapers/grow/availability.js';
+import { edcAvailabilityScraper } from '../scrapers/edc/availability.js';
 
 const log = createLogger('job:availability');
 
@@ -31,6 +32,8 @@ function pickScraper(siteName: SiteName): AvailabilityScraper {
       return caskanAvailabilityScraper;
     case 'grow':
       return growAvailabilityScraper;
+    case 'edc':
+      return edcAvailabilityScraper;
   }
 }
 
@@ -110,6 +113,23 @@ async function markTherapistSynced(therapistId: string): Promise<void> {
   }
 }
 
+/** 初回の空き同期が終わるまで新規行通知を抑止するためのマーカー（セラピスト単位・NULL の監視のみ） */
+async function markFirstAvailabilitySyncedIfNeeded(therapistId: string): Promise<void> {
+  const { error } = await supabase
+    .from('watch_settings')
+    .update({ first_availability_synced_at: new Date().toISOString() })
+    .eq('therapist_id', therapistId)
+    .is('deleted_at', null)
+    .eq('is_active', true)
+    .is('first_availability_synced_at', null);
+  if (error) {
+    log.warn('Failed to update watch_settings.first_availability_synced_at', {
+      therapist_id: therapistId,
+      error: error.message,
+    });
+  }
+}
+
 async function enqueueNotifications(): Promise<number> {
   const { data, error } = await supabase.rpc('enqueue_notifications');
   if (error) {
@@ -132,7 +152,11 @@ export async function runAvailabilityJob(): Promise<void> {
     const scraper = pickScraper(therapist.site_name);
     try {
       const records = await scraper.run(therapist);
-      await upsertAvailability(therapist, records);
+      if (records.length > 0) {
+        await upsertAvailability(therapist, records);
+      }
+      // 0 件でも初回同期済みにする（初回だけ枠ゼロのときに永久に Path B が解禁されないように）
+      await markFirstAvailabilitySyncedIfNeeded(therapist.id);
       await markTherapistSynced(therapist.id);
       success += 1;
       totalSlots += records.length;
