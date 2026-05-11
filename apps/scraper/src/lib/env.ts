@@ -2,10 +2,13 @@ import { config as loadDotenv } from 'dotenv';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-
-loadDotenv({ path: path.resolve(here, '../../.env') });
-loadDotenv();
+// Lambda 実行時 (`AWS_LAMBDA_FUNCTION_NAME` が set される) は環境変数注入で完結するため、
+// dotenv のロードはローカル開発時のみ行う。バンドル後の path 解決での無駄なエラーも避ける。
+if (!process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  loadDotenv({ path: path.resolve(here, '../../.env') });
+  loadDotenv();
+}
 
 function required(name: string): string {
   const value = process.env[name];

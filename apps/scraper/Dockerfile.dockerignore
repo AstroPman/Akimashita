@@ -1,0 +1,48 @@
+# BuildKit per-Dockerfile ignore (Docker 23+)。
+# Build context = repo root。Lambda イメージに不要なものを除外する。
+
+# VCS / IDE / OS
+.git
+.gitignore
+.cursor
+.vscode
+.idea
+.DS_Store
+
+# 既存ビルド成果物 / キャッシュ
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/.cache
+**/.terraform
+**/*.tfstate*
+**/.terraform.lock.hcl
+
+# 各種ローカル設定 / シークレット
+**/.env
+**/.env.*
+!**/.env.example
+**/terraform.tfvars
+**/*.pem
+**/*.key
+
+# ログ・テンポラリ
+**/*.log
+**/npm-debug.log*
+**/yarn-error.log*
+
+# ドキュメント / メタデータ
+**/README.md
+**/CHANGELOG.md
+**/docs
+
+# 関連しないアプリ・インフラ
+apps/web
+infra
+supabase
+
+# scraper 固有の不要物
+apps/scraper/.env*
+apps/scraper/dist
+apps/scraper/tsconfig.tsbuildinfo
