@@ -40,6 +40,9 @@ export const env = {
   MAX_DELAY_MS: optionalInt('MAX_DELAY_MS', 800),
   HTTP_TIMEOUT_MS: optionalInt('HTTP_TIMEOUT_MS', 15_000),
   HTTP_MAX_RETRIES: optionalInt('HTTP_MAX_RETRIES', 3),
+  // Stage 1 bookings サブフェーズの並列度。homepage_url は基本サロンごとに別ホストなので
+  // HostQueue による host 単位の直列化を維持したまま、worker 数だけリクエストを重ねられる。
+  BOOKING_CONCURRENCY: optionalInt('BOOKING_CONCURRENCY', 10),
   // Stage 4: notify 用設定。RESEND_API_KEY / EMAIL_FROM は notify ステージ
   // 実行時のみ必須。ここでは optional として読み込み、利用側で検証する。
   RESEND_API_KEY: optional('RESEND_API_KEY', ''),

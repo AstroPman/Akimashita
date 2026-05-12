@@ -4,6 +4,7 @@ import type {
   ExternalSalonRecord,
 } from '@alimashita/shared';
 import { supabase } from '../lib/supabase.js';
+import { env } from '../lib/env.js';
 import { createLogger } from '../lib/logger.js';
 import { fetchAreaList } from '../scrapers/menesthe/area_list.js';
 import { fetchAreaSalons } from '../scrapers/menesthe/area_salons.js';
@@ -378,6 +379,12 @@ async function softDeleteExternalSalon(rowId: string): Promise<void> {
 // Phase 4: bookings (homepage_url を訪問して予約URL を抽出)
 // ============================================================
 
+interface BookingCounters {
+  success: number;
+  failure: number;
+  softDeleted: number;
+}
+
 async function resolveBookings(ctx: {
   limit: number;
   staleAfterDays: number;
@@ -386,71 +393,107 @@ async function resolveBookings(ctx: {
   const targets = await fetchSalonsForBookingRefresh(ctx.limit, ctx.staleAfterDays);
   log.info(`Booking resolve: ${targets.length} salons`);
 
-  let success = 0;
-  let failure = 0;
-  let softDeleted = 0;
+  // homepage_url は基本サロンごとに別ホストなので、worker pool で並列化する。
+  // 同一ホストに偶然重なっても http.ts の HostQueue が host 単位で直列化してくれるため、
+  // 並列度を上げてもポータルに対する礼儀作法 (ランダム遅延 / リトライ) は維持される。
+  const concurrency = Math.max(1, env.BOOKING_CONCURRENCY);
+  const workerCount = Math.min(concurrency, Math.max(1, targets.length));
+  const counters: BookingCounters = { success: 0, failure: 0, softDeleted: 0 };
 
-  for (const row of targets) {
-    if (Date.now() > ctx.deadlineAt) {
-      log.warn('Budget exhausted during bookings phase', { processed: success + failure });
-      break;
-    }
-    if (!row.homepage_url) continue;
-    const result = await resolveHomepage(row.homepage_url);
+  // 共有カーソルから先着順で 1 件ずつ取り出す。budget 超過 / 全件完了で worker は終了。
+  // Node.js はシングルスレッドなので cursor++ は atomic に動く。
+  let cursor = 0;
+  let budgetExhausted = false;
 
-    if (!result.ok && shouldSoftDeleteExternalSalonForHomepageFailure(result.reason)) {
-      try {
-        await cleanupExternalSalonReferences(row.id);
-        await softDeleteExternalSalon(row.id);
-        softDeleted += 1;
-        log.info('Soft-deleted external_salon (homepage gone or invalid)', {
-          external_salon_id: row.id,
-          source_id: row.source_id,
-          reason: result.reason,
-        });
-      } catch (err) {
-        failure += 1;
-        log.warn('Soft-delete failed after homepage failure', {
-          external_salon_id: row.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
+  async function worker(): Promise<void> {
+    while (true) {
+      if (Date.now() > ctx.deadlineAt) {
+        budgetExhausted = true;
+        return;
       }
-      continue;
+      const idx = cursor++;
+      if (idx >= targets.length) return;
+      const row = targets[idx];
+      if (!row?.homepage_url) continue;
+      await processBookingTarget(row, counters);
     }
+  }
 
-    let replaceBookingsCompleted = false;
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+  if (budgetExhausted) {
+    log.warn('Budget exhausted during bookings phase', {
+      processed: counters.success + counters.failure + counters.softDeleted,
+      total: targets.length,
+    });
+  }
+  log.info('Bookings phase done', {
+    success: counters.success,
+    failure: counters.failure,
+    soft_deleted: counters.softDeleted,
+    concurrency: workerCount,
+  });
+}
+
+async function processBookingTarget(
+  row: DbExternalSalon,
+  counters: BookingCounters,
+): Promise<void> {
+  if (!row.homepage_url) return;
+
+  const result = await resolveHomepage(row.homepage_url);
+
+  if (!result.ok && shouldSoftDeleteExternalSalonForHomepageFailure(result.reason)) {
     try {
-      if (result.ok) {
-        await replaceBookings(row.id, result.bookings);
-        replaceBookingsCompleted = true;
-        success += 1;
-      } else {
-        failure += 1;
-      }
-      // 取得失敗でも進める: 常に nullsFirst で先頭に張り付くのを防ぐ (stale で再訪)。
-      await markBookingsSynced(row.id);
+      await cleanupExternalSalonReferences(row.id);
+      await softDeleteExternalSalon(row.id);
+      counters.softDeleted += 1;
+      log.info('Soft-deleted external_salon (homepage gone or invalid)', {
+        external_salon_id: row.id,
+        source_id: row.source_id,
+        reason: result.reason,
+      });
     } catch (err) {
-      if (result.ok || replaceBookingsCompleted) {
-        failure += 1;
-      }
-      log.warn('Failed to persist bookings', {
+      counters.failure += 1;
+      log.warn('Soft-delete failed after homepage failure', {
         external_salon_id: row.id,
         error: err instanceof Error ? err.message : String(err),
       });
-      // replace 前に落ちた以外は、同期日時を進めて占有を避ける (mark 自体の失敗もリカバリ)。
-      if (!result.ok || replaceBookingsCompleted) {
-        try {
-          await markBookingsSynced(row.id);
-        } catch (markErr) {
-          log.warn('markBookingsSynced failed after error', {
-            external_salon_id: row.id,
-            error: markErr instanceof Error ? markErr.message : String(markErr),
-          });
-        }
+    }
+    return;
+  }
+
+  let replaceBookingsCompleted = false;
+  try {
+    if (result.ok) {
+      await replaceBookings(row.id, result.bookings);
+      replaceBookingsCompleted = true;
+      counters.success += 1;
+    } else {
+      counters.failure += 1;
+    }
+    // 取得失敗でも進める: 常に nullsFirst で先頭に張り付くのを防ぐ (stale で再訪)。
+    await markBookingsSynced(row.id);
+  } catch (err) {
+    if (result.ok || replaceBookingsCompleted) {
+      counters.failure += 1;
+    }
+    log.warn('Failed to persist bookings', {
+      external_salon_id: row.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    // replace 前に落ちた以外は、同期日時を進めて占有を避ける (mark 自体の失敗もリカバリ)。
+    if (!result.ok || replaceBookingsCompleted) {
+      try {
+        await markBookingsSynced(row.id);
+      } catch (markErr) {
+        log.warn('markBookingsSynced failed after error', {
+          external_salon_id: row.id,
+          error: markErr instanceof Error ? markErr.message : String(markErr),
+        });
       }
     }
   }
-  log.info('Bookings phase done', { success, failure, soft_deleted: softDeleted });
 }
 
 async function fetchSalonsForBookingRefresh(limit: number, staleAfterDays: number): Promise<DbExternalSalon[]> {
