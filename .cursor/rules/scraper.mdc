@@ -6,26 +6,34 @@ alwaysApply: false
 
 # Scraper 概要
 
-予約サイトを定期的にスクレイピングし、セラピストの空き状況をSupabase（ローカル）に保存する。
+予約サイトを定期的にスクレイピングし、セラピストの空き状況をSupabaseに保存する。
 差分検知により、新たに空きが発生した場合のみ通知フラグを立てる。
+
+加えて、外部ポータル (men-esthe.jp 等) もクロールし、自社の `salons` を補強する
+reference DB (`external_areas` / `external_salons` / `external_salon_bookings`) を育てる。
+最終的に `salons.external_salon_id` を介してリンクし、フロントへ「都道府県・エリア・最寄り駅・価格帯」等の
+リッチな付加情報を提供する。
 
 # ステージ設計
 
-スクレイピング処理は3つのステージに分割して独立実行できる。
+スクレイピング処理は4つのステージに分割して独立実行できる。
 全量を毎回実行すると膨大になるため、ステージごとに頻度・対象を制御する。
 
 ```
-Stage 1: サロン発見     → salons テーブルにupsert        （手動 or 週1回）
-Stage 2: セラピスト同期 → therapists テーブルにupsert    （1日1回）
-Stage 3: 空き枠クロール → availability テーブルにupsert  （1分間隔）
+Stage 1 (salons):       外部ポータルクロール   → external_* + salons リンク     （1日1回 〜 週1回）
+Stage 2 (therapists):   セラピスト同期         → therapists テーブルにupsert    （1日1回）
+Stage 3 (availability): 空き枠クロール         → availability テーブルにupsert  （1分間隔）
+Stage 4 (notify):       通知ジョブ             → notification_logs を消化       （5分間隔）
 ```
 
 ## ステージ間の依存関係
 
 ```
+Stage 1 → external_salons.homepage_url が見つかると bookings 検出 → salons との link
 Stage 1 → salons が存在しないと Stage 2 が動かない
 Stage 2 → therapists が存在しないと Stage 3 が動かない
-Stage 3 → watch_settings が存在しないと通知されない
+Stage 3 → watch_settings が存在しないと通知ジョブの対象にならない
+Stage 4 → notification_logs に未送信レコードがある時だけ動く
 ```
 
 ## 実行方法
@@ -33,33 +41,76 @@ Stage 3 → watch_settings が存在しないと通知されない
 コマンドライン引数でステージを指定して個別実行する。
 
 ```bash
-npx ts-node src/index.ts --stage=salons        # Stage 1
-npx ts-node src/index.ts --stage=therapists    # Stage 2
-npx ts-node src/index.ts --stage=availability  # Stage 3
+npx ts-node src/index.ts --stage=salons                           # Stage 1 全フェーズ
+npx ts-node src/index.ts --stage=salons --phase=details --limit=50 # Stage 1 サブフェーズ
+npx ts-node src/index.ts --stage=therapists                       # Stage 2
+npx ts-node src/index.ts --stage=availability --loop=5            # Stage 3（1分×5回）
+npx ts-node src/index.ts --stage=notify --dry-run                 # Stage 4
 ```
+
+AWS 上では各ステージが独立した Lambda handler (`src/handlers/*.ts`) として実行され、
+EventBridge スケジュールで起動される。
+
+ただし Stage 1 (salons) のみは「サブフェーズの順序依存」を表現するため Step Functions を経由する。
+
+- `areas`: 単独 Schedule（月 1 回想定）から Lambda を `Input = {"phase":"areas"}` で直接呼ぶ
+- `discover → details → bookings → link`: Step Functions ステートマシン (`<name_prefix>-salons-pipeline`)
+  が 1 日 1 回起動され、同じ Lambda を `phase` 違いで 4 回直列に Invoke する
 
 ## 各ステージの詳細
 
-### Stage 1: サロン発見
-- 入力: sites テーブル
-- 処理: 各サイトのサロン一覧を取得
-- 出力: salons テーブルにupsert
-- 頻度: 手動 or 週1回
-- 備考: MVPフェーズは手動でseed.sqlに登録。自動化は将来対応
+### Stage 1: 外部ポータルクロール (salons)
 
-### Stage 2: セラピスト同期
-- 入力: salons テーブル（deleted_at が null のサロン）
+外部ポータル (men-esthe.jp) を巡回して `external_*` テーブルを育て、
+最後に自社 `salons` とのリンクを埋める。1回の Lambda 実行内で 5 サブフェーズに分割でき、
+`--phase` 引数 (areas / discover / details / bookings / link / all) で個別実行できる。
+
+AWS 上では `areas` のみ単独 Schedule（月 1 回）で動かし、残り 4 サブフェーズ
+(`discover → details → bookings → link`) は Step Functions ステートマシン
+`<name_prefix>-salons-pipeline` で 1 日 1 回直列実行する。各 Task は同じ Lambda
+(`salons.handler`) を `Payload = {"phase": "<phase>"}` で呼び、`limit` / `staleAfterDays` /
+`budgetMs` は Lambda 側のデフォルトに任せる。
+
+- 入力: `external_areas` / `external_salons` （前回までの自己出力）
+- 出力: `external_areas` / `external_salons` / `external_salon_bookings` に upsert、
+        `link` フェーズで `salons.external_salon_id` を埋める
+- 頻度: 1日1回 〜 週1回（Lambda 1 実行で 13 分の予算上限）
+
+| サブフェーズ | 入口 URL                            | 出力                              | しきい値カラム             |
+| ------------ | ----------------------------------- | --------------------------------- | -------------------------- |
+| `areas`      | `area-list.php`                     | `external_areas` upsert           | （毎回全件）               |
+| `discover`   | `area.php?id=N&p=P`                 | `external_salons` shell record    | （毎回全エリア）           |
+| `details`    | `salon.php?id=N`                    | `external_salons` 詳細を埋める    | `details_synced_at`        |
+| `bookings`   | `external_salons.homepage_url`      | `external_salon_bookings` 入替    | `bookings_synced_at`       |
+| `link`       | SQL関数 `link_salons_to_external()` | `salons.external_salon_id`        | （毎回全候補をスキャン）   |
+
+- 効率化:
+  - `details` / `bookings` は `*_synced_at < now - staleAfterDays days` を優先
+  - 各フェーズの開始時に `budgetMs` をチェックし、超過したら早期終了
+- 異常系:
+  - canonical URL 不一致 / 404 → `external_salons.deleted_at` を打って論理削除
+  - 公式サイト fetch 失敗 → `ok:false` で `bookings` 空のまま `bookings_synced_at` だけ進めて無限再試行を防止
+
+### Stage 2: セラピスト同期 (therapists)
+- 入力: `salons` テーブル（`deleted_at` が null のサロン）
 - 処理: サロンごとにセラピスト一覧ページをスクレイピング
-- 出力: therapists テーブルにupsert
+- 出力: `therapists` テーブルにupsert
 - 頻度: 1日1回
-- 効率化: last_synced_at が古いサロンから優先して処理する
+- 効率化: `last_synced_at` が古いサロンから優先して処理する
 
-### Stage 3: 空き枠クロール
-- 入力: therapists テーブル（watch_settings に登録済みのセラピストのみ）
-- 処理: セラピストごとに空き枠を取得・差分検知・通知
-- 出力: availability テーブルにupsert、通知があれば notification_logs に記録
-- 頻度: 1分間隔（GitHub Actions: 5分CronでJob内1分×5回ループ）
-- 効率化: watch_settings に登録されていないセラピストはスキップ
+### Stage 3: 空き枠クロール (availability)
+- 入力: `therapists` テーブル（`watch_settings` に登録済みのセラピストのみ）
+- 処理: セラピストごとに空き枠を取得・差分検知し、通知対象なら `notification_logs` にエンキュー
+- 出力: `availability` テーブルにupsert、通知があれば `notification_logs` に記録
+- 頻度: 1分間隔（GitHub Actions: 5分Cronで Job 内 1分×5回ループ）
+- 効率化: `watch_settings` に登録されていないセラピストはスキップ
+
+### Stage 4: 通知ジョブ (notify)
+- 入力: `notification_logs`（未送信レコード）
+- 処理: チャネル別 (現状: Resend Email) にディスパッチ
+- 出力: `notification_logs.sent_at` 更新
+- 頻度: 5分間隔（Stage 3 の通知エンキューを少し遅れて消化）
+- 備考: `--dry-run` で副作用なし実行が可能
 
 ## 差分検知ロジック
 
@@ -73,57 +124,139 @@ npx ts-node src/index.ts --stage=availability  # Stage 3
   first_seen_at = updated_at AND is_available = true
 ```
 
-通知済みチェックは notification_logs を参照し、同一枠への重複通知を防ぐ。
+通知済みチェックは `notification_logs` を参照し、同一枠への重複通知を防ぐ。
 
 # 対象サイト
 
-## 1. Caskan (https://r.caskan.jp/)
+サイトは「予約システムベンダー (Stage 2/3 の対象)」と「ポータル (Stage 1 の供給源)」に分かれる。
+
+## 予約システムベンダー
+
+`sites` テーブルに登録し、`salons.shop_id` でベンダーごとの店舗識別子と紐付ける。
+`external_salon_bookings.(site_name, shop_id)` も同じ命名規則で揃え、JOIN 1 本で外部ポータル → 自社サロンへ繋げる。
+
+### 1. Caskan (https://r.caskan.jp/)
 
 - メンズエステ向け予約システムのSaaS
 - 予約枠データはSSRでHTMLに直接埋め込まれている（内部APIなし）
 - 予約枠は5分刻みでHTMLに列挙されている
 - PlaywrightでHTMLを取得しDOMをパースする必要がある
 
-### URL構造
-- セラピスト一覧: https://r.caskan.jp/{shop_id}/cast
-- セラピスト個別（スケジュール確認）: https://r.caskan.jp/{shop_id}/cast/{cast_id}
-- 日付別予約枠: https://r.caskan.jp/{shop_id}?cast_id={cast_id}&date={YYYY-MM-DD}
+URL構造:
+- セラピスト一覧: `https://r.caskan.jp/{shop_id}/cast`
+- セラピスト個別: `https://r.caskan.jp/{shop_id}/cast/{cast_id}`
+- 日付別予約枠: `https://r.caskan.jp/{shop_id}?cast_id={cast_id}&date={YYYY-MM-DD}`
 
-### スクレイピング戦略
-- セラピスト一覧ページでセラピスト一覧を取得（Stage 2）
-- セラピスト個別ページで出勤日一覧を取得し、日付ごとに予約枠ページへアクセス（Stage 3）
-- 1日1リクエスト必要なため、監視対象日数分だけリクエストが発生する
-
-## 2. grow-appt.com (https://grow-appt.com/)
+### 2. grow-appt.com (https://grow-appt.com/)
 
 - Next.js製のSPA。ページ遷移はURLの `page` パラメータで管理
 - 内部APIが存在するため、ブラウザ操作不要でfetchを直接叩ける
 - 空き時間は15分刻み、`displaydaynum=14` で最大14日分を一括取得可能
 
-### API構造
+API構造:
 - セラピスト一覧:
-  GET /reserve/api/reserve/{SID}/menu
-  ?sid={SID}&staff_no={staff_no}&coupon_no=
-
+  `GET /reserve/api/reserve/{SID}/menu?sid={SID}&staff_no={staff_no}&coupon_no=`
 - 空き時間:
-  GET /reserve/api/reserve/{SID}/status
-  ?sid={SID}&staff_no={staff_no}&menu_no={menu_no}
-  &seldate={YYYY/MM/DD}&displaydaynum=14&coupon_no=&customer_no=
+  `GET /reserve/api/reserve/{SID}/status?sid={SID}&staff_no={staff_no}&menu_no={menu_no}&seldate={YYYY/MM/DD}&displaydaynum=14&coupon_no=&customer_no=`
 
-### パラメータ
-- SID: 店舗識別子（例: u15Vr2S7zV）
-- staff_no: セラピスト識別子（例: 116452）
-- menu_no: コース識別子（例: 2481）
-- seldate: 取得開始日（YYYY/MM/DD形式）
-- displaydaynum: 取得日数（最大14）
+パラメータ:
+- SID: 店舗識別子（例: `u15Vr2S7zV`）
+- staff_no / menu_no: セラピスト/コース識別子
+- seldate: 取得開始日 (`YYYY/MM/DD`)、`displaydaynum` は最大 14
+
+### 3. esthe-datacenter.com (EDC)
+
+- 店舗ごとにサブドメインが切られる汎用予約システム
+- URL: `https://reserve-{shop_id}.esthe-datacenter.com/`
+- HTMLの段階遷移 (Step1 → Step2 …) を `wizardCode` セッションで進める必要がある
+- セラピスト単位で Cookie/セッションを完全分離するため `availability.ts` 内で都度 `createHttp()` する
+
+### 4. estama.jp (https://estama.jp/)
+
+- メンズエステ掲載ポータル兼予約サイト
+- URL: `https://estama.jp/shop/{shop_id}/`
+- 次週スケジュールは `/post/shop_schedule_ctrl` への POST で取得
+- リクエスト単位で完結するため共有 CookieJar で問題ない
+
+## ポータル（サロンマスタ供給源）
+
+### 5. men-esthe.jp (https://men-esthe.jp/)
+
+- メンズエステ掲載ポータル。「予約システム」ではなく「サロンマスタ供給源」として扱う
+- HTML は静的なので fetch + Cheerio で十分パース可能 (Playwright 不要)
+- 1サロンが複数エリアに掲載されるケースを考慮し、パンくず (`#BreadScrumb`) から `area_source_ids` を全件拾う
+- 公式サイト URL を起点に他の予約システム (caskan/grow/edc/estama) との結合を担う
+- Stage 3 (空き枠) では使わない: 予約はサロン公式サイト or 紐づく予約システム経由
+
+URL構造:
+- エリア一覧: `https://men-esthe.jp/area-list.php`
+- エリア別サロン一覧: `https://men-esthe.jp/area.php?id={area_id}&p={page_index}`
+- サロン詳細: `https://men-esthe.jp/salon.php?id={salon_id}`
+
+取得項目:
+- area: `source_id`（例: `'18'`）/ 都道府県 / 地区 / エリア名
+- salon: 名前 / `areas[]` / `area_source_ids[]` / `nearest_stations[]` / `genre` / `price_range` / `opening_hours` / `homepage_url`
+- 公式サイトから抽出する booking: `site_name` (caskan/grow/edc/estama) / `shop_id` / `booking_url`
+
+# データモデル
+
+```
+external_areas ──< external_salons ──< external_salon_bookings >── salons ──< therapists ──< availability
+                                              │                       │
+                                              │ (site_name, shop_id)  │ (site_id)
+                                              ▼                       ▼
+                                                                    sites
+                                                  ※ external_salon_bookings.(site_name, shop_id)
+                                                    と sites.name, salons.shop_id が同一命名規則で揃う
+```
+
+## 外部ポータル参照テーブル群
+
+すべて `source` カラムを持つので、`'menesthe'` 以外のポータルも横並びで保持できる。
+
+- `external_areas (source, source_id)` : ポータルのエリアマスタ。`prefecture` を保持。
+- `external_salons (source, source_id)` : ポータルのサロンマスタ。
+  - `area_source_ids text[]` : `external_areas.source_id` への弱リンク（外部キーは張らず、ポータル側 ID 変動に強くする）
+  - `details_synced_at` / `bookings_synced_at` : 段階同期のしきい値カラム
+  - `deleted_at` : canonical 不一致 / 404 を論理削除
+- `external_salon_bookings (external_salon_id, site_name, shop_id) unique`
+  : 公式サイトから抽出した予約システムURL。1サロン複数併用に対応 (1:N)
+
+## 自社 `salons` との結合
+
+- `salons.external_salon_id uuid` : 自社サロン → 外部ポータルへの逆リンク。`on delete set null`
+- `link_salons_to_external(p_limit int default null) returns int` : `service_role` 専用 RPC。
+  Stage 1.link フェーズが呼び、`(sites.name, salons.shop_id)` ↔ `external_salon_bookings.(site_name, shop_id)`
+  で照合して `salons.external_salon_id` を埋める。複数候補は `external_salons.updated_at desc` で1件採用。
+- `get_public_salons() returns (id, name, therapist_count, prefecture, areas[])` : フロント公開 RPC。
+  `LEFT JOIN external_salons` で `prefecture` と `areas` を露出して地域絞り込み UI に使う。
+
+結合フロー:
+
+```
+external_salon_bookings.(site_name, shop_id)
+   = (sites.name, salons.shop_id)
+        ↓ link_salons_to_external()
+salons.external_salon_id = external_salons.id
+        ↓ get_public_salons()
+フロント: prefecture / areas / therapist_count
+```
 
 # 技術スタック
 
-- Runtime: Node.js + TypeScript
+- Runtime: Node.js + TypeScript (ESM)
 - スクレイピング:
   - caskan.jp → Playwright（SSR HTMLをパース）
   - grow-appt.com → fetch（内部APIを直接叩く）
-- DB: Supabase（開発時はローカル）
+  - esthe-datacenter.com → fetch（HTMLの段階遷移、wizardCode セッション）
+  - estama.jp → fetch（HTML + POST）
+  - men-esthe.jp → fetch + Cheerio（静的HTML）
+  - 公式サイト一斉巡回 → fetch + 正規表現（`httpHomepage` プリセット）
+- HTTP: サイトごとに `createHttp({ name, baseUrl, headers, ... })` でプリセット化。
+  ホスト単位の直列キュー / ランダム遅延 / 指数バックオフ / CookieJar を内包。
+- DB: Supabase（開発時はローカル、Staging/Production は Supabase Cloud）
+- 実行基盤: AWS Lambda（ステージごとに別 handler、EventBridge スケジュール）
+- 通知: Resend Email（`notifications/channels/email_resend.ts`）
 
 # ディレクトリ構成
 
@@ -132,33 +265,48 @@ apps/scraper/
 ├── src/
 │   ├── scrapers/
 │   │   ├── caskan/
-│   │   │   ├── salons.ts        # Stage 1: サロン発見
-│   │   │   ├── therapists.ts    # Stage 2: セラピスト同期
-│   │   │   └── availability.ts  # Stage 3: 空き枠クロール
-│   │   └── grow/
-│   │       ├── salons.ts        # Stage 1: サロン発見
-│   │       ├── therapists.ts    # Stage 2: セラピスト同期
-│   │       └── availability.ts  # Stage 3: 空き枠クロール
+│   │   │   ├── therapists.ts        # Stage 2
+│   │   │   └── availability.ts      # Stage 3
+│   │   ├── grow/
+│   │   │   ├── therapists.ts        # Stage 2
+│   │   │   └── availability.ts      # Stage 3
+│   │   ├── edc/
+│   │   │   ├── therapists.ts        # Stage 2
+│   │   │   └── availability.ts      # Stage 3
+│   │   ├── estama/
+│   │   │   ├── therapists.ts        # Stage 2
+│   │   │   └── availability.ts      # Stage 3
+│   │   └── menesthe/                # 外部ポータル (Stage 1 専用)
+│   │       ├── area_list.ts         # area-list.php
+│   │       ├── area_salons.ts       # area.php?id=N&p=P
+│   │       ├── salon_detail.ts      # salon.php?id=N
+│   │       └── homepage_resolver.ts # homepage_url → booking URL 抽出
 │   ├── jobs/
-│   │   ├── salons.ts            # Stage 1 ジョブ（全サイト横断）
-│   │   ├── therapists.ts        # Stage 2 ジョブ（全サイト横断）
-│   │   └── availability.ts      # Stage 3 ジョブ（全サイト横断）
+│   │   ├── external_salons.ts       # Stage 1 (areas/discover/details/bookings/link)
+│   │   ├── therapists.ts            # Stage 2
+│   │   ├── availability.ts          # Stage 3
+│   │   └── notify.ts                # Stage 4
+│   ├── handlers/                    # AWS Lambda エントリ (Stage ごと)
+│   │   ├── salons.ts
+│   │   ├── therapists.ts
+│   │   ├── availability.ts
+│   │   └── notify.ts
+│   ├── notifications/               # 通知チャネル抽象 (email_resend 等)
 │   ├── lib/
-│   │   └── supabase.ts          # Supabaseクライアント
-│   └── index.ts                 # エントリポイント（--stage引数で振り分け）
+│   │   ├── http.ts                  # サイト別 HttpPreset / リトライ / CookieJar
+│   │   ├── supabase.ts
+│   │   ├── env.ts
+│   │   └── logger.ts
+│   └── index.ts                     # ローカル CLI (--stage / --phase / --loop / --dry-run / --limit)
 ├── tsconfig.json
 └── package.json
 ```
 
 # 共通インターフェース
 
-各サイトのスクレイパーは以下のインターフェースを実装する。
+各ベンダーのスクレイパは `packages/shared` の型に従う。
 
 ```typescript
-interface SalonScraper {
-  run(): Promise<SalonRecord[]>
-}
-
 interface TherapistScraper {
   run(salon: Salon): Promise<TherapistRecord[]>
 }
@@ -168,16 +316,67 @@ interface AvailabilityScraper {
 }
 ```
 
+外部ポータル系は専用の型を `packages/shared` 経由でジョブと共有する。
+
+```typescript
+interface ExternalAreaRecord       { source_id; name; district; prefecture; source_url }
+interface ExternalSalonListEntry   { source_id; name; source_url }                   // discover フェーズ用
+interface ExternalSalonRecord      { source_id; name; prefecture; areas[]; area_source_ids[]; nearest_stations[]; genre; price_range; opening_hours; homepage_url; source_url }
+interface ExternalSalonBooking     { site_name: BookingSiteName; shop_id; booking_url }
+type BookingSiteName = SiteName    // 我々の sites.name と完全に整合
+```
+
+# 今後の拡張
+
+## 別の外部ポータルを追加する
+
+`external_*` テーブルは `source` カラムで複数ポータル横並びを想定済み。
+
+1. `apps/scraper/src/scrapers/{portal}/` 配下に area_list / area_salons / salon_detail / homepage_resolver を実装
+2. `external_salons` に upsert する SOURCE 文字列を分ける（例: `'menesthe'` → `'esthe-love'`）
+3. `external_salon_bookings` の構造は共通なので、`link_salons_to_external()` の挙動はそのまま流用できる
+4. 同一サロンが複数ポータルに掲載される場合は `homepage_url` ベースで重複統合する正規化ジョブを追加検討
+
+## 新しい予約システムベンダーを追加する
+
+1. `sites` テーブルに 1 行追加（`name`, `base_url`）
+2. `apps/scraper/src/scrapers/{name}/` に `therapists.ts` / `availability.ts` を実装
+3. `packages/shared` の `SiteName` ユニオンに `name` を追加
+4. `menesthe/homepage_resolver.ts` の `PATTERNS` に URL パターンを追加すれば、
+   既存の Stage 1 link フローを通って `external_salon_bookings` 経由で自社 `salons` と自動結合される
+
+## サービス（フロント）側での活用
+
+- 都道府県・エリア絞り込み (`get_public_salons()` の `prefecture` / `areas`)
+- 価格帯・ジャンルでのフィルタ (`external_salons.price_range` / `genre`)
+- 最寄り駅検索 (`external_salons.nearest_stations` は `text[]`。GIN index と組み合わせやすい)
+- 公式サイトリンク露出 (`external_salons.homepage_url`)
+- 「複数の予約システムを併用しているサロン」の表示 (`external_salon_bookings` 1:N を活用)
+
+## データ補強アイデア
+
+- `external_salons.opening_hours` を構造化してリアルタイム営業中フラグを算出
+- 新店オープン検知（`external_salons` の新規 insert を通知）
+- 主予約先の重み付け（同一サロンに複数 `booking_url` がある場合）
+- `external_salons` の差分監視（料金改定や移転の検知）
+
 # ローカル開発
 
 ```bash
-# ローカルSupabase起動
+# ローカル Supabase 起動
 npx supabase start
 
-# 各ステージの実行
-npx ts-node src/index.ts --stage=salons
+# Stage 1 (外部ポータル)
+npx ts-node src/index.ts --stage=salons --phase=areas
+npx ts-node src/index.ts --stage=salons --phase=discover
+npx ts-node src/index.ts --stage=salons --phase=details   --limit=50
+npx ts-node src/index.ts --stage=salons --phase=bookings  --limit=50
+npx ts-node src/index.ts --stage=salons --phase=link
+
+# Stage 2 / 3 / 4
 npx ts-node src/index.ts --stage=therapists
-npx ts-node src/index.ts --stage=availability
+npx ts-node src/index.ts --stage=availability --loop=5
+npx ts-node src/index.ts --stage=notify --dry-run
 ```
 
 # 環境変数
@@ -185,4 +384,22 @@ npx ts-node src/index.ts --stage=availability
 ```
 SUPABASE_URL=http://localhost:54321
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+
+# HTTP 共通
+USER_AGENT=Mozilla/5.0 ...
+MIN_DELAY_MS=300
+MAX_DELAY_MS=800
+HTTP_TIMEOUT_MS=15000
+HTTP_MAX_RETRIES=3
+
+# Stage 1 (salons) bookings サブフェーズの並列度
+# homepage_url は基本別ホストなので HostQueue を維持したまま worker 数だけ並列化される
+BOOKING_CONCURRENCY=10
+
+# Stage 4 (notify) 用
+RESEND_API_KEY=...
+EMAIL_FROM=notice@example.com
+NOTIFY_USERS_PER_RUN=50
+NOTIFY_USER_INTERVAL_MS=200
+APP_BASE_URL=http://localhost:3000
 ```
