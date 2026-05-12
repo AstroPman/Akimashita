@@ -1,5 +1,11 @@
 import { Fragment } from "react";
-import { CalendarDaysIcon, FlameIcon, TimerIcon, UsersIcon } from "lucide-react";
+import {
+  CalendarDaysIcon,
+  FlameIcon,
+  SparklesIcon,
+  TimerIcon,
+  UsersIcon,
+} from "lucide-react";
 import { dayjs, JST, formatJstDate } from "@/lib/date";
 import { formatKillSeconds } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -12,6 +18,7 @@ export type TherapistStats = {
   dow_hour_heatmap: { dow: number; hour: number; count: number }[];
   watcher_count: number;
   window_days: number;
+  next_available_slot: { date: string; start_time: string } | null;
 };
 
 const DOW_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
@@ -140,6 +147,42 @@ function DowHourHeatmap({
   );
 }
 
+function NextAvailableSlotBlock({
+  slot,
+}: {
+  slot: { date: string; start_time: string } | null;
+}) {
+  if (!slot) {
+    return (
+      <div className="rounded-xl border bg-card p-4">
+        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+          <SparklesIcon className="size-4" aria-hidden />
+          直近の空き枠
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          現在予約可能な空き枠はありません。
+        </p>
+      </div>
+    );
+  }
+
+  const time = slot.start_time.slice(0, 5);
+  return (
+    <div className="rounded-xl border border-emerald-300/60 bg-emerald-50/70 p-4 dark:border-emerald-800/60 dark:bg-emerald-950/30">
+      <div className="flex items-center gap-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+        <SparklesIcon className="size-4" aria-hidden />
+        直近の空き枠
+      </div>
+      <p className="mt-2 text-2xl font-semibold tabular-nums leading-none text-emerald-800 dark:text-emerald-100">
+        {formatJstDate(slot.date)} {time}〜
+      </p>
+      <p className="mt-1.5 text-xs text-emerald-700/80 dark:text-emerald-300/80">
+        今すぐ予約できる可能性があります。
+      </p>
+    </div>
+  );
+}
+
 export function TherapistStatsBlock({ stats }: { stats: TherapistStats }) {
   const next = formatNextShift(stats.next_shift_date);
   const windowLabel = `直近${stats.window_days}日`;
@@ -148,6 +191,8 @@ export function TherapistStatsBlock({ stats }: { stats: TherapistStats }) {
 
   return (
     <div className="space-y-4">
+      <NextAvailableSlotBlock slot={stats.next_available_slot} />
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <SummaryStat
           icon={<CalendarDaysIcon className="size-4" />}

@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { formatJstDate, formatTimeRange } from "@/lib/date";
+import { dayjs, formatJstDate, formatTimeRange, JST } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import { deleteWatch, toggleActive } from "../actions";
 
@@ -56,6 +56,7 @@ export type WatchItem = {
       sites: { id: string };
     };
   };
+  next_available_slot: { date: string; start_time: string } | null;
 };
 
 type OptimisticAction =
@@ -184,26 +185,27 @@ function WatchRow({
             <p className="truncate text-xs text-muted-foreground">
               {item.therapists.salons.name}
             </p>
-            {item.notify_email || item.notify_line ? (
-              <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                {item.notify_email ? (
-                  <MailIcon
-                    className="size-3.5 shrink-0"
-                    aria-label="メール通知"
-                  />
-                ) : null}
-                {item.notify_email && item.notify_line ? (
-                  <span aria-hidden className="text-muted-foreground">
-                    /
-                  </span>
-                ) : null}
-                {item.notify_line ? <span>LINE</span> : null}
-              </p>
-            ) : (
-              <p className="text-xs text-destructive">
-                通知チャネルが未選択です
-              </p>
-            )}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+              {item.notify_email || item.notify_line ? (
+                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                  {item.notify_email ? (
+                    <MailIcon
+                      className="size-3.5 shrink-0"
+                      aria-label="メール通知"
+                    />
+                  ) : null}
+                  {item.notify_email && item.notify_line ? (
+                    <span aria-hidden className="text-muted-foreground">
+                      /
+                    </span>
+                  ) : null}
+                  {item.notify_line ? <span>LINE</span> : null}
+                </span>
+              ) : (
+                <span className="text-destructive">通知チャネルが未選択です</span>
+              )}
+              <NextSlotLabel slot={item.next_available_slot} />
+            </div>
           </div>
         </Link>
 
@@ -312,5 +314,36 @@ function WatchRow({
         </>
       ) : null}
     </li>
+  );
+}
+
+function NextSlotLabel({
+  slot,
+}: {
+  slot: { date: string; start_time: string } | null;
+}) {
+  if (!slot) {
+    return (
+      <span className="text-muted-foreground">空きなし</span>
+    );
+  }
+
+  const time = slot.start_time.slice(0, 5);
+  const today = dayjs().tz(JST).format("YYYY-MM-DD");
+  const isToday = slot.date === today;
+
+  if (isToday) {
+    return (
+      <span className="inline-flex items-center rounded-md bg-emerald-100 px-1.5 py-0.5 font-semibold tabular-nums text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
+        本日 {time}〜
+      </span>
+    );
+  }
+
+  const md = dayjs(slot.date).tz(JST).format("M/D");
+  return (
+    <span className="inline-flex items-center font-medium tabular-nums text-emerald-700 dark:text-emerald-300">
+      {md} {time}〜
+    </span>
   );
 }

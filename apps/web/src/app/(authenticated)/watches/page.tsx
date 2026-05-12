@@ -39,17 +39,41 @@ export default async function WatchesPage() {
     getWatchQuota(),
   ]);
 
-  const items: WatchItem[] = ((data ?? []) as unknown as WatchItem[]).map(
-    (w) => ({
-      ...w,
-      watch_schedules: [...(w.watch_schedules ?? [])].sort((a, b) => {
-        const ad = a.target_date ?? "";
-        const bd = b.target_date ?? "";
-        if (ad !== bd) return ad.localeCompare(bd);
-        return (a.time_from ?? "").localeCompare(b.time_from ?? "");
-      }),
+  const baseItems = ((data ?? []) as unknown as WatchItem[]).map((w) => ({
+    ...w,
+    watch_schedules: [...(w.watch_schedules ?? [])].sort((a, b) => {
+      const ad = a.target_date ?? "";
+      const bd = b.target_date ?? "";
+      if (ad !== bd) return ad.localeCompare(bd);
+      return (a.time_from ?? "").localeCompare(b.time_from ?? "");
     }),
+  }));
+
+  const therapistIds = Array.from(
+    new Set(baseItems.map((w) => w.therapists.id)),
   );
+
+  let nextSlotMap: Record<
+    string,
+    { date: string; start_time: string }
+  > = {};
+  if (therapistIds.length > 0) {
+    const { data: slotsData } = await supabase.rpc(
+      "get_next_available_slots",
+      { p_therapist_ids: therapistIds },
+    );
+    if (slotsData && typeof slotsData === "object") {
+      nextSlotMap = slotsData as Record<
+        string,
+        { date: string; start_time: string }
+      >;
+    }
+  }
+
+  const items: WatchItem[] = baseItems.map((w) => ({
+    ...w,
+    next_available_slot: nextSlotMap[w.therapists.id] ?? null,
+  }));
 
   return (
     <div className="space-y-6 pb-24 sm:pb-0">
