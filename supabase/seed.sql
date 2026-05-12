@@ -11,7 +11,8 @@
 insert into sites (id, name, base_url, search_query) values
   ('00000000-0000-0000-0000-000000000001', 'caskan',  'https://r.caskan.jp',   'site:r.caskan.jp'),
   ('00000000-0000-0000-0000-000000000002', 'grow',    'https://grow-appt.com', 'site:grow-appt.com'),
-  ('00000000-0000-0000-0000-000000000003', 'edc',     'https://esthe-datacenter.com',   'site:esthe-datacenter.com')
+  ('00000000-0000-0000-0000-000000000003', 'edc',     'https://esthe-datacenter.com',   'site:esthe-datacenter.com'),
+  ('00000000-0000-0000-0000-000000000004', 'estama',  'https://estama.jp',     'site:estama.jp')
 on conflict (id) do nothing;
 
 
@@ -2088,5 +2089,11 @@ insert into salons (site_id, shop_id, name, url) values
     '1003989',
     'ZERO first (ゼロファースト)',
     'https://reserve-1003989.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '26485',
+    'M''sSPA',
+    'https://estama.jp/shop/26485/reserve/'
   )
 on conflict (site_id, shop_id) do nothing;
