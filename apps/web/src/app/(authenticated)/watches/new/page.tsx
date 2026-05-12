@@ -2,24 +2,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronLeftIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/server";
 import { WatchForm } from "../_components/watch-form";
 import { WatchQuotaIndicator } from "../_components/watch-quota-indicator";
 import { defaultWatchFormValues } from "@/lib/schema/watch";
 import { getWatchQuota } from "@/lib/watches/quota";
+import { getPublicSalons } from "@/lib/salons";
 
 export const metadata: Metadata = {
   title: "新しく登録",
 };
 
 export default async function NewWatchPage() {
-  const supabase = await createClient();
-  const [{ data: salons }, quota] = await Promise.all([
-    supabase
-      .from("salons")
-      .select("id, name, sites!inner (id)")
-      .is("deleted_at", null)
-      .order("name", { ascending: true }),
+  const [salons, quota] = await Promise.all([
+    getPublicSalons(),
     getWatchQuota(),
   ]);
 
@@ -57,7 +52,12 @@ export default async function NewWatchPage() {
       ) : (
         <WatchForm
           mode="create"
-          salons={(salons ?? []) as never}
+          salons={salons.map((s) => ({
+            id: s.id,
+            name: s.name,
+            prefecture: s.prefecture,
+            areas: s.areas,
+          }))}
           defaultValues={defaultWatchFormValues}
         />
       )}

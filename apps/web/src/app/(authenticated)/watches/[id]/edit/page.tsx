@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { WatchForm } from "../../_components/watch-form";
 import type { WatchFormInput } from "@/lib/schema/watch";
+import { getPublicSalons } from "@/lib/salons";
 
 export const metadata: Metadata = {
   title: "監視を編集",
@@ -20,7 +21,7 @@ export default async function EditWatchPage({
 
   const supabase = await createClient();
 
-  const [{ data: watch }, { data: salons }] = await Promise.all([
+  const [{ data: watch }, salons] = await Promise.all([
     supabase
       .from("watch_settings")
       .select(
@@ -31,11 +32,7 @@ export default async function EditWatchPage({
       .eq("id", id)
       .is("deleted_at", null)
       .maybeSingle(),
-    supabase
-      .from("salons")
-      .select("id, name, sites!inner (id)")
-      .is("deleted_at", null)
-      .order("name", { ascending: true }),
+    getPublicSalons(),
   ]);
 
   if (!watch) {
@@ -86,7 +83,12 @@ export default async function EditWatchPage({
       <WatchForm
         mode="edit"
         watchId={watchTyped.id}
-        salons={(salons ?? []) as never}
+        salons={salons.map((s) => ({
+          id: s.id,
+          name: s.name,
+          prefecture: s.prefecture,
+          areas: s.areas,
+        }))}
         initialSalonId={watchTyped.therapists.salon_id}
         initialTherapist={{
           id: watchTyped.therapists.id,

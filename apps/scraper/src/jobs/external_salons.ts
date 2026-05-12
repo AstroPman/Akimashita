@@ -8,7 +8,10 @@ import { createLogger } from '../lib/logger.js';
 import { fetchAreaList } from '../scrapers/menesthe/area_list.js';
 import { fetchAreaSalons } from '../scrapers/menesthe/area_salons.js';
 import { fetchSalonDetail } from '../scrapers/menesthe/salon_detail.js';
-import { resolveHomepage } from '../scrapers/menesthe/homepage_resolver.js';
+import {
+  resolveHomepage,
+  shouldSoftDeleteExternalSalonForHomepageFailure,
+} from '../scrapers/menesthe/homepage_resolver.js';
 
 const log = createLogger('job:external_salons');
 
@@ -385,6 +388,7 @@ async function resolveBookings(ctx: {
 
   let success = 0;
   let failure = 0;
+  let softDeleted = 0;
 
   for (const row of targets) {
     if (Date.now() > ctx.deadlineAt) {
@@ -393,24 +397,60 @@ async function resolveBookings(ctx: {
     }
     if (!row.homepage_url) continue;
     const result = await resolveHomepage(row.homepage_url);
+
+    if (!result.ok && shouldSoftDeleteExternalSalonForHomepageFailure(result.reason)) {
+      try {
+        await cleanupExternalSalonReferences(row.id);
+        await softDeleteExternalSalon(row.id);
+        softDeleted += 1;
+        log.info('Soft-deleted external_salon (homepage gone or invalid)', {
+          external_salon_id: row.id,
+          source_id: row.source_id,
+          reason: result.reason,
+        });
+      } catch (err) {
+        failure += 1;
+        log.warn('Soft-delete failed after homepage failure', {
+          external_salon_id: row.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+      continue;
+    }
+
+    let replaceBookingsCompleted = false;
     try {
       if (result.ok) {
         await replaceBookings(row.id, result.bookings);
+        replaceBookingsCompleted = true;
         success += 1;
       } else {
         failure += 1;
       }
-      // 取得成否によらず synced_at を進めて無限再試行を防ぐ。次回しきい値で再評価される。
+      // 取得失敗でも進める: 常に nullsFirst で先頭に張り付くのを防ぐ (stale で再訪)。
       await markBookingsSynced(row.id);
     } catch (err) {
-      failure += 1;
+      if (result.ok || replaceBookingsCompleted) {
+        failure += 1;
+      }
       log.warn('Failed to persist bookings', {
         external_salon_id: row.id,
         error: err instanceof Error ? err.message : String(err),
       });
+      // replace 前に落ちた以外は、同期日時を進めて占有を避ける (mark 自体の失敗もリカバリ)。
+      if (!result.ok || replaceBookingsCompleted) {
+        try {
+          await markBookingsSynced(row.id);
+        } catch (markErr) {
+          log.warn('markBookingsSynced failed after error', {
+            external_salon_id: row.id,
+            error: markErr instanceof Error ? markErr.message : String(markErr),
+          });
+        }
+      }
     }
   }
-  log.info('Bookings phase done', { success, failure });
+  log.info('Bookings phase done', { success, failure, soft_deleted: softDeleted });
 }
 
 async function fetchSalonsForBookingRefresh(limit: number, staleAfterDays: number): Promise<DbExternalSalon[]> {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CheckIcon, ChevronsUpDownIcon, Loader2Icon, PlusIcon, TrashIcon } from "lucide-react";
@@ -30,6 +30,8 @@ import { createWatch, updateWatch } from "../actions";
 type SalonOption = {
   id: string;
   name: string;
+  prefecture: string | null;
+  areas: string[];
 };
 
 type TherapistOption = { id: string; name: string };
@@ -64,6 +66,8 @@ export function WatchForm({
   );
   const [therapistOpen, setTherapistOpen] = useState(false);
   const [salonOpen, setSalonOpen] = useState(false);
+  const [selectedArea, setSelectedArea] = useState<string | null>(null);
+  const [areaOpen, setAreaOpen] = useState(false);
 
   const [isActive, setIsActive] = useState(defaultValues.is_active);
   const [notifyEmail, setNotifyEmail] = useState(defaultValues.notify_email);
@@ -108,6 +112,45 @@ export function WatchForm({
     setTherapists([]);
     setTherapistsLoading(Boolean(next));
   };
+
+  const areaOptions = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const s of salons) {
+      if (!s.prefecture) continue;
+      for (const a of s.areas ?? []) {
+        if (!map.has(s.prefecture)) map.set(s.prefecture, new Set());
+        map.get(s.prefecture)!.add(a);
+      }
+    }
+    return [...map.entries()]
+      .sort(([a], [b]) => a.localeCompare(b, "ja"))
+      .map(([prefecture, areas]) => ({
+        prefecture,
+        areas: [...areas].sort((a, b) => a.localeCompare(b, "ja")),
+      }));
+  }, [salons]);
+
+  const visibleSalons = useMemo(() => {
+    if (!selectedArea) return salons;
+    return salons.filter((s) => s.areas?.includes(selectedArea));
+  }, [salons, selectedArea]);
+
+  const selectedAreaPrefecture = useMemo(() => {
+    if (!selectedArea) return null;
+    return (
+      areaOptions.find((g) => g.areas.includes(selectedArea))?.prefecture ?? null
+    );
+  }, [areaOptions, selectedArea]);
+
+  useEffect(() => {
+    if (!selectedArea) return;
+    if (!salonId) return;
+    if (visibleSalons.some((s) => s.id === salonId)) return;
+    setSalonId(undefined);
+    setTherapistId("");
+    setTherapists([]);
+    setTherapistsLoading(false);
+  }, [selectedArea, salonId, visibleSalons]);
 
   const updateSchedule = (
     index: number,
@@ -181,6 +224,83 @@ export function WatchForm({
           </p>
         </div>
 
+        <div className="space-y-2">
+          <Label htmlFor="area">エリア（任意）</Label>
+          <Popover open={areaOpen} onOpenChange={setAreaOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                id="area"
+                type="button"
+                variant="outline"
+                role="combobox"
+                aria-expanded={areaOpen}
+                disabled={areaOptions.length === 0}
+                className={cn(
+                  "w-full justify-between font-normal sm:w-1/2",
+                  !selectedArea && "text-muted-foreground",
+                )}
+              >
+                {selectedArea
+                  ? selectedAreaPrefecture
+                    ? `${selectedAreaPrefecture} / ${selectedArea}`
+                    : selectedArea
+                  : "すべてのエリア"}
+                <ChevronsUpDownIcon className="size-4 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+              <Command>
+                <CommandInput placeholder="エリア名で検索..." />
+                <CommandList>
+                  <CommandEmpty>該当するエリアがありません</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="__all__"
+                      onSelect={() => {
+                        setSelectedArea(null);
+                        setAreaOpen(false);
+                      }}
+                    >
+                      <CheckIcon
+                        className={cn(
+                          "mr-2 size-4",
+                          selectedArea === null ? "opacity-100" : "opacity-0",
+                        )}
+                      />
+                      すべてのエリア
+                    </CommandItem>
+                  </CommandGroup>
+                  {areaOptions.map((group) => (
+                    <CommandGroup
+                      key={group.prefecture}
+                      heading={group.prefecture}
+                    >
+                      {group.areas.map((area) => (
+                        <CommandItem
+                          key={`${group.prefecture}|${area}`}
+                          value={`${group.prefecture} ${area}`}
+                          onSelect={() => {
+                            setSelectedArea(area);
+                            setAreaOpen(false);
+                          }}
+                        >
+                          <CheckIcon
+                            className={cn(
+                              "mr-2 size-4",
+                              selectedArea === area ? "opacity-100" : "opacity-0",
+                            )}
+                          />
+                          {area}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  ))}
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="salon">サロン</Label>
@@ -205,9 +325,13 @@ export function WatchForm({
                 <Command>
                   <CommandInput placeholder="名前で検索..." />
                   <CommandList>
-                    <CommandEmpty>該当するサロンがありません</CommandEmpty>
+                    <CommandEmpty>
+                      {selectedArea
+                        ? "該当するサロンがありません（エリアを変えてみてください）"
+                        : "該当するサロンがありません"}
+                    </CommandEmpty>
                     <CommandGroup>
-                      {salons.map((s) => (
+                      {visibleSalons.map((s) => (
                         <CommandItem
                           key={s.id}
                           value={s.name}

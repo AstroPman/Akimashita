@@ -57,6 +57,20 @@ export interface ResolveHomepageResult {
 }
 
 /**
+ * 公式サイトが恒久的に参照不能とみなせる失敗か。
+ * bookings フェーズで `external_salons.deleted_at` を打つ判断に使う。
+ * 403 / 5xx / ネットワーク途切れ等は再試行の余地があるため含めない。
+ */
+export function shouldSoftDeleteExternalSalonForHomepageFailure(reason: string | undefined): boolean {
+  if (!reason) return false;
+  if (reason === 'invalid scheme' || reason === 'invalid_url') return true;
+  const m = /^http_(\d{3})$/.exec(reason);
+  if (!m) return false;
+  const status = Number(m[1]);
+  return status === 404 || status === 410;
+}
+
+/**
  * 公式サイトのトップページ HTML を取得し、既知パターンの予約URLを抽出する。
  * - ネットワーク失敗 / 4xx は ok:false で返す (上位ジョブで「次回再試行 or skip」を選ぶ)。
  * - 抽出は HTML 文字列を正規表現で走査する単純実装。SPA 等で href が JS 注入の場合は
@@ -76,6 +90,10 @@ export async function resolveHomepage(homepageUrl: string): Promise<ResolveHomep
       return { bookings: [], ok: false, reason: `http_${err.status}` };
     }
     const message = err instanceof Error ? err.message : String(err);
+    if (err instanceof TypeError && /invalid url/i.test(message)) {
+      log.warn('Homepage URL invalid', { url: homepageUrl, error: message });
+      return { bookings: [], ok: false, reason: 'invalid_url' };
+    }
     log.warn('Homepage fetch failed', { url: homepageUrl, error: message });
     return { bookings: [], ok: false, reason: 'network_error' };
   }

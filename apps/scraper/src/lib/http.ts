@@ -93,15 +93,15 @@ function buildHeaders(
   return headers;
 }
 
-async function withRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
+async function withRetry<T>(label: string, fn: () => Promise<T>, maxRetries: number): Promise<T> {
   let lastError: unknown;
-  for (let attempt = 0; attempt <= env.HTTP_MAX_RETRIES; attempt++) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (err) {
       lastError = err;
       const retryable = isRetryable(err);
-      if (!retryable || attempt === env.HTTP_MAX_RETRIES) break;
+      if (!retryable || attempt === maxRetries) break;
       const wait = backoffMs(attempt, err);
       log.warn(`${label} failed (attempt ${attempt + 1}), retrying in ${wait}ms`, {
         error: errMessage(err),
@@ -153,8 +153,16 @@ function parseRetryAfter(headerValue: string | null): number | undefined {
   return undefined;
 }
 
-export function createHttp(preset: HttpPreset): SiteHttp {
+/** createHttp の第2引数。未指定時は env の HTTP_* と同じ挙動。 */
+export type CreateHttpOptions = {
+  maxRetries?: number;
+  timeoutMs?: number;
+};
+
+export function createHttp(preset: HttpPreset, opts?: CreateHttpOptions): SiteHttp {
   const jar = new CookieJar();
+  const maxRetries = opts?.maxRetries ?? env.HTTP_MAX_RETRIES;
+  const timeoutMs = opts?.timeoutMs ?? env.HTTP_TIMEOUT_MS;
 
   async function request(url: string, mode: 'html' | 'json', init?: RequestInit): Promise<Response> {
     const host = new URL(url).host;
@@ -163,7 +171,7 @@ export function createHttp(preset: HttpPreset): SiteHttp {
       return withRetry(`${preset.name} ${mode.toUpperCase()} ${url}`, async () => {
         const cookieHeader = (await jar.getCookieString(url)) || null;
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), env.HTTP_TIMEOUT_MS);
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
         try {
           const response = await fetch(url, {
             ...init,
@@ -186,7 +194,7 @@ export function createHttp(preset: HttpPreset): SiteHttp {
         } finally {
           clearTimeout(timer);
         }
-      });
+      }, maxRetries);
     });
   }
 
@@ -254,10 +262,15 @@ export const httpMenesthe = createHttp({
  * 任意の公式サイトを fetch するためのプリセット。
  * external_salons.homepage_url から予約システムリンクを抽出する用途で
  * 多数の独立ドメインを叩くため、汎用 UA + 共通ヘッダのみで構成する。
- * 4xx/5xx を呼び出し側でハンドルしやすいよう、リトライは createHttp 既定に従う。
+ * リトライは maxRetries:0（初回のみ）: Bot 対策・TLS 不整合などで恒久的に
+ * `fetch failed` になりがちな URL が多く、既知サイトと同じ指数バックオフだと
+ * bookings フェーズが直列で極端に遅くなるため。
  */
-export const httpHomepage = createHttp({
-  name: 'homepage',
-  baseUrl: '',
-  headers: {},
-});
+export const httpHomepage = createHttp(
+  {
+    name: 'homepage',
+    baseUrl: '',
+    headers: {},
+  },
+  { maxRetries: 0 },
+);
