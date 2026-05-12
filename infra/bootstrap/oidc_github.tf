@@ -15,6 +15,12 @@ locals {
   github_owner = "AstroPman"
   github_repo  = "Akimashita"
   region       = "ap-northeast-1"
+
+  # scraper の Lambda 関数名は akimashita-<env>-<stage> (Terraform の
+  # ${var.name_prefix}-${each.key} に揃えてある)。ECR と異なり "-scraper" は
+  # 入らない。staging / production を 1 ロールでカバーするため
+  # 環境部分のみ wildcard にし、stage 名で絞り込む。
+  scraper_lambda_stages = ["salons", "therapists", "availability", "notify"]
 }
 
 data "aws_caller_identity" "current" {}
@@ -97,12 +103,16 @@ data "aws_iam_policy_document" "github_deploy" {
       "lambda:UpdateAlias",
       "lambda:GetAlias",
     ]
-    resources = [
-      # 関数本体
-      "arn:aws:lambda:${local.region}:${data.aws_caller_identity.current.account_id}:function:akimashita-*-scraper-*",
-      # qualified ARN (alias / version 指定)
-      "arn:aws:lambda:${local.region}:${data.aws_caller_identity.current.account_id}:function:akimashita-*-scraper-*:*",
-    ]
+    # 関数本体 + qualified ARN(alias/version 指定) を、stage 名で限定して列挙する。
+    # 例: arn:aws:lambda:ap-northeast-1:<acct>:function:akimashita-staging-salons[:live]
+    resources = concat(
+      [for s in local.scraper_lambda_stages :
+        "arn:aws:lambda:${local.region}:${data.aws_caller_identity.current.account_id}:function:akimashita-*-${s}"
+      ],
+      [for s in local.scraper_lambda_stages :
+        "arn:aws:lambda:${local.region}:${data.aws_caller_identity.current.account_id}:function:akimashita-*-${s}:*"
+      ],
+    )
   }
 }
 

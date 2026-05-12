@@ -58,8 +58,10 @@ AWS_VAR_IMAGE_TAG  := -var=scraper_image_tag=$(SCRAPER_IMAGE_TAG)
 
 # -- スクレイパー Lambda デプロイ定義 -------------------------------------
 # 全ステージ共通のエイリアス名。CI が新バージョンに付け替える対象。
+# Lambda 関数名は Terraform 側 `${var.name_prefix}-${stage}` (= akimashita-<env>-<stage>) に
+# 揃える。ECR リポジトリは "-scraper" 付きで非対称なので注意。
 SCRAPER_LAMBDA_ALIAS  := live
-SCRAPER_LAMBDA_PREFIX := akimashita-$(ENV)-scraper
+SCRAPER_LAMBDA_PREFIX := akimashita-$(ENV)
 SCRAPER_LAMBDA_STAGES := salons therapists availability notify
 
 # .PHONY -------------------------------------------------------------------
