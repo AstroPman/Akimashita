@@ -42,7 +42,7 @@ type WatcherCountRpcRow = {
   watcher_count: number;
 };
 
-const DEFAULT_LIMIT = 20;
+const DEFAULT_LIMIT = 10;
 const DEFAULT_WINDOW_DAYS = 30;
 const DEFAULT_MIN_SAMPLES = 5;
 
