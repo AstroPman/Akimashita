@@ -35,6 +35,10 @@ SCRAPER_REPO_NAME  := akimashita-$(ENV)-scraper
 SCRAPER_PLATFORM   := linux/arm64
 SCRAPER_IMAGE_TAG  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 
+# Lambda が参照するイメージタグを Terraform に渡す。
+# git checkout した SHA = ECR push した SHA = Lambda 参照イメージ、を維持する。
+AWS_VAR_IMAGE_TAG  := -var=scraper_image_tag=$(SCRAPER_IMAGE_TAG)
+
 # .PHONY -------------------------------------------------------------------
 .PHONY: help \
         aws-init aws-plan aws-apply aws-destroy aws-fmt aws-validate aws-output aws-console aws-clean \
@@ -79,13 +83,13 @@ aws-init:
 	cd $(AWS_DIR) && terraform init -reconfigure $(AWS_BACKEND_CONFIG)
 
 aws-plan:
-	cd $(AWS_DIR) && terraform plan $(AWS_VAR_FILE)
+	cd $(AWS_DIR) && terraform plan $(AWS_VAR_FILE) $(AWS_VAR_IMAGE_TAG)
 
 aws-apply:
-	cd $(AWS_DIR) && terraform apply $(AWS_VAR_FILE)
+	cd $(AWS_DIR) && terraform apply $(AWS_VAR_FILE) $(AWS_VAR_IMAGE_TAG)
 
 aws-destroy:
-	cd $(AWS_DIR) && terraform destroy $(AWS_VAR_FILE)
+	cd $(AWS_DIR) && terraform destroy $(AWS_VAR_FILE) $(AWS_VAR_IMAGE_TAG)
 
 aws-fmt:
 	terraform fmt -recursive $(AWS_DIR)
@@ -97,7 +101,7 @@ aws-output:
 	cd $(AWS_DIR) && terraform output
 
 aws-console:
-	cd $(AWS_DIR) && terraform console -var-file=env/$(ENV)/terraform.tfvars
+	cd $(AWS_DIR) && terraform console $(AWS_VAR_FILE) $(AWS_VAR_IMAGE_TAG)
 
 aws-clean:
 	rm -rf $(AWS_DIR)/.terraform
@@ -128,6 +132,8 @@ bootstrap-output:
 scraper-image-build:
 	docker build \
 	  --platform $(SCRAPER_PLATFORM) \
+	  --provenance=false \
+	  --sbom=false \
 	  -t $(SCRAPER_REPO_NAME):$(SCRAPER_IMAGE_TAG) \
 	  -f apps/scraper/Dockerfile .
 
