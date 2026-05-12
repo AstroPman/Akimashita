@@ -3,9 +3,9 @@ environment = "staging"
 # Supabase staging（core.mdc 参照）
 supabase_url = "https://zhvmhchwapavylwrchoe.supabase.co"
 
-# 通知系（暫定値。Resend で verified domain を取得後に更新する）
-email_from   = "noreply@akimashita.example.com"
-app_base_url = "https://staging.akimashita.example.com"
+# 通知系。ステージングは Resend のテスト用送信元（検証ドメイン不要）。本番は verified domain のアドレスに差し替える。
+email_from = "akimashita <onboarding@resend.dev>"
+app_base_url = "https://akimashita.vercel.app"
 
 # Lambda 失敗時のアラート通知先（受信後に手動で confirmation を承認すること）
 alert_emails = []
