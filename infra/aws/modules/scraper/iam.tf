@@ -85,3 +85,27 @@ resource "aws_iam_role_policy" "scheduler_invoke" {
   role   = aws_iam_role.scheduler.id
   policy = data.aws_iam_policy_document.scheduler_invoke.json
 }
+
+# ============================================================================
+# EventBridge Scheduler 実行ロール（Step Functions を StartExecution するため）
+# - assume role は同じ scheduler.amazonaws.com だが、StartExecution の権限を
+#   持たせるので Lambda Invoke 用とは別 role に分ける（最小権限）。
+# ============================================================================
+resource "aws_iam_role" "scheduler_sfn" {
+  name               = "${var.name_prefix}-scraper-scheduler-sfn"
+  assume_role_policy = data.aws_iam_policy_document.scheduler_assume.json
+}
+
+data "aws_iam_policy_document" "scheduler_sfn" {
+  statement {
+    sid       = "StartSalonsPipeline"
+    actions   = ["states:StartExecution"]
+    resources = [aws_sfn_state_machine.salons_pipeline.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "scheduler_sfn" {
+  name   = "${var.name_prefix}-scraper-scheduler-sfn"
+  role   = aws_iam_role.scheduler_sfn.id
+  policy = data.aws_iam_policy_document.scheduler_sfn.json
+}

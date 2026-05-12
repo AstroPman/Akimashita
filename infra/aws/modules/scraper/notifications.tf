@@ -46,3 +46,29 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   alarm_actions = [aws_sns_topic.alerts.arn]
   ok_actions    = [aws_sns_topic.alerts.arn]
 }
+
+# ============================================================================
+# CloudWatch Alarm: Step Functions ExecutionsFailed (salons-pipeline)
+# - SFN 経由で動かす salons / discover→link 系の失敗を SNS に発報する。
+# - Lambda Errors アラームは個々の Lambda 単位なので、リトライ込みで最終的に
+#   ExecutionFailed になったケースを別軸で拾う狙い。
+# ============================================================================
+resource "aws_cloudwatch_metric_alarm" "sfn_salons_pipeline_failed" {
+  alarm_name          = "${var.name_prefix}-salons-pipeline-failed"
+  alarm_description   = "Step Functions ${aws_sfn_state_machine.salons_pipeline.name} の Execution が失敗した"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 1
+  metric_name         = "ExecutionsFailed"
+  namespace           = "AWS/States"
+  period              = 300
+  statistic           = "Sum"
+  threshold           = 1
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    StateMachineArn = aws_sfn_state_machine.salons_pipeline.arn
+  }
+
+  alarm_actions = [aws_sns_topic.alerts.arn]
+  ok_actions    = [aws_sns_topic.alerts.arn]
+}

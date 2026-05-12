@@ -21,6 +21,9 @@ module "scraper" {
   schedules      = var.scraper_schedules
   schedule_state = var.scraper_schedule_state
 
+  salons_areas_schedule    = var.scraper_salons_areas_schedule
+  salons_pipeline_schedule = var.scraper_salons_pipeline_schedule
+
   supabase_url = var.supabase_url
   email_from   = var.email_from
   app_base_url = var.app_base_url

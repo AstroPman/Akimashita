@@ -34,6 +34,21 @@ output "scraper_schedule_arns" {
   value       = module.scraper.schedule_arns
 }
 
+output "scraper_salons_pipeline_state_machine_arn" {
+  description = "salons サブフェーズを直列実行する Step Functions ARN"
+  value       = module.scraper.salons_pipeline_state_machine_arn
+}
+
+output "scraper_salons_areas_schedule_arn" {
+  description = "salons / areas 単独 Schedule ARN（未設定なら null）"
+  value       = module.scraper.salons_areas_schedule_arn
+}
+
+output "scraper_salons_pipeline_schedule_arn" {
+  description = "salons / pipeline Schedule ARN（未設定なら null）"
+  value       = module.scraper.salons_pipeline_schedule_arn
+}
+
 output "scraper_alerts_topic_arn" {
   description = "アラート用 SNS Topic ARN"
   value       = module.scraper.alerts_topic_arn

@@ -43,6 +43,24 @@ variable "schedule_state" {
   }
 }
 
+# === salons 専用スケジュール ================================================
+# salons は他ステージと異なり「単独 Lambda 起動 (areas) + Step Functions 起動
+# (discover/details/bookings/link 直列)」の 2 系統で動かすため、
+# var.schedules ではなく専用変数で受け取る。
+# いずれも空文字を渡すと該当 Schedule を作らない。
+
+variable "salons_areas_schedule" {
+  description = "salons / areas フェーズの cron 式（UTC）。月 1 回程度を想定。空文字なら Schedule を作らない。"
+  type        = string
+  default     = ""
+}
+
+variable "salons_pipeline_schedule" {
+  description = "salons / discover→details→bookings→link を直列実行する Step Functions の cron 式（UTC）。1 日 1 回程度を想定。空文字なら Schedule を作らない。"
+  type        = string
+  default     = ""
+}
+
 # === Application 環境変数（公開情報。秘密値は SSM 経由） ==================
 
 variable "supabase_url" {

@@ -24,8 +24,23 @@ output "lambda_function_arns" {
 }
 
 output "schedule_arns" {
-  description = "ステージ → EventBridge Schedule ARN（schedule 設定があるステージのみ）"
+  description = "ステージ → EventBridge Schedule ARN（schedule 設定があるステージのみ）。salons 系は別 output を参照。"
   value       = { for k, s in aws_scheduler_schedule.stage : k => s.arn }
+}
+
+output "salons_pipeline_state_machine_arn" {
+  description = "salons サブフェーズ (discover→details→bookings→link) を直列実行する Step Functions ARN。手動キック / コンソール確認用。"
+  value       = aws_sfn_state_machine.salons_pipeline.arn
+}
+
+output "salons_areas_schedule_arn" {
+  description = "salons / areas フェーズ単独 Schedule ARN（未設定なら null）"
+  value       = try(aws_scheduler_schedule.salons_areas[0].arn, null)
+}
+
+output "salons_pipeline_schedule_arn" {
+  description = "salons / pipeline Schedule ARN（未設定なら null）"
+  value       = try(aws_scheduler_schedule.salons_pipeline[0].arn, null)
 }
 
 output "alerts_topic_arn" {

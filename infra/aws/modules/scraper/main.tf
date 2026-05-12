@@ -7,8 +7,17 @@ locals {
   ssm_path_base = "/${var.name_prefix}/scraper"
 
   # 各ステージの Lambda 設定。新ステージを追加したい場合はここに 1 行足すだけで
-  # Lambda + Log Group + Schedule + Alarm が一式生える。
+  # Lambda + Log Group + Alarm が一式生える。
+  # 注意: salons は Step Functions と単独 Schedule の両方から呼ばれるため、
+  # 既存の `aws_scheduler_schedule.stage` (var.schedules map で制御) からは
+  # 意図的に除外する。詳細は scheduler.tf / stepfunctions.tf を参照。
   stages = {
+    salons = {
+      handler            = "salons.handler"
+      memory_mb          = 512
+      timeout_seconds    = 900
+      log_retention_days = 14
+    }
     therapists = {
       handler            = "therapists.handler"
       memory_mb          = 256

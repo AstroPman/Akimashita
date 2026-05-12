@@ -22,13 +22,25 @@ variable "scraper_schedule_state" {
 }
 
 variable "scraper_schedules" {
-  description = "ステージごとの cron 式（UTC）。空文字 / 未指定のステージは Schedule を作らない。"
+  description = "ステージごとの cron 式（UTC）。空文字 / 未指定のステージは Schedule を作らない。salons は専用変数で別途指定する。"
   type        = map(string)
   default = {
     therapists   = "cron(0 19 * * ? *)"  # JST 04:00 daily
     availability = "cron(*/10 * * * ? *)" # 5 分間隔
     notify       = "cron(*/10 * * * ? *)" # 5 分間隔（availability 直後）
   }
+}
+
+variable "scraper_salons_areas_schedule" {
+  description = "salons / areas フェーズの cron 式（UTC）。デフォルトは毎月1日 JST 03:00。"
+  type        = string
+  default     = "cron(0 18 1 * ? *)"
+}
+
+variable "scraper_salons_pipeline_schedule" {
+  description = "salons / discover→details→bookings→link を直列実行する Step Functions の cron 式（UTC）。デフォルトは毎日 JST 05:00（therapists の JST 04:00 と被らせない）。"
+  type        = string
+  default     = "cron(0 20 * * ? *)"
 }
 
 variable "supabase_url" {
