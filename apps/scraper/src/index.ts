@@ -12,6 +12,7 @@ interface CliArgs {
   loop: number;
   dryRun: boolean;
   limit: number | null;
+  onlyUnsynced: boolean;
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -53,7 +54,9 @@ function parseArgs(argv: string[]): CliArgs {
     limit = parsed;
   }
 
-  return { stage: stageValue, loop, dryRun, limit };
+  const onlyUnsynced = argv.includes('--only-unsynced');
+
+  return { stage: stageValue, loop, dryRun, limit, onlyUnsynced };
 }
 
 function sleep(ms: number): Promise<void> {
@@ -71,7 +74,7 @@ async function main(): Promise<void> {
       if (args.loop !== 1) {
         log.warn('--loop is ignored for stage=therapists');
       }
-      await runTherapistsJob();
+      await runTherapistsJob({ onlyUnsynced: args.onlyUnsynced });
       break;
     case 'availability': {
       for (let i = 0; i < args.loop; i++) {

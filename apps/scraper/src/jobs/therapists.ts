@@ -36,12 +36,18 @@ function unwrapSiteName(sites: SalonRow['sites']): SiteName | null {
   return sites.name;
 }
 
-async function fetchSalons(): Promise<Salon[]> {
-  const { data, error } = await supabase
+async function fetchSalons(onlyUnsynced: boolean): Promise<Salon[]> {
+  let query = supabase
     .from('salons')
     .select('id, site_id, shop_id, name, url, sites!inner(name), last_synced_at, deleted_at')
     .is('deleted_at', null)
     .order('last_synced_at', { ascending: true, nullsFirst: true });
+
+  if (onlyUnsynced) {
+    query = query.is('last_synced_at', null);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     throw new Error(`Failed to fetch salons: ${error.message}`);
@@ -111,9 +117,17 @@ async function markSalonSynced(salonId: string): Promise<void> {
   }
 }
 
-export async function runTherapistsJob(): Promise<void> {
-  const salons = await fetchSalons();
-  log.info(`Found ${salons.length} salons to sync`);
+export interface RunTherapistsJobOptions {
+  /** true の場合、last_synced_at IS NULL のサロン（未スクレイピング）のみを対象にする。 */
+  onlyUnsynced?: boolean;
+}
+
+export async function runTherapistsJob(
+  options: RunTherapistsJobOptions = {},
+): Promise<void> {
+  const onlyUnsynced = options.onlyUnsynced ?? false;
+  const salons = await fetchSalons(onlyUnsynced);
+  log.info(`Found ${salons.length} salons to sync`, { only_unsynced: onlyUnsynced });
 
   let success = 0;
   let failure = 0;
