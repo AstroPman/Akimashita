@@ -11,20 +11,20 @@ locals {
   stages = {
     therapists = {
       handler            = "therapists.handler"
-      memory_mb          = 1769
-      timeout_seconds    = 120
+      memory_mb          = 256
+      timeout_seconds    = 900
       log_retention_days = 14
     }
     availability = {
       handler            = "availability.handler"
-      memory_mb          = 1769
-      timeout_seconds    = 120
+      memory_mb          = 256
+      timeout_seconds    = 300
       log_retention_days = 14
     }
     notify = {
       handler            = "notify.handler"
       memory_mb          = 256
-      timeout_seconds    = 60
+      timeout_seconds    = 300
       log_retention_days = 14
     }
   }
