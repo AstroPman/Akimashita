@@ -1,5 +1,5 @@
 # =============================================================================
-# Terraform 操作ラッパー
+# Terraform 操作 + scraper コンテナ デプロイ ラッパー
 #
 # infra/aws は環境（production / staging）で backend と tfvars を切り替えて
 # 実行する。アカウントは同一なので、State キーと variables の差し替えだけで分離する。
@@ -12,6 +12,22 @@
 # bootstrap は環境横断（shared）なので ENV 指定不要。
 #   make bootstrap-init
 #   make bootstrap-apply
+#
+# -----------------------------------------------------------------------------
+# 初回セットアップ（チェックリスト）
+# -----------------------------------------------------------------------------
+# 1. make bootstrap-init && make bootstrap-apply
+#    → S3 (state) + GitHub OIDC Provider + akimashita-github-deploy Role を作成
+#    → terraform output github_deploy_role_arn の値を控える
+# 2. GitHub: Settings > Secrets and variables > Actions > Variables に
+#    AWS_DEPLOY_ROLE_ARN = <手順 1 の Role ARN> を登録
+# 3. make scraper-image-deploy ENV=staging
+#    → 初版イメージを ECR に push（terraform apply で参照される）
+# 4. make aws-init ENV=staging && make aws-apply ENV=staging
+#    → Lambda(publish=true) と alias 'live' を作成
+# 5. main へ push する or workflow_dispatch で
+#    .github/workflows/scraper-deploy-staging.yml を起動
+#    → 以降は scraper-deploy ターゲットが build → push → alias 切替まで自動化
 # =============================================================================
 
 # -- 環境定義 --------------------------------------------------------------
@@ -36,14 +52,22 @@ SCRAPER_PLATFORM   := linux/arm64
 SCRAPER_IMAGE_TAG  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 
 # Lambda が参照するイメージタグを Terraform に渡す。
-# git checkout した SHA = ECR push した SHA = Lambda 参照イメージ、を維持する。
+# 初回 apply 時のみ image_uri に反映される（以後は ignore_changes で無視され、
+# CI/CD が aws lambda update-function-code で上書きする運用）。
 AWS_VAR_IMAGE_TAG  := -var=scraper_image_tag=$(SCRAPER_IMAGE_TAG)
+
+# -- スクレイパー Lambda デプロイ定義 -------------------------------------
+# 全ステージ共通のエイリアス名。CI が新バージョンに付け替える対象。
+SCRAPER_LAMBDA_ALIAS  := live
+SCRAPER_LAMBDA_PREFIX := akimashita-$(ENV)-scraper
+SCRAPER_LAMBDA_STAGES := salons therapists availability notify
 
 # .PHONY -------------------------------------------------------------------
 .PHONY: help \
         aws-init aws-plan aws-apply aws-destroy aws-fmt aws-validate aws-output aws-console aws-clean \
         bootstrap-init bootstrap-plan bootstrap-apply bootstrap-fmt bootstrap-validate bootstrap-output \
         scraper-image-build scraper-image-push scraper-image-deploy scraper-image-login \
+        scraper-lambda-update scraper-deploy \
         fmt
 
 # -- help ------------------------------------------------------------------
@@ -72,8 +96,12 @@ help:
 	@echo "[scraper image]  current ENV=$(ENV)  TAG=$(SCRAPER_IMAGE_TAG)"
 	@echo "  scraper-image-build   apps/scraper を docker build (--platform=$(SCRAPER_PLATFORM))"
 	@echo "  scraper-image-push    ECR にログインして tag + push (build を含まない)"
-	@echo "  scraper-image-deploy  build → push を一気に実行"
+	@echo "  scraper-image-deploy  build → push を一気に実行 (Lambda は更新しない)"
 	@echo "  scraper-image-login   ECR docker login のみ"
+	@echo ""
+	@echo "[scraper deploy]  current ENV=$(ENV)  TAG=$(SCRAPER_IMAGE_TAG)  ALIAS=$(SCRAPER_LAMBDA_ALIAS)"
+	@echo "  scraper-lambda-update 既に push 済みの <TAG> を全ステージ Lambda に反映 + alias を新版へ付け替え"
+	@echo "  scraper-deploy        build → push → Lambda 更新 → alias 切替を一気通貫で実行 (CI でも使用)"
 	@echo ""
 	@echo "[共通]"
 	@echo "  fmt            両方の terraform fmt -recursive を実行"
@@ -159,6 +187,43 @@ scraper-image-push:
 	echo "Pushed: $$REMOTE"
 
 scraper-image-deploy: scraper-image-build scraper-image-push
+
+# -- scraper Lambda update (alias live を新バージョンへ付け替え) ----------
+# 前提: scraper-image-push 等で <SCRAPER_IMAGE_TAG> が既に ECR に push されていること。
+# 各ステージごとに以下を直列実行する:
+#   1. update-function-code --publish で新バージョンを発行
+#   2. wait function-updated で配備完了を待つ
+#   3. update-alias で live を新バージョンに付け替え
+# 失敗したステージで止めるため `set -e` 相当を Makefile シェルで効かせる。
+
+scraper-lambda-update:
+	@AWS_ACCOUNT_ID=$$(aws sts get-caller-identity --query Account --output text); \
+	REGISTRY=$$AWS_ACCOUNT_ID.dkr.ecr.$(AWS_REGION).amazonaws.com; \
+	IMAGE_URI=$$REGISTRY/$(SCRAPER_REPO_NAME):$(SCRAPER_IMAGE_TAG); \
+	echo "Updating Lambdas in ENV=$(ENV) to $$IMAGE_URI"; \
+	for stage in $(SCRAPER_LAMBDA_STAGES); do \
+	  FN=$(SCRAPER_LAMBDA_PREFIX)-$$stage; \
+	  echo ""; \
+	  echo "==> $$FN: update-function-code --publish"; \
+	  VERSION=$$(aws lambda update-function-code \
+	    --function-name $$FN \
+	    --image-uri $$IMAGE_URI \
+	    --publish \
+	    --query Version --output text) || exit 1; \
+	  echo "==> $$FN: wait function-updated (v$$VERSION)"; \
+	  aws lambda wait function-updated --function-name $$FN || exit 1; \
+	  echo "==> $$FN: update-alias $(SCRAPER_LAMBDA_ALIAS) -> v$$VERSION"; \
+	  aws lambda update-alias \
+	    --function-name $$FN \
+	    --name $(SCRAPER_LAMBDA_ALIAS) \
+	    --function-version $$VERSION >/dev/null || exit 1; \
+	done; \
+	echo ""; \
+	echo "Done. All stages now serving version above on alias '$(SCRAPER_LAMBDA_ALIAS)'."
+
+# build → push → 全ステージの Lambda を新版に切り替えまで一気通貫。
+# GitHub Actions (.github/workflows/scraper-deploy-staging.yml) からも同じターゲットを呼ぶ。
+scraper-deploy: scraper-image-build scraper-image-push scraper-lambda-update
 
 # -- 共通 ------------------------------------------------------------------
 fmt:
