@@ -29,6 +29,16 @@ output "scraper_lambda_function_names" {
   value       = module.scraper.lambda_function_names
 }
 
+output "scraper_lambda_alias_name" {
+  description = "全ステージ共通の Lambda エイリアス名（CI が update-alias で付け替える）"
+  value       = module.scraper.lambda_alias_name
+}
+
+output "scraper_lambda_alias_arns" {
+  description = "ステージ → Lambda Alias ARN（function_arn:live）"
+  value       = module.scraper.lambda_alias_arns
+}
+
 output "scraper_schedule_arns" {
   description = "ステージ → EventBridge Schedule ARN"
   value       = module.scraper.schedule_arns

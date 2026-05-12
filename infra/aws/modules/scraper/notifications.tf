@@ -21,15 +21,19 @@ resource "aws_sns_topic_subscription" "alerts_email" {
 }
 
 # ============================================================================
-# CloudWatch Alarm: Lambda Errors（ステージごと）
+# CloudWatch Alarm: Lambda Errors（ステージごと、live エイリアスのみ）
 # - 5 分間で 1 件以上の Errors が出たら SNS に発報
 # - SNS 経由でメール通知（要事前承認）
+#
+# Resource ディメンションに alias 名を含めることで、live 以外（過去版の
+# 直接呼び出しなど）のエラーをノイズとして除外し、本番トラフィックの
+# エラーだけを拾えるようにする。
 # ============================================================================
 resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   for_each = local.stages
 
   alarm_name          = "${var.name_prefix}-${each.key}-errors"
-  alarm_description   = "Lambda ${var.name_prefix}-${each.key} が 5 分以内にエラーを記録した"
+  alarm_description   = "Lambda ${var.name_prefix}-${each.key}:live が 5 分以内にエラーを記録した"
   comparison_operator = "GreaterThanOrEqualToThreshold"
   evaluation_periods  = 1
   metric_name         = "Errors"
@@ -41,6 +45,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
 
   dimensions = {
     FunctionName = aws_lambda_function.stage[each.key].function_name
+    Resource     = "${aws_lambda_function.stage[each.key].function_name}:${aws_lambda_alias.stage[each.key].name}"
   }
 
   alarm_actions = [aws_sns_topic.alerts.arn]

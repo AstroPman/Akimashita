@@ -1,0 +1,78 @@
+name: scraper-deploy (staging)
+
+# main へ push したら以下を順番に実行する:
+#   1. apps/scraper を docker build (linux/arm64)
+#   2. ECR (akimashita-staging-scraper) に push
+#   3. 全ステージの Lambda を新イメージに update-function-code --publish
+#   4. live エイリアスを新バージョンに付け替え
+#
+# 全部 Makefile の `scraper-deploy` ターゲットに集約しているので、
+# このワークフローはほぼ「OIDC で AssumeRole して make を呼ぶだけ」の薄いラッパー。
+#
+# AWS への認証は OIDC + AssumeRole。Role ARN は Terraform (infra/bootstrap) で
+# 作成した akimashita-github-deploy を Repository Variable AWS_DEPLOY_ROLE_ARN
+# に手動で登録しておくこと。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/scraper/**'
+      - 'packages/shared/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'infra/aws/modules/scraper/**'
+      - 'Makefile'
+      - '.github/workflows/scraper-deploy-staging.yml'
+  workflow_dispatch:
+
+# 同時並走を避ける。新しい push が来ても実行中のデプロイは最後まで走らせ、
+# その後ろに 1 件だけキューする（さらに新しい push が来たら待機分は GitHub
+# 側で自動キャンセル）。
+concurrency:
+  group: scraper-deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build & deploy scraper image (staging)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+
+    permissions:
+      id-token: write # OIDC で AWS に AssumeRole するために必須
+      contents: read
+
+    env:
+      AWS_REGION: ap-northeast-1
+      ENV: staging
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ローカル開発と同じ「git short SHA」をイメージタグに使う。
+      # checkout@v4 は depth=1 だが rev-parse --short HEAD は HEAD コミットだけ
+      # あれば動くので問題ない。
+      - name: Resolve short SHA
+        id: sha
+        run: echo "value=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: make scraper-deploy
+        env:
+          SCRAPER_IMAGE_TAG: ${{ steps.sha.outputs.value }}
+        run: |
+          make scraper-deploy ENV=$ENV SCRAPER_IMAGE_TAG=$SCRAPER_IMAGE_TAG
+
+      - name: Show deployed image tag
+        run: echo "Deployed image tag = ${{ steps.sha.outputs.value }}"

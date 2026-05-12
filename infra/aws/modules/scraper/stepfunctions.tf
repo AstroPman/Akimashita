@@ -10,7 +10,9 @@
 # ============================================================================
 
 locals {
-  salons_lambda_arn = aws_lambda_function.stage["salons"].arn
+  # Lambda 関数本体ではなく live エイリアスを叩く（function_arn:live 形式）。
+  # CI が新バージョンに alias を付け替えれば、SFN 定義の更新無しで切替が反映される。
+  salons_lambda_arn = aws_lambda_alias.stage["salons"].arn
 
   # Lambda Invoke の各 Task で共通利用する Retry 設定。
   # スクレイピング側で transient な fetch 失敗 / Supabase 一時障害が起き得るため、
@@ -87,7 +89,7 @@ resource "aws_cloudwatch_log_group" "sfn_salons_pipeline" {
 
 # ----------------------------------------------------------------------------
 # Step Functions State Machine
-# - Standard ワークフロー: 1 日 1 回起動・実行時間 ~数分〜十数分を想定
+# - 実行時間 ~数分〜十数分を想定（頻度は EventBridge Scheduler の式で制御）
 # - 各 Task は Lambda Invoke で Payload.phase を固定し、前段の出力は次段に渡さない
 #   (ResultPath = null で入力をそのまま下流に伝播)
 # ----------------------------------------------------------------------------

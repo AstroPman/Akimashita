@@ -74,9 +74,12 @@ resource "aws_iam_role" "scheduler" {
 }
 
 data "aws_iam_policy_document" "scheduler_invoke" {
+  # Scheduler は live エイリアス経由で Lambda を呼ぶため、qualified ARN
+  # (function_arn:live) を許可する必要がある。エイリアス ARN は
+  # aws_lambda_alias.stage[*].arn から取得する。
   statement {
     actions   = ["lambda:InvokeFunction"]
-    resources = [for fn in aws_lambda_function.stage : fn.arn]
+    resources = [for a in aws_lambda_alias.stage : a.arn]
   }
 }
 

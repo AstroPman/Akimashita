@@ -23,6 +23,16 @@ output "lambda_function_arns" {
   value       = { for k, fn in aws_lambda_function.stage : k => fn.arn }
 }
 
+output "lambda_alias_name" {
+  description = "全ステージ共通の Lambda エイリアス名（CI が update-alias で付け替える）"
+  value       = "live"
+}
+
+output "lambda_alias_arns" {
+  description = "ステージ → Lambda Alias ARN（function_arn:live 形式。Scheduler / SFN / Alarm 全てここを参照）"
+  value       = { for k, a in aws_lambda_alias.stage : k => a.arn }
+}
+
 output "schedule_arns" {
   description = "ステージ → EventBridge Schedule ARN（schedule 設定があるステージのみ）。salons 系は別 output を参照。"
   value       = { for k, s in aws_scheduler_schedule.stage : k => s.arn }

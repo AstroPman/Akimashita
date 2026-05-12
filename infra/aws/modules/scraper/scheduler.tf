@@ -5,7 +5,7 @@
 #
 # salons ステージは 2 系統で起動するため、この for_each からは除外する。
 #   - 月 1 回 phase=areas を Lambda 直接呼び出し  → salons_areas
-#   - 1 日 1 回 SFN を StartExecution            → salons_pipeline
+#   - 定期で SFN を StartExecution            → salons_pipeline
 # ============================================================================
 resource "aws_scheduler_schedule" "stage" {
   for_each = {
@@ -25,8 +25,10 @@ resource "aws_scheduler_schedule" "stage" {
 
   state = var.schedule_state
 
+  # Lambda 関数本体ではなく live エイリアスを叩く。CI が新バージョンに
+  # alias を付け替えれば、Schedule 側の更新無しで切替が反映される。
   target {
-    arn      = aws_lambda_function.stage[each.key].arn
+    arn      = aws_lambda_alias.stage[each.key].arn
     role_arn = aws_iam_role.scheduler.arn
   }
 
@@ -53,7 +55,7 @@ resource "aws_scheduler_schedule" "salons_areas" {
   state = var.schedule_state
 
   target {
-    arn      = aws_lambda_function.stage["salons"].arn
+    arn      = aws_lambda_alias.stage["salons"].arn
     role_arn = aws_iam_role.scheduler.arn
     input    = jsonencode({ phase = "areas" })
   }
@@ -63,7 +65,7 @@ resource "aws_scheduler_schedule" "salons_areas" {
 
 # ----------------------------------------------------------------------------
 # salons / discover→details→bookings→link を直列実行する Step Functions の
-# StartExecution を 1 日 1 回叩くスケジュール。
+# StartExecution を定期実行するスケジュール（頻度はルート変数で指定）。
 # - `var.salons_pipeline_schedule` が空文字 / 未指定なら作成しない。
 # ----------------------------------------------------------------------------
 resource "aws_scheduler_schedule" "salons_pipeline" {

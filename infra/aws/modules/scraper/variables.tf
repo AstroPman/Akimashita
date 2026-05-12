@@ -20,7 +20,7 @@ variable "ecr_untagged_expire_days" {
 # === Lambda =================================================================
 
 variable "image_tag" {
-  description = "Lambda Function に紐付ける ECR イメージタグ。Makefile が git SHA を渡す前提。"
+  description = "Lambda Function 初回作成時に参照する ECR イメージタグ。以後の更新は CI/CD が aws lambda update-function-code で上書きするため、image_uri は ignore_changes で Terraform 管理外。"
   type        = string
 }
 
@@ -56,7 +56,7 @@ variable "salons_areas_schedule" {
 }
 
 variable "salons_pipeline_schedule" {
-  description = "salons / discover→details→bookings→link を直列実行する Step Functions の cron 式（UTC）。1 日 1 回程度を想定。空文字なら Schedule を作らない。"
+  description = "salons / discover→details→bookings→link を直列実行する Step Functions のスケジュール式（cron または rate）。空文字なら Schedule を作らない。"
   type        = string
   default     = ""
 }
