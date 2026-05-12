@@ -2,6 +2,10 @@ import { createLogger } from './lib/logger.js';
 import { runTherapistsJob } from './jobs/therapists.js';
 import { runAvailabilityJob } from './jobs/availability.js';
 import { runNotifyJob } from './jobs/notify.js';
+import {
+  runExternalSalonsJob,
+  type ExternalSalonsPhase,
+} from './jobs/external_salons.js';
 
 const log = createLogger('main');
 
@@ -13,6 +17,7 @@ interface CliArgs {
   dryRun: boolean;
   limit: number | null;
   onlyUnsynced: boolean;
+  salonsPhase: ExternalSalonsPhase;
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -56,7 +61,26 @@ function parseArgs(argv: string[]): CliArgs {
 
   const onlyUnsynced = argv.includes('--only-unsynced');
 
-  return { stage: stageValue, loop, dryRun, limit, onlyUnsynced };
+  const phaseArg = argv.find((a) => a.startsWith('--phase='));
+  let salonsPhase: ExternalSalonsPhase = 'all';
+  if (phaseArg) {
+    const v = phaseArg.split('=', 2)[1];
+    if (
+      v !== 'areas' &&
+      v !== 'discover' &&
+      v !== 'details' &&
+      v !== 'bookings' &&
+      v !== 'link' &&
+      v !== 'all'
+    ) {
+      throw new Error(
+        `--phase must be one of: areas | discover | details | bookings | link | all (got "${v}")`,
+      );
+    }
+    salonsPhase = v;
+  }
+
+  return { stage: stageValue, loop, dryRun, limit, onlyUnsynced, salonsPhase };
 }
 
 function sleep(ms: number): Promise<void> {
@@ -69,7 +93,14 @@ async function main(): Promise<void> {
 
   switch (args.stage) {
     case 'salons':
-      throw new Error('Stage 1 (salons) is not implemented yet. Manage seed.sql manually.');
+      if (args.loop !== 1) {
+        log.warn('--loop is ignored for stage=salons');
+      }
+      await runExternalSalonsJob({
+        phase: args.salonsPhase,
+        limit: args.limit ?? undefined,
+      });
+      break;
     case 'therapists':
       if (args.loop !== 1) {
         log.warn('--loop is ignored for stage=therapists');

@@ -7,6 +7,11 @@
   "scripts": {
     "dev": "tsx src/index.ts",
     "dev:salons": "tsx src/index.ts --stage=salons",
+    "dev:salons:areas": "tsx src/index.ts --stage=salons --phase=areas",
+    "dev:salons:discover": "tsx src/index.ts --stage=salons --phase=discover",
+    "dev:salons:details": "tsx src/index.ts --stage=salons --phase=details",
+    "dev:salons:bookings": "tsx src/index.ts --stage=salons --phase=bookings",
+    "dev:salons:link": "tsx src/index.ts --stage=salons --phase=link",
     "dev:therapists": "tsx src/index.ts --stage=therapists",
     "dev:therapists:new": "tsx src/index.ts --stage=therapists --only-unsynced",
     "dev:availability": "tsx src/index.ts --stage=availability",

@@ -241,3 +241,23 @@ export const httpEstama = createHttp({
     Origin: 'https://estama.jp',
   },
 });
+
+// men-esthe.jp は外部ポータルでサロンマスタの参照元。
+// area-list.php / area.php / salon.php を巡回するナビゲーション主体。
+export const httpMenesthe = createHttp({
+  name: 'menesthe',
+  baseUrl: 'https://men-esthe.jp',
+  headers: {},
+});
+
+/**
+ * 任意の公式サイトを fetch するためのプリセット。
+ * external_salons.homepage_url から予約システムリンクを抽出する用途で
+ * 多数の独立ドメインを叩くため、汎用 UA + 共通ヘッダのみで構成する。
+ * 4xx/5xx を呼び出し側でハンドルしやすいよう、リトライは createHttp 既定に従う。
+ */
+export const httpHomepage = createHttp({
+  name: 'homepage',
+  baseUrl: '',
+  headers: {},
+});
