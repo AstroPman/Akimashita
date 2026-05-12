@@ -15,9 +15,12 @@ export function buildReservationUrl(input: ReservationUrlInput): string {
         therapistId,
       )}&date=${encodeURIComponent(date)}`;
     case 'grow':
-      // TODO: grow-appt.com の確定的な予約 URL（メニュー/日付ディープリンク）が
-      // わかったら差し替える。現状はホストへのフォールバック。
-      return 'https://grow-appt.com/';
+      // Grow の予約フォームは page=menu でメニュー選択に飛ぶ。
+      // menu_no は API 経由でないと取れない（セラピスト/メニュー別）ため、
+      // メニュー選択画面までの誘導に留める。date はメニュー選択後の画面で選ぶ。
+      return `https://grow-appt.com/reserve/order?SID=${encodeURIComponent(
+        shopId,
+      )}&page=menu&staff_no=${encodeURIComponent(therapistId)}`;
     case 'edc':
       // EDC は Step 進行型のため特定セラピスト/日時に直接リンクできない。
       // 店舗の予約フォーム TOP にフォールバックする。
