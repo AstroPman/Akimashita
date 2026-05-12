@@ -4,6 +4,7 @@ import { createLogger } from '../lib/logger.js';
 import { caskanTherapistScraper } from '../scrapers/caskan/therapists.js';
 import { growTherapistScraper } from '../scrapers/grow/therapists.js';
 import { edcTherapistScraper } from '../scrapers/edc/therapists.js';
+import { estamaTherapistScraper } from '../scrapers/estama/therapists.js';
 
 const log = createLogger('job:therapists');
 
@@ -24,6 +25,8 @@ function pickScraper(siteName: SiteName): TherapistScraper {
       return growTherapistScraper;
     case 'edc':
       return edcTherapistScraper;
+    case 'estama':
+      return estamaTherapistScraper;
   }
 }
 

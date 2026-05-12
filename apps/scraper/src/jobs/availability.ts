@@ -9,6 +9,7 @@ import { createLogger } from '../lib/logger.js';
 import { caskanAvailabilityScraper } from '../scrapers/caskan/availability.js';
 import { growAvailabilityScraper } from '../scrapers/grow/availability.js';
 import { edcAvailabilityScraper } from '../scrapers/edc/availability.js';
+import { estamaAvailabilityScraper } from '../scrapers/estama/availability.js';
 
 const log = createLogger('job:availability');
 
@@ -34,6 +35,8 @@ function pickScraper(siteName: SiteName): AvailabilityScraper {
       return growAvailabilityScraper;
     case 'edc':
       return edcAvailabilityScraper;
+    case 'estama':
+      return estamaAvailabilityScraper;
   }
 }
 

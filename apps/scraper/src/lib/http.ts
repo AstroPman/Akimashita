@@ -228,3 +228,16 @@ export const httpEdc = createHttp({
   baseUrl: 'https://esthe-datacenter.com',
   headers: {},
 });
+
+// estama.jp はメンズエステ掲載ポータルで、店舗の予約も提供する。
+// CookieJar は共通で問題ない (EDC のような Step セッション干渉はない)。
+// 次週スケジュールは /post/shop_schedule_ctrl への POST で取るため、
+// fetch 同士の干渉が起きないよう request 単位で完結する設計とする。
+export const httpEstama = createHttp({
+  name: 'estama',
+  baseUrl: 'https://estama.jp',
+  headers: {},
+  apiHeaders: {
+    Origin: 'https://estama.jp',
+  },
+});
