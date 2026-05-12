@@ -12,4 +12,4 @@ alert_emails = []
 
 # Schedule の初期状態。ENABLED にすると本物の cron 起動が始まる。
 # スモークテストを完了してから "ENABLED" に変更する。
-scraper_schedule_state = "DISABLED"
+scraper_schedule_state = "ENABLED"
