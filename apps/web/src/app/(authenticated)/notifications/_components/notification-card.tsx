@@ -37,8 +37,8 @@ export function NotificationCard({ item }: Props) {
       )}
     >
       <article>
-        <header className="flex flex-wrap items-start justify-between gap-3 px-5 pt-4">
-          <div className="flex min-w-0 flex-1 items-start gap-2">
+        <header className="flex flex-col gap-2 px-6 pt-4">
+          <div className="flex items-center justify-between gap-3">
             {isAnnouncement ? (
               <Badge variant="default" className="shrink-0 gap-1">
                 <MegaphoneIcon className="size-3" />
@@ -50,19 +50,19 @@ export function NotificationCard({ item }: Props) {
                 通知メール
               </Badge>
             )}
-            <h2 className="min-w-0 break-words text-base font-semibold">
-              {title}
-            </h2>
+            <time
+              className="shrink-0 text-xs text-muted-foreground"
+              dateTime={item.occurredAt}
+            >
+              {formatJstDateTime(item.occurredAt)}
+            </time>
           </div>
-          <time
-            className="shrink-0 text-xs text-muted-foreground"
-            dateTime={item.occurredAt}
-          >
-            {formatJstDateTime(item.occurredAt)}
-          </time>
+          <h2 className="break-words text-base font-semibold">
+            {title}
+          </h2>
         </header>
 
-        <p className="line-clamp-2 px-5 pt-2 pb-4 text-sm text-muted-foreground">
+        <p className="line-clamp-2 px-6 pt-3 pb-5 text-sm text-muted-foreground">
           {preview}
         </p>
       </article>
