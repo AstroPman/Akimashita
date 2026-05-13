@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { resolveTherapistImageSrc } from "@/lib/therapist-image";
+import { RefreshOnMount } from "../_components/refresh-on-mount";
 import {
   TherapistStatsBlock,
   type TherapistStats,
@@ -85,6 +86,7 @@ export default async function WatchDetailPage({
 
   return (
     <div className="space-y-6 pb-24 sm:pb-6">
+      <RefreshOnMount />
       <Button asChild variant="ghost" size="sm" className="-ml-2 gap-1">
         <Link href="/watches">
           <ChevronLeftIcon className="size-4" />

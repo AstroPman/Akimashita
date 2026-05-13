@@ -4,6 +4,7 @@ import { PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { getWatchQuota } from "@/lib/watches/quota";
+import { RefreshOnMount } from "./_components/refresh-on-mount";
 import { WatchList, type WatchItem } from "./_components/watch-list";
 import { WatchQuotaIndicator } from "./_components/watch-quota-indicator";
 
@@ -77,6 +78,7 @@ export default async function WatchesPage() {
 
   return (
     <div className="space-y-6 pb-24 sm:pb-0">
+      <RefreshOnMount />
       <div className="sticky top-0 z-20 -mx-4 border-b border-border/60 bg-background/95 px-4 pb-4 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div className="min-w-0">
