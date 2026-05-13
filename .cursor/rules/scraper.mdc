@@ -103,7 +103,18 @@ AWS 上では `areas` のみ単独 Schedule（月 1 回）で動かし、残り 
 - 処理: セラピストごとに空き枠を取得・差分検知し、通知対象なら `notification_logs` にエンキュー
 - 出力: `availability` テーブルにupsert、通知があれば `notification_logs` に記録
 - 頻度: 1分間隔（GitHub Actions: 5分Cronで Job 内 1分×5回ループ）
-- 効率化: `watch_settings` に登録されていないセラピストはスキップ
+- 効率化:
+  - `watch_settings` に登録されていないセラピストはスキップ
+  - セラピスト処理は **`AVAILABILITY_CONCURRENCY`** ワーカープールで並列化される。
+    ホスト負荷は HostQueue (`lib/http.ts`) が同一ホスト単位で
+    **`SCRAPER_HTTP_CONCURRENCY_<NAME>`** 接続だけ並列化 + delay を必ず挟む形で維持する
+  - caskan は全店舗が `r.caskan.jp` 1 ホストに集約されるため、
+    `SCRAPER_HTTP_CONCURRENCY_CASKAN` がクリティカルパス。caskan 14日分シフトは
+    `Promise.all` で並列発行する設計
+  - edc は店舗ごとに別サブドメインだが、同一店舗に複数セラピストいる場合は
+    `SCRAPER_HTTP_CONCURRENCY_EDC` を上げると効く
+  - エラー・429/5xx 時は HostQueue 内の指数バックオフ + Retry-After 解釈で
+    自動的に減速する
 
 ### Stage 4: 通知ジョブ (notify)
 - 入力: `notification_logs`（未送信レコード）
@@ -385,16 +396,30 @@ npx ts-node src/index.ts --stage=notify --dry-run
 SUPABASE_URL=http://localhost:54321
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
-# HTTP 共通
+# HTTP 共通（全 site の HostQueue デフォルト値。site 別に個別上書きも可）
 USER_AGENT=Mozilla/5.0 ...
-MIN_DELAY_MS=300
-MAX_DELAY_MS=800
+MIN_DELAY_MS=200
+MAX_DELAY_MS=500
 HTTP_TIMEOUT_MS=15000
 HTTP_MAX_RETRIES=3
 
 # Stage 1 (salons) bookings サブフェーズの並列度
 # homepage_url は基本別ホストなので HostQueue を維持したまま worker 数だけ並列化される
 BOOKING_CONCURRENCY=10
+
+# Stage 3 (availability) 攻めセット
+# ローカル 18 人監視: baseline 34s → 4.3s (-87%)、リトライ 0
+# staging 26 人監視 (Lambda 1024MB): baseline 85s → 23s (-73%)、リトライ 0
+AVAILABILITY_CONCURRENCY=16            # セラピスト並列度
+SCRAPER_HTTP_CONCURRENCY_CASKAN=3      # r.caskan.jp 同一ホスト並列度（旧クリティカルパス）
+SCRAPER_HTTP_CONCURRENCY_EDC=2         # 同一店舗 (reserve-{shop_id}) 並列度
+SCRAPER_HTTP_CONCURRENCY_GROW=3        # grow-appt.com 単一ホスト + 監視多数のため
+
+# site 別チューニング（任意。preset.name を大文字化したサフィックスで指定）
+# 形式: SCRAPER_HTTP_CONCURRENCY_<NAME>
+#       SCRAPER_HTTP_DELAY_MIN_MS_<NAME>
+#       SCRAPER_HTTP_DELAY_MAX_MS_<NAME>
+# <NAME> ∈ { CASKAN, GROW, EDC, ESTAMA, MENESTHE, HOMEPAGE }
 
 # Stage 4 (notify) 用
 RESEND_API_KEY=...
