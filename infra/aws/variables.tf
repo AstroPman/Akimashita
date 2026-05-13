@@ -38,9 +38,9 @@ variable "scraper_salons_areas_schedule" {
 }
 
 variable "scraper_salons_pipeline_schedule" {
-  description = "salons / discover→details→bookings→link を直列実行する Step Functions のスケジュール式。初期データが貯まるまでの高頻度運用向けにデフォルトは 10 分間隔。落ち着いたら日次 cron 等へ変更する。"
+  description = "salons / discover→details→bookings→link を直列実行する Step Functions のスケジュール式。デフォルトは 1 日 1 回（UTC 毎日 18:00、JST 03:00）。"
   type        = string
-  default     = "rate(25 minutes)"
+  default     = "cron(0 18 * * ? *)" # JST 03:00 daily
 }
 
 variable "supabase_url" {
