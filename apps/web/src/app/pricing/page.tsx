@@ -8,6 +8,7 @@ import { SiteFooter } from "@/components/landing/site-footer";
 import { getPublicSalons } from "@/lib/salons";
 import { getSeatsSnapshot } from "@/lib/seats";
 import { TRIAL_DAYS } from "@/lib/stripe/config";
+import { getPlanPricing } from "@/lib/stripe/pricing";
 import { startCheckoutAction } from "./actions";
 
 export const metadata: Metadata = {
@@ -16,23 +17,17 @@ export const metadata: Metadata = {
     "アキマシタは限定 N 名のサービスです。月額 / 年額プランから選択でき、最初の14日間は無料です。",
 };
 
-interface PlanCard {
+interface PlanCardMeta {
   id: "monthly" | "yearly";
   name: string;
-  priceLabel: string;
-  period: string;
-  note: string;
   bullets: string[];
   highlight?: boolean;
 }
 
-const PLANS: PlanCard[] = [
+const PLAN_META: PlanCardMeta[] = [
   {
     id: "monthly",
     name: "月額プラン",
-    priceLabel: "¥1,980",
-    period: "月",
-    note: "毎月自動更新。いつでも解約可能。",
     bullets: [
       "監視できるセラピストの登録は無制限",
       "メール通知（LINE 通知は今後対応予定）",
@@ -42,9 +37,6 @@ const PLANS: PlanCard[] = [
   {
     id: "yearly",
     name: "年額プラン",
-    priceLabel: "¥19,800",
-    period: "年",
-    note: "実質 ¥1,650 / 月（2 ヶ月分お得）",
     bullets: [
       "月額プランの全機能",
       "支払いは年に 1 回",
@@ -59,9 +51,12 @@ export default async function PricingPage({
 }: {
   searchParams: Promise<{ reason?: string; invite?: string }>;
 }) {
-  const seats = await getSeatsSnapshot();
-  const publicSalons = await getPublicSalons();
-  const { reason, invite } = await searchParams;
+  const [seats, publicSalons, pricing, { reason, invite }] = await Promise.all([
+    getSeatsSnapshot(),
+    getPublicSalons(),
+    getPlanPricing(),
+    searchParams,
+  ]);
   const inviteToken = invite ?? null;
 
   return (
@@ -121,60 +116,65 @@ export default async function PricingPage({
           </div>
 
           <div className="mt-10 grid gap-6 sm:grid-cols-2">
-            {PLANS.map((plan) => (
-              <div
-                key={plan.id}
-                className={`flex flex-col rounded-xl border bg-card p-6 text-card-foreground shadow-sm ${plan.highlight ? "ring-2 ring-primary" : ""}`}
-              >
-                <div className="flex items-baseline justify-between gap-3">
-                  <h2 className="text-lg font-semibold">{plan.name}</h2>
-                  {plan.highlight ? (
-                    <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
-                      おすすめ
+            {PLAN_META.map((plan) => {
+              const price = pricing[plan.id];
+              return (
+                <div
+                  key={plan.id}
+                  className={`flex flex-col rounded-xl border bg-card p-6 text-card-foreground shadow-sm ${plan.highlight ? "ring-2 ring-primary" : ""}`}
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <h2 className="text-lg font-semibold">{plan.name}</h2>
+                    {plan.highlight ? (
+                      <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
+                        おすすめ
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-4 flex items-baseline gap-1">
+                    <span className="text-3xl font-bold tracking-tight">
+                      {price.priceLabel}
                     </span>
-                  ) : null}
-                </div>
-                <div className="mt-4 flex items-baseline gap-1">
-                  <span className="text-3xl font-bold tracking-tight">
-                    {plan.priceLabel}
-                  </span>
-                  <span className="text-sm text-muted-foreground">
-                    / {plan.period}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">{plan.note}</p>
+                    <span className="text-sm text-muted-foreground">
+                      / {price.periodLabel}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {price.note}
+                  </p>
 
-                <ul className="mt-6 space-y-2 text-sm">
-                  {plan.bullets.map((b) => (
-                    <li key={b} className="flex items-start gap-2">
-                      <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" />
-                      <span>{b}</span>
-                    </li>
-                  ))}
-                </ul>
+                  <ul className="mt-6 space-y-2 text-sm">
+                    {plan.bullets.map((b) => (
+                      <li key={b} className="flex items-start gap-2">
+                        <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" />
+                        <span>{b}</span>
+                      </li>
+                    ))}
+                  </ul>
 
-                <form action={startCheckoutAction} className="mt-6">
-                  <input type="hidden" name="plan" value={plan.id} />
-                  {inviteToken ? (
-                    <input type="hidden" name="invite" value={inviteToken} />
-                  ) : null}
-                  {seats.isFull && !inviteToken ? (
-                    <Button
-                      asChild
-                      className="w-full"
-                      variant="outline"
-                      size="lg"
-                    >
-                      <Link href="/waitlist">ウェイトリストに登録</Link>
-                    </Button>
-                  ) : (
-                    <Button type="submit" className="w-full" size="lg">
-                      {TRIAL_DAYS} 日間無料で試す
-                    </Button>
-                  )}
-                </form>
-              </div>
-            ))}
+                  <form action={startCheckoutAction} className="mt-6">
+                    <input type="hidden" name="plan" value={plan.id} />
+                    {inviteToken ? (
+                      <input type="hidden" name="invite" value={inviteToken} />
+                    ) : null}
+                    {seats.isFull && !inviteToken ? (
+                      <Button
+                        asChild
+                        className="w-full"
+                        variant="outline"
+                        size="lg"
+                      >
+                        <Link href="/waitlist">ウェイトリストに登録</Link>
+                      </Button>
+                    ) : (
+                      <Button type="submit" className="w-full" size="lg">
+                        {TRIAL_DAYS} 日間無料で試す
+                      </Button>
+                    )}
+                  </form>
+                </div>
+              );
+            })}
           </div>
 
           <div className="mt-12 rounded-xl border bg-muted/40 p-6 text-sm text-muted-foreground">
@@ -195,6 +195,12 @@ export default async function PricingPage({
                 ・解約後も、すでに支払済みの期間（次回請求日まで）は引き続きご利用いただけます。
               </li>
             </ul>
+            <p className="mt-4 text-xs leading-6">
+              <Link href="/payments" className="font-medium text-foreground underline underline-offset-2">
+                お支払いに関するポリシー
+              </Link>
+              （返金・決済方法など）
+            </p>
           </div>
         </section>
       </main>

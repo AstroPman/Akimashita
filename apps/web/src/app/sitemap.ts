@@ -11,6 +11,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/waitlist`, lastModified: now, priority: 0.5 },
     { url: `${base}/terms`, lastModified: now, priority: 0.3 },
     { url: `${base}/privacy`, lastModified: now, priority: 0.3 },
+    { url: `${base}/payments`, lastModified: now, priority: 0.3 },
     { url: `${base}/contact`, lastModified: now, priority: 0.3 },
     { url: `${base}/login`, lastModified: now, priority: 0.4 },
     { url: `${base}/signup`, lastModified: now, priority: 0.6 },

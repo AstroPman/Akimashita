@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "利用規約",
@@ -41,6 +42,11 @@ export default function TermsPage() {
         本サービスは有料サブスクリプションです。お申し込み時にお支払い情報をご登録いただきます。
         所定の無料トライアル期間中は料金が発生しません。トライアル期間経過後はお選びのプランで自動的に課金されます。
         解約は所定の方法でいつでも可能で、解約後も次回請求日までは引き続き利用できます。
+        料金・お支払い・返金の詳細は
+        <Link href="/payments" className="underline underline-offset-2">
+          お支払いに関するポリシー
+        </Link>
+        をご参照ください。
       </p>
 
       <h2 className="mt-8 text-xl font-semibold">第 4 条（禁止事項）</h2>

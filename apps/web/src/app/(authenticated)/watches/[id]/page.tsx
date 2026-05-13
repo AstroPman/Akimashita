@@ -32,6 +32,9 @@ type WatchDetail = {
       id: string;
       name: string;
       url: string | null;
+      external_salons: {
+        homepage_url: string | null;
+      } | null;
     };
   };
 };
@@ -53,7 +56,10 @@ export default async function WatchDetailPage({
       therapist_id,
       therapists!inner (
         id, name, image_url, profile_url,
-        salons!inner (id, name, url)
+        salons!inner (
+          id, name, url,
+          external_salons (homepage_url)
+        )
       )
     `,
     )
@@ -79,6 +85,7 @@ export default async function WatchDetailPage({
 
   const therapist = watchTyped.therapists;
   const salon = therapist.salons;
+  const salonHomepageUrl = salon.external_salons?.homepage_url ?? null;
   const imageSrc = resolveTherapistImageSrc(
     therapist.image_url,
     therapist.profile_url,
@@ -137,10 +144,10 @@ export default async function WatchDetailPage({
                   </a>
                 </Button>
               ) : null}
-              {salon.url ? (
+              {salonHomepageUrl ? (
                 <Button asChild variant="ghost" size="sm">
                   <a
-                    href={salon.url}
+                    href={salonHomepageUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="gap-1"

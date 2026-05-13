@@ -38,6 +38,9 @@ export function SiteFooter() {
             <Link href="/privacy" className="transition-colors hover:text-foreground">
               プライバシー
             </Link>
+            <Link href="/payments" className="transition-colors hover:text-foreground">
+              お支払い
+            </Link>
           </nav>
         </div>
         <div className="mt-10 border-t border-neutral-200/70 pt-8">
