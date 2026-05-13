@@ -22,9 +22,135 @@ on conflict (id) do nothing;
 insert into salons (site_id, shop_id, name, url) values
   (
     '00000000-0000-0000-0000-000000000001',
+    '8136s',
+    'ミストスパ',
+    'https://r.caskan.jp/8136s'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'acro',
+    'アクロ',
+    'https://r.caskan.jp/acro'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'akabalice',
+    'アリス',
+    'https://r.caskan.jp/akabalice'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'amaterasy',
+    'アマテラス 神奈川',
+    'https://r.caskan.jp/amaterasy'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'anehime',
+    'アネヒメ 旧フラッグシップアネックス',
+    'https://r.caskan.jp/anehime'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'angeaile',
+    'アンジュエール',
+    'https://r.caskan.jp/angeaile'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'anue',
+    'アヌエ',
+    'https://r.caskan.jp/anue'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'aromaabc',
+    'アロマABC',
+    'https://r.caskan.jp/aromaabc'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
     'aromae',
-    'Aroma Elegance (アロマエレガンス)',
+    'アロマエレガンス',
     'https://r.caskan.jp/aromae'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'aromaexe',
+    'エグゼ',
+    'https://r.caskan.jp/aromaexe'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'aromairy',
+    'アロマエアリー',
+    'https://r.caskan.jp/aromairy'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'aromajewels',
+    'アロマジュエルズ',
+    'https://r.caskan.jp/aromajewels/reserve'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'aromantic',
+    'アロマンティック',
+    'https://r.caskan.jp/aromantic'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'atlas',
+    'アトラス',
+    'https://r.caskan.jp/atlas'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'belladonna',
+    'アロマベラドンナ',
+    'https://r.caskan.jp/belladonna'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'bellee',
+    'ベルエ 旧テラス',
+    'https://r.caskan.jp/bellee'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'bellelily',
+    'ベルリリー',
+    'https://r.caskan.jp/bellelily'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'bestmore',
+    'ザ ベストアンドモア',
+    'https://r.caskan.jp/bestmore'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'blackhole',
+    'ブラックホール',
+    'https://r.caskan.jp/blackhole'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'blanc',
+    'ブロン',
+    'https://r.caskan.jp/blanc'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'blue_diamond',
+    'ブルーダイヤモンド',
+    'https://r.caskan.jp/blue_diamond'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'bunnies',
+    'バニーズ',
+    'https://r.caskan.jp/bunnies'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
@@ -40,225 +166,33 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'celesthine-aromage',
-    'LUXEセレスティンアロマージュ',
-    'https://r.caskan.jp/celesthine-aromage'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'clubmaria_ginza',
-    'Club MARIA (クラブマリア)',
-    'https://r.caskan.jp/clubmaria_ginza'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'diamondlily87',
-    'Diamond Lily (ダイヤモンドリリー)',
-    'https://r.caskan.jp/diamondlily87'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'ebis_ferrari',
-    'FERRARI (フェラーリ)',
-    'https://r.caskan.jp/ebis_ferrari'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'ebis_komadam',
-    '恵比寿コマダム倶楽部',
-    'https://r.caskan.jp/ebis_komadam'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'blue_diamond',
-    'Blue Diamond (ブルーダイヤモンド)',
-    'https://r.caskan.jp/blue_diamond'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'esthe_diablo',
-    '高級メンズエステ DIABLO (ディアブロ)',
-    'https://r.caskan.jp/esthe_diablo'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'lavieet',
-    'Diamond La vie et (ダイヤモンドラヴィエ)',
-    'https://r.caskan.jp/lavieet'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'matom',
-    'GRANMATOM (グランマトム)',
-    'https://r.caskan.jp/matom'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'menesmart',
-    'MenEsMart (メンエスマート)',
-    'https://r.caskan.jp/menesmart'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'mogami-esthe',
-    'MOGAMI (最上)',
-    'https://r.caskan.jp/mogami-esthe'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'okusamahote',
-    '激安の殿堂 奥様ホーテ',
-    'https://r.caskan.jp/okusamahote'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'relaxtokyo',
-    'relax tokyo (リラックス東京)',
-    'https://r.caskan.jp/relaxtokyo'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'shiroutohote',
-    '激安の殿堂！素人ホーテ♡  学芸大学ルーム',
-    'https://r.caskan.jp/shiroutohote'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'aromaabc',
-    'Aroma ABC',
-    'https://r.caskan.jp/aromaabc'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'acro',
-    'ACRO (アクロ)',
-    'https://r.caskan.jp/acro'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'aibyou',
-    '愛猫',
-    'https://r.caskan.jp/aibyou'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'anehime',
-    'アネヒメ 旧フラッグシップアネックス',
-    'https://r.caskan.jp/anehime'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'apexkichijoji',
-    'APEX (エイペックス)',
-    'https://r.caskan.jp/apexkichijoji'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'aromaaria',
-    'ARIA (アリア)',
-    'https://r.caskan.jp/aromaaria'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'aromairy',
-    'AROMA AIRY (アロマエアリー)',
-    'https://r.caskan.jp/aromairy'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'aantique',
-    'アロマアンティーク',
-    'https://r.caskan.jp/aantique'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'belladonna',
-    'Aroma Belladonna (アロマベラドンナ)',
-    'https://r.caskan.jp/belladonna'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
     'chelone',
     'アロマケローネ 旧リベア葛西',
     'https://r.caskan.jp/chelone'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'giraffe',
-    'アロマジラフ 旧アロマオリオ',
-    'https://r.caskan.jp/giraffe'
+    'chiillian',
+    'ちるりあん',
+    'https://r.caskan.jp/chiillian'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'aromaharmony',
-    'AROMA HARMONY (アロマハーモニー)',
-    'https://r.caskan.jp/aromaharmony'
+    'class1st',
+    'めんくら',
+    'https://r.caskan.jp/class1st'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'aromajewels',
-    'Aroma Jewels (アロマジュエルズ)',
-    'https://r.caskan.jp/aromajewels/reserve'
+    'clubmaria_ginza',
+    'クラブマリア',
+    'https://r.caskan.jp/clubmaria_ginza'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'mireia',
-    'アロマミレイア 旧AROMA KARIN (アロマカリン)',
-    'https://r.caskan.jp/mireia'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'meidaiwoo',
-    'Aroma Woo (アロマウー)',
-    'https://r.caskan.jp/meidaiwoo'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'atlas',
-    'アトラス',
-    'https://r.caskan.jp/atlas'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'audience',
-    'オーディエンス (AUDIENCE)',
-    'https://r.caskan.jp/audience'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'bellee',
-    'Belle É (ベルエ) 旧テラス',
-    'https://r.caskan.jp/bellee'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'blackhole',
-    'ブラックホール',
-    'https://r.caskan.jp/blackhole'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'blackswan',
-    'ブラックスワン',
-    'https://r.caskan.jp/blackswan'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'cheryl',
-    'シェリル札幌',
-    'https://r.caskan.jp/cheryl'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'chocolat',
-    'ショコラ 北海道',
-    'https://r.caskan.jp/chocolat'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'cinderellaveil',
-    'シンデレラベール',
-    'https://r.caskan.jp/cinderellaveil'
+    'cottonspa',
+    'コットンスパ',
+    'https://r.caskan.jp/cottonspa'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
@@ -268,51 +202,15 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'melty_hachioji',
-    'ダンディサロン 旧メルティ',
-    'https://r.caskan.jp/melty_hachioji'
+    'diosa',
+    'サロンディライト 旧スパディオーサ',
+    'https://r.caskan.jp/diosa'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'daruma',
-    '達磨のエステ',
-    'https://r.caskan.jp/daruma'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'ekispa',
-    '駅スパ',
-    'https://r.caskan.jp/ekispa'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'eldorado',
-    'エルドラド 旧竜宮のエステ',
-    'https://r.caskan.jp/eldorado'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'akabalice',
-    'Alice (アリス) 赤羽',
-    'https://r.caskan.jp/akabalice'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'angeaile',
-    'Anjuaile (アンジュエール)',
-    'https://r.caskan.jp/angeaile'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'blanc',
-    'Blanc (ブロン)',
-    'https://r.caskan.jp/blanc'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'bunnies',
-    'バニーズ (Bunnie''s)',
-    'https://r.caskan.jp/bunnies'
+    'dopa',
+    'ドーパ',
+    'https://r.caskan.jp/dopa'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
@@ -322,75 +220,51 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'shinjukufirst',
-    'First (ファースト) 新宿',
-    'https://r.caskan.jp/shinjukufirst'
+    'ebis_komadam',
+    '恵比寿コマダム倶楽部',
+    'https://r.caskan.jp/ebis_komadam'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'natura',
-    'NATURA (ナチュラ)',
-    'https://r.caskan.jp/natura'
+    'eldorado',
+    'エルドラド 旧竜宮のエステ',
+    'https://r.caskan.jp/eldorado'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'nekonote',
-    'ねこのて',
-    'https://r.caskan.jp/nekonote'
+    'elsia',
+    'エルシアスパ',
+    'https://r.caskan.jp/elsia'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'platinumtokyo',
-    'PLATINUM TOKYO (プラチナム東京)',
-    'https://r.caskan.jp/platinumtokyo'
+    'esthe_diablo',
+    'ディアブロ',
+    'https://r.caskan.jp/esthe_diablo'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'sakamichi',
-    'エステの坂道',
-    'https://r.caskan.jp/sakamichi'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'unknown',
-    'Unknown (アンノウン)',
-    'https://r.caskan.jp/unknown'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'elteras',
-    'ELTERAS (エルテラス)',
-    'https://r.caskan.jp/elteras'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'aromaexe',
-    'エグゼ (EXE) 本厚木',
-    'https://r.caskan.jp/aromaexe'
+    'felix',
+    'フェリックス',
+    'https://r.caskan.jp/felix'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
     'fortuna',
-    'fortuna（フォルトゥナ）',
+    'フォルトゥナ',
     'https://r.caskan.jp/fortuna'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'nigella',
-    'ふたコのニゲラ',
-    'https://r.caskan.jp/nigella'
+    'freyja',
+    'フレイヤ 旧ゼニスパ',
+    'https://r.caskan.jp/freyja'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'galaxynagoya',
-    'Galaxy-NAGOYA (ギャラクシーナゴヤ)',
-    'https://r.caskan.jp/galaxynagoya'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'galaxy',
-    'ブラッドオレンジ',
-    'https://r.caskan.jp/galaxy'
+    'fullmoon',
+    'フルムーン 用賀',
+    'https://r.caskan.jp/fullmoon'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
@@ -400,8 +274,26 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000001',
+    'galaxy',
+    'ブラッドオレンジ',
+    'https://r.caskan.jp/galaxy'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'giraffe',
+    'アロマジラフ 旧アロマオリオ',
+    'https://r.caskan.jp/giraffe'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'girigirimucho',
+    'ギリギリムーチョ',
+    'https://r.caskan.jp/girigirimucho'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
     'godbless',
-    'GOD BLESS (ゴッドブレス)',
+    'ゴッドブレス',
     'https://r.caskan.jp/godbless'
   ),
   (
@@ -412,27 +304,15 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'grandgaia',
-    'グランドガイア（Grand Gaia）',
-    'https://r.caskan.jp/grandgaia'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
     'greenapple',
     'グリーンアップル 旧レッドアイ',
     'https://r.caskan.jp/greenapple'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'grelax',
-    'G/relax! (ジーリラックス)',
-    'https://r.caskan.jp/grelax'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'gyokurou',
-    '玉楼 (ぎょくろう)',
-    'https://r.caskan.jp/gyokurou'
+    'hisui',
+    '妃翠',
+    'https://r.caskan.jp/hisui'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
@@ -442,33 +322,9 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'hawaiianv',
-    'ハワイアンヴィレッジ',
-    'https://r.caskan.jp/hawaiianv'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'hinoki',
-    'Hinoki (檜)',
-    'https://r.caskan.jp/hinoki'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
     'holeinone',
-    'ホールインワン 相模大野',
+    'ホールインワン',
     'https://r.caskan.jp/holeinone'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'honeyice',
-    'ハニーアイス',
-    'https://r.caskan.jp/honeyice'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'hotlatte',
-    'ほっとラテ',
-    'https://r.caskan.jp/hotlatte'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
@@ -484,44 +340,62 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000001',
+    'jdspa',
+    'JDスパ (女子大生エステ)',
+    'https://r.caskan.jp/jdspa'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
     'jsnishiarai',
     'ジュエリースパ',
     'https://r.caskan.jp/jsnishiarai'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
+    'kawaspa',
+    'カワスパ 旧すとろべりーぱふぇ',
+    'https://r.caskan.jp/kawaspa'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
     'kingspa',
-    'King Spa (キングスパ) 綱島',
+    'キングスパ 綱島',
     'https://r.caskan.jp/kingspa'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
     'kiwami',
-    'KIWAMI TOKYO (旧極楽エステ)',
+    'KIWAMI TOKYO 旧極楽エステ',
     'https://r.caskan.jp/kiwami'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'kyokasuigetsu',
-    '鏡花水月',
-    'https://r.caskan.jp/kyokasuigetsu'
+    'laneige',
+    'ラネージュ',
+    'https://r.caskan.jp/laneige'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'lemarge',
-    'LE MARGE (ルマージュ熊本 大分)',
-    'https://r.caskan.jp/lemarge'
+    'lavieet',
+    'ダイヤモンドラヴィエ',
+    'https://r.caskan.jp/lavieet'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
     'lihtways',
-    'Lihtw＠ys (ライトウェイズ)',
+    'ライトウェイズ',
     'https://r.caskan.jp/lihtways'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
+    'livspa',
+    'リブスパ',
+    'https://r.caskan.jp/livspa'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
     'loveland',
-    '池袋LoveLand (ラブランド)',
+    '池袋 ラブランド',
     'https://r.caskan.jp/loveland'
   ),
   (
@@ -532,33 +406,33 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'madonna',
-    '池袋マドンナ',
-    'https://r.caskan.jp/madonna'
+    'lumiereosaka',
+    'リュミエール 旧ハニースパ 大阪',
+    'https://r.caskan.jp/lumiereosaka'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
     'marvel',
-    'マーヴェル (MARVEL)',
+    'マーヴェル',
     'https://r.caskan.jp/marvel'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'moshimo',
-    'moshimo... (もしも)',
-    'https://r.caskan.jp/moshimo'
+    'matom',
+    'グランマトム 旧マトム',
+    'https://r.caskan.jp/matom'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'cottonspa',
-    'コットンスパ',
-    'https://r.caskan.jp/cottonspa'
+    'meidaiwoo',
+    'アロマウー',
+    'https://r.caskan.jp/meidaiwoo'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'class1st',
-    'めんくら 旧メンズクラスファースト',
-    'https://r.caskan.jp/class1st'
+    'menesmart',
+    'メンエスマート',
+    'https://r.caskan.jp/menesmart'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
@@ -568,15 +442,15 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'milkcandy',
-    'みるくキャンディ',
-    'https://r.caskan.jp/milkcandy'
+    'michies',
+    '道のエステ',
+    'https://r.caskan.jp/michies'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    '8136s',
-    'ミストスパ',
-    'https://r.caskan.jp/8136s'
+    'milkcandy',
+    'みるくキャンディ',
+    'https://r.caskan.jp/milkcandy'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
@@ -586,32 +460,62 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'moisapporo',
-    'モア (Moi)',
-    'https://r.caskan.jp/moisapporo'
+    'mogami-esthe',
+    '最上',
+    'https://r.caskan.jp/mogami-esthe'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'mrspa',
-    'ミセスパ (Mrs.pa)',
-    'https://r.caskan.jp/mrspa'
+    'moshimo',
+    'もしも',
+    'https://r.caskan.jp/moshimo'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'ichigopaf',
-    'すとろべりーぱふぇ 旧ギルガメッシュナイト',
-    'https://r.caskan.jp/ichigopaf'
+    'msdolce',
+    'DOLCE SPA (ドルチェスパ) 北千住',
+    'https://r.caskan.jp/msdolce'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'namex',
-    'ナメックスパ 旧レッドリボン中野',
-    'https://r.caskan.jp/namex'
+    'mulala',
+    'ムララ',
+    'https://r.caskan.jp/mulala'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'natura',
+    'ナチュラ',
+    'https://r.caskan.jp/natura'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'naturalspa',
+    'ナチュラルスパ 荻窪',
+    'https://r.caskan.jp/naturalspa'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'nekonote',
+    'ねこのて',
+    'https://r.caskan.jp/nekonote'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'nics',
+    'ニックス 旧ウルレア赤羽',
+    'https://r.caskan.jp/nics'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'noaspa',
+    'NOA (ノア)',
+    'https://r.caskan.jp/noaspa'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
     'noelspa',
-    'Noel (ノエル) 飯田橋',
+    'ノエル飯田橋',
     'https://r.caskan.jp/noelspa'
   ),
   (
@@ -635,7 +539,7 @@ insert into salons (site_id, shop_id, name, url) values
   (
     '00000000-0000-0000-0000-000000000001',
     'oilkingplus',
-    'OIL KING (オイルキング)',
+    'オイルキング',
     'https://r.caskan.jp/oilkingplus'
   ),
   (
@@ -653,26 +557,38 @@ insert into salons (site_id, shop_id, name, url) values
   (
     '00000000-0000-0000-0000-000000000001',
     'onikando',
-    'Oni Kando (オニ感度)',
+    'オニ感度',
     'https://r.caskan.jp/onikando'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'incarose',
-    'Incarose (インカローズ)',
-    'https://r.caskan.jp/incarose'
+    'palantir',
+    'パランティア',
+    'https://r.caskan.jp/palantir'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'palantir',
-    'Palantir (パランティア)',
-    'https://r.caskan.jp/palantir'
+    'palette',
+    'パレット',
+    'https://r.caskan.jp/palette'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'pianissimo-m',
+    'ピアニッシモ',
+    'https://r.caskan.jp/pianissimo-m/cast/844'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
     'pixiespa',
     'ピクシースパ',
     'https://r.caskan.jp/pixiespa'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'platinumtokyo',
+    'プラチナム東京',
+    'https://r.caskan.jp/platinumtokyo'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
@@ -683,14 +599,14 @@ insert into salons (site_id, shop_id, name, url) values
   (
     '00000000-0000-0000-0000-000000000001',
     'pranaspa',
-    'PRANA SPA (プラナスパ) 本店',
-    'https://r.caskan.jp/pranaspa'
+    'プラナスパ',
+    'https://r.caskan.jp/pranaspa/'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'printempsotsuka',
-    'PRINTEMPS (プランタン大塚)',
-    'https://r.caskan.jp/printempsotsuka'
+    'princeosaka',
+    'プリンス',
+    'https://r.caskan.jp/princeosaka'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
@@ -700,21 +616,51 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'amaterasy',
-    'ラビットスパ 神奈川',
-    'https://r.caskan.jp/amaterasy'
+    'pureismz',
+    'ぴゅありずむZ',
+    'https://r.caskan.jp/pureismz'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'rstachikawa',
-    'ラビットスパ 立川店',
-    'https://r.caskan.jp/rstachikawa'
+    'rebeartyo',
+    'リベア 北千住・錦糸町',
+    'https://r.caskan.jp/rebeartyo'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'relaxstar',
+    'RelaxStar (リラックススター)',
+    'https://r.caskan.jp/relaxstar'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'relaxtokyo',
+    'リラックス東京',
+    'https://r.caskan.jp/relaxtokyo'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'remis',
+    'ランス 旧ニルス',
+    'https://r.caskan.jp/remis'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'ririmspa',
+    'りりむすぱ',
+    'https://r.caskan.jp/ririmspa'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
     'rrkoshigaya',
     'レッドリボン越谷',
     'https://r.caskan.jp/rrkoshigaya'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'rrkoyama',
+    'レッドリボン 武蔵小山',
+    'https://r.caskan.jp/rrkoyama'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
@@ -730,21 +676,21 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'relaxstar',
-    'RelaxStar (リラックススター)',
-    'https://r.caskan.jp/relaxstar'
+    'rrtsuda',
+    'レッドリボン 津田沼',
+    'https://r.caskan.jp/rrtsuda'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'remis',
-    'ランス (REMIS) 旧ニルス',
-    'https://r.caskan.jp/remis'
+    'rsmachida',
+    'ラビットスパ 町田店',
+    'https://r.caskan.jp/rsmachida'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'ririmspa',
-    'りりむすぱ',
-    'https://r.caskan.jp/ririmspa'
+    'rstachikawa',
+    'ラビットスパ 立川店',
+    'https://r.caskan.jp/rstachikawa'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
@@ -760,20 +706,14 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'diosa',
-    'サロンディライト 旧スパディオーサ',
-    'https://r.caskan.jp/diosa'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'anue',
-    'アヌエ',
-    'https://r.caskan.jp/anue'
+    'sakamichi',
+    'エステの坂道',
+    'https://r.caskan.jp/sakamichi'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
     'salondeplumeria',
-    'Salonde Plumeria (サロンドプルメリア)',
+    'サロンドプルメリア',
     'https://r.caskan.jp/salondeplumeria'
   ),
   (
@@ -790,75 +730,45 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'secretcafe',
-    'シークレットカフェ',
-    'https://r.caskan.jp/secretcafe'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
     'secretmoment',
     'シークレットモーメント',
     'https://r.caskan.jp/secretmoment'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'bellelily',
-    'ベルリリー (Belle Lily)',
-    'https://r.caskan.jp/bellelily'
+    'senjyu',
+    'センジュスパ',
+    'https://r.caskan.jp/senjyu'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'sollevante',
-    'Sol Levante (ソルレヴァンテ)',
-    'https://r.caskan.jp/sollevante'
+    'shinjukufirst',
+    'ファースト',
+    'https://r.caskan.jp/shinjukufirst'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'shiroutohote',
+    '激安の殿堂！素人ホーテ♡ 学芸大学ルーム',
+    'https://r.caskan.jp/shiroutohote'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'shotgun',
+    'ショットガン 旧琥珀スパ',
+    'https://r.caskan.jp/shotgun'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
     'spad',
-    'D-SPA (ディースパ)',
+    'ディースパ',
     'https://r.caskan.jp/spad'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'urekaji',
-    '熟れた果実',
-    'https://r.caskan.jp/urekaji'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'supernova',
-    'スーパーノバ 武蔵小杉',
-    'https://r.caskan.jp/supernova'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'michies',
-    '道のエステ',
-    'https://r.caskan.jp/michies'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'tequila',
-    'テキーラ',
-    'https://r.caskan.jp/tequila'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'bestmore',
-    'ザ ベストアンドモア',
-    'https://r.caskan.jp/bestmore'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'theblanc',
-    'THE BLANC (ザブラン)',
-    'https://r.caskan.jp/theblanc'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'thesilhouette',
-    'ザ・シルエット 旧アロマプリン',
-    'https://r.caskan.jp/thesilhouette'
+    'sumire',
+    'スミレスパ',
+    'https://r.caskan.jp/sumire'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
@@ -868,15 +778,63 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'machidatiara',
-    'Tiara (ティアラ) 町田',
-    'https://r.caskan.jp/machidatiara'
+    'tequila',
+    'テキーラ',
+    'https://r.caskan.jp/tequila'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'theblanc',
+    'ザブラン',
+    'https://r.caskan.jp/theblanc'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'themenes',
+    'ザ メンエス',
+    'https://r.caskan.jp/themenes'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'theradol',
+    'セラドルコレクション',
+    'https://r.caskan.jp/theradol'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'thesilhouette',
+    'ザ・シルエット 旧アロマプリン',
+    'https://r.caskan.jp/thesilhouette'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'tigger',
+    'ティガー 旧登戸ジェシー',
+    'https://r.caskan.jp/tigger'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'tokgarden',
+    'ガーデン 所沢',
+    'https://r.caskan.jp/tokgarden'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
     'tokyopla',
     'トキョプラ 旧ティープラス 新宿',
     'https://r.caskan.jp/tokyopla'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'tuning',
+    'チューニング',
+    'https://r.caskan.jp/tuning'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'turkish',
+    'ターキッシュ',
+    'https://r.caskan.jp/turkish'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
@@ -892,6 +850,18 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000001',
+    'unknown',
+    'アンノウン',
+    'https://r.caskan.jp/unknown'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
+    'urekaji',
+    '熟的',
+    'https://r.caskan.jp/urekaji'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000001',
     'velours',
     'VELOURS (ヴルール)',
     'https://r.caskan.jp/velours'
@@ -899,7 +869,7 @@ insert into salons (site_id, shop_id, name, url) values
   (
     '00000000-0000-0000-0000-000000000001',
     'vinos',
-    'VINOS (ビノス)',
+    'ビノス',
     'https://r.caskan.jp/vinos'
   ),
   (
@@ -910,96 +880,6 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'aromantic',
-    'AROMAntic (アロマンティック)',
-    'https://r.caskan.jp/aromantic'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'felix',
-    'フェリックス',
-    'https://r.caskan.jp/felix'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'frejya-kyoto',
-    'Frejya (フレイヤ)',
-    'https://r.caskan.jp/frejya-kyoto'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'girigirimucho',
-    'ギリギリムーチョ',
-    'https://r.caskan.jp/girigirimucho'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'jdspa',
-    'JDスパ (女子大生エステ)',
-    'https://r.caskan.jp/jdspa'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'lien',
-    'lien (リアン)',
-    'https://r.caskan.jp/lien/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'livspa',
-    'LIVSPA (リブスパ)',
-    'https://r.caskan.jp/livspa'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'msdolce',
-    'DOLCE SPA (ドルチェスパ) 北千住',
-    'https://r.caskan.jp/msdolce'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'mulala',
-    'MULALA (ムララ)',
-    'https://r.caskan.jp/mulala'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'naturalspa',
-    'Natural SPA (ナチュラルスパ) 荻窪',
-    'https://r.caskan.jp/naturalspa'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'noaspa',
-    'NOA (ノア) 神奈川',
-    'https://r.caskan.jp/noaspa'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'princeosaka',
-    'PRINCE (プリンス)',
-    'https://r.caskan.jp/princeosaka'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'rheaspa',
-    'RHEA SPA (レアスパ)',
-    'https://r.caskan.jp/rheaspa'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'sparich',
-    'THE SPA Rich (ザスパリッチ)',
-    'https://r.caskan.jp/sparich'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
-    'yuimrs',
-    '結 (YUI) ミセス邸',
-    'https://r.caskan.jp/yuimrs'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000001',
     'yukoku',
     '癒刻 (ゆこく)',
     'https://r.caskan.jp/yukoku'
@@ -1007,536 +887,32 @@ insert into salons (site_id, shop_id, name, url) values
   (
     '00000000-0000-0000-0000-000000000001',
     'yunispa',
-    'Yuni Spa (ユニスパ)',
+    'ユニスパ',
     'https://r.caskan.jp/yunispa'
   ),
   (
     '00000000-0000-0000-0000-000000000001',
-    'zenryoku1209',
-    '全力エステ 仙台',
-    'https://r.caskan.jp/zenryoku1209'
+    'yuruspa_shibuya',
+    'ゆるスパ横浜店',
+    'https://r.caskan.jp/yuruspa_shibuya/'
   ),
   (
-    '00000000-0000-0000-0000-000000000002',
-    'uyauGhmQ1S',
-    'バリアーノ (BARIANO) 所沢店',
-    'https://grow-appt.com/reserve/uyauGhmQ1S/'
+    '00000000-0000-0000-0000-000000000001',
+    'yuruspa_yokohama',
+    'ゆるスパ横浜店',
+    'https://r.caskan.jp/yuruspa_yokohama'
   ),
   (
-    '00000000-0000-0000-0000-000000000002',
-    'ksAvSVaSLc',
-    'Fromage (フロマージュ)',
-    'https://grow-appt.com/reserve/ksAvSVaSLc/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'ZQapJ52Ebm',
-    'ジェントルマンズスパ国分寺',
-    'https://grow-appt.com/reserve/ZQapJ52Ebm/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'WVLaM2s2vC',
-    'LINDA SPA (リンダスパ)',
-    'https://grow-appt.com/reserve/WVLaM2s2vC/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'zSDnZkuDGn',
-    'Pure White (ピュアホワイト)',
-    'https://grow-appt.com/reserve/zSDnZkuDGn/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'WByC0Hmt2r',
-    'Sweet (スウィート) 浜松',
-    'https://grow-appt.com/reserve/WByC0Hmt2r/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'tzvYyx2fyC',
-    'RED (レッド)',
-    'https://grow-appt.com/reserve/tzvYyx2fyC/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'cy7JNnfZVc',
-    'AROMA MAISON  (アロマメゾン)',
-    'https://grow-appt.com/reserve/cy7JNnfZVc/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'kU39sECwnD',
-    'Body Fresh (ボディフレッシュ)',
-    'https://grow-appt.com/reserve/kU39sECwnD/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'KARLn77gS1',
-    'fees des fleurages (フェデフルラージュ)',
-    'https://grow-appt.com/reserve/KARLn77gS1/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'db39QC2Es3',
-    '神のエステ 葛西店',
-    'https://grow-appt.com/reserve/db39QC2Es3/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'yAZx6YvnGy',
-    'LEGEND FUCHU HANARE (レジェンド府中ハナレ)',
-    'https://grow-appt.com/reserve/yAZx6YvnGy/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'kxug2nDAbF',
-    'LEGEND ひばりヶ丘 (レジェンド)',
-    'https://grow-appt.com/reserve/kxug2nDAbF/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'ZkLp3451LD',
-    'MoMo Spa (モモスパ)',
-    'https://grow-appt.com/reserve/ZkLp3451LD/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'p72hnfWHZB',
-    'Relaxation Spa ROSA 姫路 (リラクゼーションスパロッサ)',
-    'https://grow-appt.com/reserve/p72hnfWHZB/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'g1JTusrTQe',
-    '6.5℃ (ロクドゴブ)',
-    'https://grow-appt.com/reserve/g1JTusrTQe/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'EvHpTHGL0R',
-    'ナナツボシ',
-    'https://grow-appt.com/reserve/EvHpTHGL0R/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'dL0gtv3TWw',
-    'エーペックス 上尾店',
-    'https://grow-appt.com/reserve/dL0gtv3TWw/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '2P5Y0XTvLe',
-    'AROMA chocolate (アロマショコラ)',
-    'https://grow-appt.com/reserve/2P5Y0XTvLe/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'pT2XTNpW6m',
-    '雅 Miyabi (ミヤビ)',
-    'https://grow-appt.com/reserve/pT2XTNpW6m/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'yb3bgECfAN',
-    'NO BRAND (ノーブランド)',
-    'https://grow-appt.com/reserve/yb3bgECfAN/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'u15Vr2S7zV',
-    'AROMA more (アロマモア)',
-    'https://grow-appt.com/reserve/u15Vr2S7zV/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'Sqa29YD5cQ',
-    'aroma vicca (アロマヴィッカ)',
-    'https://grow-appt.com/reserve/Sqa29YD5cQ/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'G462VsaFCX',
-    'Assouplir ANNEX (アスプリールアネックス)',
-    'https://grow-appt.com/reserve/G462VsaFCX/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'rgTVMPPSEE',
-    'アスプリールプレミアタマチ',
-    'https://grow-appt.com/reserve/rgTVMPPSEE/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'htM7UDzPHC',
-    'Assouplir (アスプリール) 秋葉原',
-    'https://grow-appt.com/reserve/htM7UDzPHC/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'RPZChtrWhG',
-    'AZUL (アズール)',
-    'https://grow-appt.com/reserve/RPZChtrWhG/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'V4rSpMMUWp',
-    'バカラ 山口',
-    'https://grow-appt.com/reserve/V4rSpMMUWp/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'csu1Dx57Q4',
-    'ベイサイドリラックス 旧アロマモンステラ',
-    'https://grow-appt.com/reserve/csu1Dx57Q4/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '34u9JdnCtW',
-    'BUNNYS TOKYO (バニーズトウキョウ)',
-    'https://grow-appt.com/reserve/34u9JdnCtW/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'sAvD2E2gPd',
-    'CAMERON (キャメロン)',
-    'https://grow-appt.com/reserve/sAvD2E2gPd/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '3RaerYSrCz',
-    'Carinna カリナ 旧ハイアット',
-    'https://grow-appt.com/reserve/3RaerYSrCz/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '7PP7thzgXK',
-    'シュシュ (chou chou) 旧オルオルスパ',
-    'https://grow-appt.com/reserve/7PP7thzgXK/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'VQyeuyzwTr',
-    'CREST SPA TOKYO (クレストスパ)',
-    'https://grow-appt.com/reserve/VQyeuyzwTr/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'T4QX0spR2s',
-    'EDEL AZABU (エデル麻布)',
-    'https://grow-appt.com/reserve/T4QX0spR2s/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'yagWw39PU6',
-    'エデンの園 川口',
-    'https://grow-appt.com/reserve/yagWw39PU6/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '9YfMUrH3Py',
-    '超E-spa (超イースパ)',
-    'https://grow-appt.com/reserve/9YfMUrH3Py/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'A6y9dhNdQ1',
-    'Apex (エーペックス)',
-    'https://grow-appt.com/reserve/A6y9dhNdQ1/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'LwrKZjs1jp',
-    'フィーバー',
-    'https://grow-appt.com/reserve?SID=LwrKZjs1jp'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    's67pqC3uzE',
-    '女神の手',
-    'https://grow-appt.com/reserve/s67pqC3uzE/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'waTTJrFekQ',
-    'Lunedia (ルナディア)',
-    'https://grow-appt.com/reserve/waTTJrFekQ/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'TdFguhNM27',
-    'LYNX (リンクス) 五反田店',
-    'https://grow-appt.com/reserve/TdFguhNM27/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'aD3RNdpVDx',
-    'ぷろぽーしょん',
-    'https://grow-appt.com/reserve/aD3RNdpVDx/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'kW7MXa4aNy',
-    'Rabona (ラボーナ)',
-    'https://grow-appt.com/reserve/kW7MXa4aNy/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'HA3hx7KTdv',
-    'Special Grade (スペシャルグレード)',
-    'https://grow-appt.com/reserve/HA3hx7KTdv/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'A9hK2TXx6z',
-    'エクシア (EXCIA)',
-    'https://grow-appt.com/reserve/A9hK2TXx6z/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'LkkmkJDs0T',
-    'カノネコ 池袋',
-    'https://grow-appt.com/reserve/LkkmkJDs0T/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '1uEKcHvFr3',
-    'AROMA ESPOIR (アロマエスポワール)',
-    'https://grow-appt.com/reserve/1uEKcHvFr3/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'gg6cHS1QmZ',
-    'ゴールデン（GOLDEN） 旧ガーデン',
-    'https://grow-appt.com/reserve/gg6cHS1QmZ/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'WhNL9pEr9b',
-    'ダイヤモンド',
-    'https://grow-appt.com/reserve/WhNL9pEr9b/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'bBBH4nCgPW',
-    '花うた 旧Fururi (ふるり)',
-    'https://grow-appt.com/reserve/bBBH4nCgPW/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'ApGJep9m1u',
-    'Heart (ハート) 福山',
-    'https://grow-appt.com/reserve/ApGJep9m1u/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '6qERkuwE5M',
-    'HIGH GRANDE (ハイグランデ)',
-    'https://grow-appt.com/reserve/6qERkuwE5M/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '5ABMgtRZMk',
-    'Lemonade (レモネード) 姫路店',
-    'https://grow-appt.com/reserve/5ABMgtRZMk/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '64YDcmFXTW',
-    '色恋倶楽部',
-    'https://grow-appt.com/reserve/64YDcmFXTW/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'Gukr49CExN',
-    'JEAN ROBIN (ジャンロビン)',
-    'https://grow-appt.com/reserve/Gukr49CExN/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'svScx4NUDy',
-    'KAGUYA (カグヤ) ～星乃幻想～',
-    'https://grow-appt.com/reserve/svScx4NUDy/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'g7XdfMCHVv',
-    '海癒樂',
-    'https://grow-appt.com/reserve/g7XdfMCHVv/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'xZfRSkbsQQ',
-    'lemonade (レモネード) 神戸',
-    'https://grow-appt.com/reserve/xZfRSkbsQQ/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'EaX9TyYUDh',
-    'KOBE QUEEN (コウベクイーン)',
-    'https://grow-appt.com/reserve/EaX9TyYUDh/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'bnyEtWAnrW',
-    'ララスパ (LaLaスパ)',
-    'https://grow-appt.com/reserve/bnyEtWAnrW/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'SAguqgnDES',
-    'Aroma LaLuna (アロマラルーナ)',
-    'https://grow-appt.com/reserve/SAguqgnDES/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'HSANFbDcrq',
-    'Love it (ラヴィット)',
-    'https://grow-appt.com/reserve/HSANFbDcrq/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'xhWgUeZFWm',
-    'ルナラテ',
-    'https://grow-appt.com/reserve/xhWgUeZFWm/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '4TATKM1Bcq',
-    'MADAM B (マダムビー)',
-    'https://grow-appt.com/reserve/4TATKM1Bcq/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'qzXzZcEZHd',
-    'Marigold (マリーゴールド)',
-    'https://grow-appt.com/reserve/qzXzZcEZHd/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'UheAT57Uea',
-    'Esthe Spa (エステスパ)',
-    'https://grow-appt.com/reserve/UheAT57Uea/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'vNd9mXUyDX',
-    'GRACE (グレイス) 成増',
-    'https://grow-appt.com/reserve/vNd9mXUyDX/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'BEfgWdyNTN',
-    '響 (HIBIKI) 埼玉',
-    'https://grow-appt.com/reserve/BEfgWdyNTN/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '9feRunc3aZ',
-    'Luna (ルナ) 鹿児島',
-    'https://grow-appt.com/reserve/9feRunc3aZ/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'wPSUeZUdk2',
-    'Mimi Spa (ミミスパ) 銀座',
-    'https://grow-appt.com/reserve/wPSUeZUdk2/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'FUqpG0nWv7',
-    'Mint Club (ミントクラブ)',
-    'https://grow-appt.com/reserve/FUqpG0nWv7/'
+    '00000000-0000-0000-0000-000000000001',
+    'zerospa',
+    'ゼロスパ 秋葉原',
+    'https://r.caskan.jp/zerospa'
   ),
   (
     '00000000-0000-0000-0000-000000000002',
     '01K6C65RPBJXKTQ2Y45QWCWVTT',
     'モンロー',
-    'https://grow-appt.com/reserve?SID=01K6C65RPBJXKTQ2Y45QWCWVTT'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '0XQW6dpr0N',
-    '万華鏡',
-    'https://grow-appt.com/reserve/0XQW6dpr0N/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'Nd1Mw6J34z',
-    'niigata men''s aroma allure (アリュール)',
-    'https://grow-appt.com/reserve/Nd1Mw6J34z/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'nUQxyRd3WK',
-    'ノヴァ',
-    'https://grow-appt.com/reserve/nUQxyRd3WK/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'oST3yCPVXn',
-    '猫猫猫 (にゃんにゃんにゃん)',
-    'https://grow-appt.com/reserve/oST3yCPVXn'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'CgAMMgPmEp',
-    'Queendom (クイーンダム)',
-    'https://grow-appt.com/reserve/CgAMMgPmEp/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'gT9vMuTKcG',
-    'オンリー (ONLY)',
-    'https://grow-appt.com/reserve/gT9vMuTKcG/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'Nfw0qBffxS',
-    'ORION SPA (オリオンスパ)',
-    'https://grow-appt.com/reserve/Nfw0qBffxS/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '4FfeG2Nd1c',
-    '王様の気持ち',
-    'https://grow-appt.com/reserve/4FfeG2Nd1c/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'CZZmcwaRvz',
-    '大人のネバーランド',
-    'https://grow-appt.com/reserve/CZZmcwaRvz/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '6076wZxqhK',
-    'Pearl (パール)',
-    'https://grow-appt.com/reserve/6076wZxqhK/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '01KPMSWKKT7JVVB0C673NWKQM4',
-    'Pepe Spa (ペペスパ)',
-    'https://grow-appt.com/reserve/01KPMSWKKT7JVVB0C673NWKQM4'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'vxs7meyxAW',
-    'QUEEN''S COLLECTION (クイーンズコレクション)',
-    'https://grow-appt.com/reserve/vxs7meyxAW/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'VkWM0xbx4J',
-    'リッチテラス札幌',
-    'https://grow-appt.com/reserve/VkWM0xbx4J/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '1eAF0f33ke',
-    'ロゼアナ 旧メルティ',
-    'https://grow-appt.com/reserve/1eAF0f33ke/'
+    'https://grow-appt.com/reserve/order?SID=01K6C65RPBJXKTQ2Y45QWCWVTT'
   ),
   (
     '00000000-0000-0000-0000-000000000002',
@@ -1546,285 +922,9 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000002',
-    'xP3A2fp1ZR',
-    '竜宮城',
-    'https://grow-appt.com/reserve/xP3A2fp1ZR/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'KwseLTJzDf',
-    'SALON BLANCA (サロンブランカ)',
-    'https://grow-appt.com/reserve/KwseLTJzDf/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '6N5BGRVwfa',
-    'Sweet ～berta～ (スウィートベルタ) 静岡',
-    'https://grow-appt.com/reserve/6N5BGRVwfa/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'D7kadvKVCY',
-    'Sweet～crea～ (スウィートクレア)',
-    'https://grow-appt.com/reserve/D7kadvKVCY/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '01K9XDW69G8RNBRZ5WRCMQ0GNX',
-    'スウィート学園 (Sweet学園)',
-    'https://grow-appt.com/reserve/review?SID=01K9XDW69G8RNBRZ5WRCMQ0GNX'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '3CwfyEXRvL',
-    'Sweet Mist (スイートミスト)',
-    'https://grow-appt.com/reserve/3CwfyEXRvL/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'VaBK7b2Het',
-    'Comfortbois (コンフォールボア)',
-    'https://grow-appt.com/reserve/VaBK7b2Het/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'yCwP9dZ6gU',
-    '大人の天界学園 秋葉原',
-    'https://grow-appt.com/reserve/yCwP9dZ6gU/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'AvYkN415u5',
-    '天界のスパ 立川店',
-    'https://grow-appt.com/reserve/AvYkN415u5/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'mb55g52nD2',
-    'THE ESTHE FUKUOKA (ザ・エステフクオカ)',
-    'https://grow-appt.com/reserve/mb55g52nD2/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '3dpbT6CaSX',
-    'THE ESTHE AZABU (ザ・エステアザブ)',
-    'https://grow-appt.com/reserve/3dpbT6CaSX/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'Adw9hx0Grc',
-    'THE HALF（ザ・ハーフ）',
-    'https://grow-appt.com/reserve/Adw9hx0Grc/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '1d1Agay0Fv',
-    'THE PREMIUM SPA (ザ・プレミアムスパ)',
-    'https://grow-appt.com/reserve/1d1Agay0Fv/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'r3fWEZTvPx',
-    'ティアナ (Ti.ana)',
-    'https://grow-appt.com/reserve/r3fWEZTvPx/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'RyqGG4NSpF',
-    'Tokyo Panic (トウキョウパニック)',
-    'https://grow-appt.com/reserve/RyqGG4NSpF/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'u1FXKBCnZ3',
-    '紡戯',
-    'https://grow-appt.com/reserve/u1FXKBCnZ3/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'sbUU77ypGT',
-    'うさぎちゃんスパ',
-    'https://grow-appt.com/reserve/sbUU77ypGT/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'KeYrLXv3W2',
-    'W SPA (ダブリュースパ)',
-    'https://grow-appt.com/reserve/KeYrLXv3W2/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'TZc3xdbgUB',
-    'ANAICHI (アナイチ)',
-    'https://grow-appt.com/reserve/TZc3xdbgUB/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '6T9ah4Afzy',
-    'Anela spa (アネラスパ) 川越',
-    'https://grow-appt.com/reserve/6T9ah4Afzy/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'ULFwQ1BMMu',
-    'Aroma Blanca (アロマブランカ)',
-    'https://grow-appt.com/reserve/ULFwQ1BMMu/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'kmVqft1ByK',
-    'Aromaria (アロマリア) 北海道',
-    'https://grow-appt.com/reserve/kmVqft1ByK/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'sRkCx1r1Ex',
-    'Calme (カルム) 埼玉',
-    'https://grow-appt.com/reserve/sRkCx1r1Ex/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '0KzPpuqswt',
-    'キュンキュンスパ',
-    'https://grow-appt.com/reserve/0KzPpuqswt/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'svYwzCGPtk',
-    'クリームソーダ',
-    'https://grow-appt.com/reserve/svYwzCGPtk/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'nEr9bx2crY',
-    '2nd キュンキュンスパ',
-    'https://grow-appt.com/reserve/nEr9bx2crY/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'u4Uqy3NhVv',
-    'LYNX (リンクス) 小岩店',
-    'https://grow-appt.com/reserve/u4Uqy3NhVv/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '0YM3Aam7xL',
-    'エステの王様',
-    'https://grow-appt.com/reserve/0YM3Aam7xL/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'A11cdLH25L',
-    'ぐらどるスパ',
-    'https://grow-appt.com/reserve/A11cdLH25L/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '6BZN9sLEPP',
-    'glow (グロウ)',
-    'https://grow-appt.com/reserve/6BZN9sLEPP/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'SyDEf0uZcu',
-    '姫のエステ',
-    'https://grow-appt.com/reserve/SyDEf0uZcu/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'hRZwTfwrCy',
-    'Hot Land (ホットランド)',
-    'https://grow-appt.com/reserve/hRZwTfwrCy/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'mAQFLypace',
-    '自由の女神',
-    'https://grow-appt.com/reserve/mAQFLypace/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'Wxq5mYELyF',
-    'PETIT COQUETTE(プティ・コケット)',
-    'https://grow-appt.com/reserve/Wxq5mYELyF/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'WuZRBQJWZu',
-    '神のエステ 千葉店',
-    'https://grow-appt.com/reserve/WuZRBQJWZu/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '3dLbHEXgN1',
-    '神のエステ 日暮里・鶯谷',
-    'https://grow-appt.com/reserve/3dLbHEXgN1/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'XUs4YQuXyE',
-    '神のエステ 船橋店',
-    'https://grow-appt.com/reserve/XUs4YQuXyE/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'K5rdSx0T2P',
-    'レジェンド目白 エトワール',
-    'https://grow-appt.com/reserve/K5rdSx0T2P/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'CqR3AUvKgD',
-    'LEGEND MITAKA AURORA (レジェンドミタカオーロラ)',
-    'https://grow-appt.com/reserve/CqR3AUvKgD/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'c3TyDe5pBy',
-    'Maison NOIR (メゾンノアール)',
-    'https://grow-appt.com/reserve/c3TyDe5pBy/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'sL3hWkn6pV',
-    'メンズエステが好きすぎて・・・',
-    'https://grow-appt.com/reserve/sL3hWkn6pV/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'b72NHRPLZ7',
-    'OTONA TIC (オトナチック)',
-    'https://grow-appt.com/reserve/b72NHRPLZ7/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '6CtDNMv0XV',
-    'ar Tokyo (アールトウキョウ秋葉原)',
-    'https://grow-appt.com/reserve/6CtDNMv0XV/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '01KH0WKS6SQ4PBJYCR1X0A5Z2H',
-    'クジャク 旧ルガール東京',
-    'https://grow-appt.com/reserve/01KH0WKS6SQ4PBJYCR1X0A5Z2H'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    '73DqeSyCPu',
-    'なでしこ',
-    'https://grow-appt.com/reserve/73DqeSyCPu/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'NNwyghVASu',
-    'AGENDA (アジェンダ)',
-    'https://grow-appt.com/reserve/NNwyghVASu/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000002',
-    'NCLm5GzS6T',
-    'Syalulu (シャルル) 府中',
-    'https://grow-appt.com/reserve?SID=NCLm5GzS6T'
+    '01K9PM5GZBA9F64PGR49XNC7CC',
+    '大人の天界学園 池袋',
+    'https://grow-appt.com/reserve/01K9PM5GZBA9F64PGR49XNC7CC'
   ),
   (
     '00000000-0000-0000-0000-000000000002',
@@ -1834,27 +934,207 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000002',
-    'Ry0hDtDkR1',
-    '天界のスパ 北千住',
-    'https://grow-appt.com/reserve/Ry0hDtDkR1/'
+    '01KAD148TP6YHNXA0JT6CKPZXX',
+    'エンター',
+    'https://grow-appt.com/reserve?SID=01KAD148TP6YHNXA0JT6CKPZXX'
   ),
   (
     '00000000-0000-0000-0000-000000000002',
-    'T2eWJFexvx',
-    '天界のスパ 中目黒',
-    'https://grow-appt.com/reserve/T2eWJFexvx/'
+    '01KH0WKS6SQ4PBJYCR1X0A5Z2H',
+    'クジャク 旧ルガール東京',
+    'https://grow-appt.com/reserve/01KH0WKS6SQ4PBJYCR1X0A5Z2H'
   ),
   (
     '00000000-0000-0000-0000-000000000002',
-    'McNs3QGh0s',
-    'TIGER GATE (タイガーゲート)虎ノ門',
-    'https://grow-appt.com/reserve/McNs3QGh0s/'
+    '01KJVSV28AVDXQY7PAYEKPSRHH',
+    'シャンデリア 吉祥寺',
+    'https://grow-appt.com/reserve/01KJVSV28AVDXQY7PAYEKPSRHH'
   ),
   (
     '00000000-0000-0000-0000-000000000002',
-    'CQ1SAPtRGd',
-    'Tiger Lilly (タイガーリリー)',
-    'https://grow-appt.com/reserve/CQ1SAPtRGd/'
+    '01KKTK6EC6NCNSJ8GY2XQYX0X7',
+    'バナナ 旧エーペックス',
+    'https://grow-appt.com/reserve/01KKTK6EC6NCNSJ8GY2XQYX0X7'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '01KMKW8R9Z6XJK6WBTV29QG1AE',
+    'エステの気分',
+    'https://grow-appt.com/reserve/01KMKW8R9Z6XJK6WBTV29QG1AE'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '01KPMSWKKT7JVVB0C673NWKQM4',
+    'ペペスパ',
+    'https://grow-appt.com/reserve/01KPMSWKKT7JVVB0C673NWKQM4'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '0KzPpuqswt',
+    'キュンキュンスパ',
+    'https://grow-appt.com/reserve/0KzPpuqswt/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '0XQW6dpr0N',
+    '万華鏡',
+    'https://grow-appt.com/reserve/0XQW6dpr0N/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '0YM3Aam7xL',
+    'エステの王様',
+    'https://grow-appt.com/reserve/0YM3Aam7xL/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '1d1Agay0Fv',
+    'ザ・プレミアムスパ',
+    'https://grow-appt.com/reserve/1d1Agay0Fv/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '1eAF0f33ke',
+    'ロゼアナ 旧メルティ',
+    'https://grow-appt.com/reserve/1eAF0f33ke/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '1uEKcHvFr3',
+    'アロマエスポワール',
+    'https://grow-appt.com/reserve/1uEKcHvFr3/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '2P5Y0XTvLe',
+    'アロマショコラ 東京',
+    'https://grow-appt.com/reserve/2P5Y0XTvLe/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '3dpbT6CaSX',
+    'ザ・エステアザブ',
+    'https://grow-appt.com/reserve/3dpbT6CaSX/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '3RaerYSrCz',
+    'カリナ',
+    'https://grow-appt.com/reserve/3RaerYSrCz/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '4FfeG2Nd1c',
+    '王様の気持ち',
+    'https://grow-appt.com/reserve/4FfeG2Nd1c/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '4TATKM1Bcq',
+    'マダムビー',
+    'https://grow-appt.com/reserve/4TATKM1Bcq/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '5LrMQhXXuP',
+    'レオナスワン',
+    'https://grow-appt.com/reserve/5LrMQhXXuP/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '64YDcmFXTW',
+    '色恋倶楽部',
+    'https://grow-appt.com/reserve/64YDcmFXTW/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '6BZN9sLEPP',
+    'glow (グロウ)',
+    'https://grow-appt.com/reserve/6BZN9sLEPP/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '6CtDNMv0XV',
+    'アールトウキョウ秋葉原',
+    'https://grow-appt.com/reserve/6CtDNMv0XV/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '6qERkuwE5M',
+    'ハイグランデ',
+    'https://grow-appt.com/reserve/6qERkuwE5M/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '6T9ah4Afzy',
+    'アネラスパ 川越',
+    'https://grow-appt.com/reserve/6T9ah4Afzy/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    '73DqeSyCPu',
+    'なでしこ',
+    'https://grow-appt.com/reserve/73DqeSyCPu/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'Adw9hx0Grc',
+    'THE HALF（ザ・ハーフ）',
+    'https://grow-appt.com/reserve/Adw9hx0Grc/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'aQPDapsyZE',
+    'ディープエッセンシャル 川崎',
+    'https://grow-appt.com/reserve/aQPDapsyZE/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'AY1pLKhRgz',
+    'アロマルミナス 南越谷',
+    'https://grow-appt.com/reserve/AY1pLKhRgz'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'b72NHRPLZ7',
+    'オトナチック',
+    'https://grow-appt.com/reserve/b72NHRPLZ7/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'bBBH4nCgPW',
+    '花うた 旧Fururi (ふるり)',
+    'https://grow-appt.com/reserve/bBBH4nCgPW/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'c3TyDe5pBy',
+    'メゾンノアール',
+    'https://grow-appt.com/reserve/c3TyDe5pBy/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'CgAMMgPmEp',
+    'クイーンダム',
+    'https://grow-appt.com/reserve/CgAMMgPmEp/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'cy7JNnfZVc',
+    'アロマメゾン',
+    'https://grow-appt.com/reserve/cy7JNnfZVc/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'CZZmcwaRvz',
+    '大人のネバーランド',
+    'https://grow-appt.com/reserve/CZZmcwaRvz/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'dL0gtv3TWw',
+    'エーペックス 上尾店',
+    'https://grow-appt.com/reserve/dL0gtv3TWw/'
   ),
   (
     '00000000-0000-0000-0000-000000000002',
@@ -1864,15 +1144,381 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000002',
-    'CC3EE9TynW',
-    'YSY 旧OGT',
-    'https://grow-appt.com/reserve/CC3EE9TynW/'
+    'FUqpG0nWv7',
+    'ミントクラブ',
+    'https://grow-appt.com/reserve/FUqpG0nWv7/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'g1JTusrTQe',
+    'どりゅすぱ',
+    'https://grow-appt.com/reserve/g1JTusrTQe/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'G462VsaFCX',
+    'アスプリールアネックス',
+    'https://grow-appt.com/reserve/G462VsaFCX/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'g6dPznkRsd',
+    'アロマエレクシオン',
+    'https://grow-appt.com/reserve/g6dPznkRsd'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'gg6cHS1QmZ',
+    'ゴールデン',
+    'https://grow-appt.com/reserve/gg6cHS1QmZ/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'gT9vMuTKcG',
+    'オンリー',
+    'https://grow-appt.com/reserve/gT9vMuTKcG/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'hRZwTfwrCy',
+    'ホットランド',
+    'https://grow-appt.com/reserve/hRZwTfwrCy/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'htM7UDzPHC',
+    'アスプリール',
+    'https://grow-appt.com/reserve/htM7UDzPHC/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'K5rdSx0T2P',
+    'レジェンド目白 エトワール',
+    'https://grow-appt.com/reserve/K5rdSx0T2P/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'KARLn77gS1',
+    'フェデフルラージュ',
+    'https://grow-appt.com/reserve/KARLn77gS1/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'KeYrLXv3W2',
+    'ダブリュースパ',
+    'https://grow-appt.com/reserve/KeYrLXv3W2/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'KFyBR3k1Hp',
+    'ローズベル',
+    'https://grow-appt.com/reserve/KFyBR3k1Hp'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'ksAvSVaSLc',
+    'フロマージュ',
+    'https://grow-appt.com/reserve/ksAvSVaSLc/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'kU39sECwnD',
+    'ボディフレッシュ',
+    'https://grow-appt.com/reserve/kU39sECwnD/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'LkkmkJDs0T',
+    'The GARNET',
+    'https://grow-appt.com/reserve/LkkmkJDs0T/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'LwrKZjs1jp',
+    'フィーバー 大宮・池袋',
+    'https://grow-appt.com/reserve?SID=LwrKZjs1jp'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'mAQFLypace',
+    '自由の女神',
+    'https://grow-appt.com/reserve/mAQFLypace/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'McNs3QGh0s',
+    'タイガーゲート 虎ノ門',
+    'https://grow-appt.com/reserve/McNs3QGh0s/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'NCLm5GzS6T',
+    'Syalulu (シャルル)',
+    'https://grow-appt.com/reserve?SID=NCLm5GzS6T'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'nEr9bx2crY',
+    '2nd キュンキュンスパ',
+    'https://grow-appt.com/reserve/nEr9bx2crY/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'Nfw0qBffxS',
+    'ORION SPA (オリオンスパ)',
+    'https://grow-appt.com/reserve/Nfw0qBffxS/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'NNwyghVASu',
+    'アジェンダ',
+    'https://grow-appt.com/reserve/NNwyghVASu/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'order',
+    'モンロー',
+    'https://grow-appt.com/reserve/order?SID=01K6C65RPBJXKTQ2Y45QWCWVTT&amp;page=staff'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'p72hnfWHZB',
+    'リラクゼーションスパ ロッサ 姫路',
+    'https://grow-appt.com/reserve/p72hnfWHZB/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'pT2XTNpW6m',
+    '雅',
+    'https://grow-appt.com/reserve/pT2XTNpW6m/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'r3fWEZTvPx',
+    'ティアナ',
+    'https://grow-appt.com/reserve/r3fWEZTvPx/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'rgTVMPPSEE',
+    'アスプリールプレミアタマチ',
+    'https://grow-appt.com/reserve/rgTVMPPSEE/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'RPZChtrWhG',
+    'アズール',
+    'https://grow-appt.com/reserve/RPZChtrWhG/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'Ry0hDtDkR1',
+    '天界のスパ',
+    'https://grow-appt.com/reserve/Ry0hDtDkR1/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'RyqGG4NSpF',
+    'トウキョウパニック',
+    'https://grow-appt.com/reserve/RyqGG4NSpF/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    's67pqC3uzE',
+    '女神の手',
+    'https://grow-appt.com/reserve/s67pqC3uzE/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'SAguqgnDES',
+    'アロマラルーナ',
+    'https://grow-appt.com/reserve/SAguqgnDES/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'sAvD2E2gPd',
+    'キャメロン',
+    'https://grow-appt.com/reserve/sAvD2E2gPd/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'sbUU77ypGT',
+    'うさぎちゃんスパ',
+    'https://grow-appt.com/reserve/sbUU77ypGT/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'sEsme2cbgf',
+    'レオナスワン',
+    'https://grow-appt.com/reserve/sEsme2cbgf/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'sL3hWkn6pV',
+    'メンズエステが好きすぎて・・・',
+    'https://grow-appt.com/reserve/sL3hWkn6pV/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'Sqa29YD5cQ',
+    'ヴィッカプラス',
+    'https://grow-appt.com/reserve/Sqa29YD5cQ/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'sRkCx1r1Ex',
+    'カルム',
+    'https://grow-appt.com/reserve/sRkCx1r1Ex/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'svScx4NUDy',
+    'カグヤ ～星乃幻想～',
+    'https://grow-appt.com/reserve/svScx4NUDy/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'svYwzCGPtk',
+    'クリームソーダ',
+    'https://grow-appt.com/reserve/svYwzCGPtk/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'SyDEf0uZcu',
+    '姫のエステ',
+    'https://grow-appt.com/reserve/SyDEf0uZcu/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'T4QX0spR2s',
+    'エデル麻布',
+    'https://grow-appt.com/reserve/T4QX0spR2s/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'TdFguhNM27',
+    'リンクス 秋葉原店',
+    'https://grow-appt.com/reserve/TdFguhNM27'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'TV74m6Hp0A',
+    'レオナスワン',
+    'https://grow-appt.com/reserve/TV74m6Hp0A/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'TZc3xdbgUB',
+    'アナイチ',
+    'https://grow-appt.com/reserve/TZc3xdbgUB/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'tzvYyx2fyC',
+    'レッド',
+    'https://grow-appt.com/reserve/tzvYyx2fyC/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'u15Vr2S7zV',
+    'アロマモア',
+    'https://grow-appt.com/reserve/u15Vr2S7zV/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'u4Uqy3NhVv',
+    'リンクス 千葉・松戸・船橋店',
+    'https://grow-appt.com/reserve/u4Uqy3NhVv/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'UheAT57Uea',
+    'エステスパ',
+    'https://grow-appt.com/reserve/UheAT57Uea/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'uyauGhmQ1S',
+    'バリアーノ 所沢店',
+    'https://grow-appt.com/reserve/uyauGhmQ1S/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'vNd9mXUyDX',
+    'グレイス 成増',
+    'https://grow-appt.com/reserve/vNd9mXUyDX/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'waTTJrFekQ',
+    'ルナディア',
+    'https://grow-appt.com/reserve/waTTJrFekQ/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'WVLaM2s2vC',
+    'リンダスパ',
+    'https://grow-appt.com/reserve/WVLaM2s2vC/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'wxs52q3dKw',
+    'おとな女子',
+    'https://grow-appt.com/reserve/wxs52q3dKw/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'XUs4YQuXyE',
+    '神スパ',
+    'https://grow-appt.com/reserve/XUs4YQuXyE'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'yagWw39PU6',
+    'エデンの園 川口',
+    'https://grow-appt.com/reserve/yagWw39PU6/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'yAZx6YvnGy',
+    'レジェンド府中ハナレ',
+    'https://grow-appt.com/reserve/yAZx6YvnGy/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'yCwP9dZ6gU',
+    '大人の天界学園 秋葉原',
+    'https://grow-appt.com/reserve/yCwP9dZ6gU/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'Z5ZfWR9U5N',
+    'ゴールドクラウン 旧金のエステ',
+    'https://grow-appt.com/reserve/Z5ZfWR9U5N'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000002',
+    'zSDnZkuDGn',
+    'ピュアホワイト',
+    'https://grow-appt.com/reserve/zSDnZkuDGn/'
   ),
   (
     '00000000-0000-0000-0000-000000000003',
-    '1004153',
-    'CELESTIA (セレスティア)',
-    'http://reserve-1004153.esthe-datacenter.com/reserve/'
+    '1000030',
+    'セレーサ',
+    'https://reserve-1000030.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1000152',
+    'ミセスマーメイド',
+    'https://reserve-1000152.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1002956',
+    'スパアリュール',
+    'http://reserve-1002956.esthe-datacenter.com/reserve/'
   ),
   (
     '00000000-0000-0000-0000-000000000003',
@@ -1882,9 +1528,39 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000003',
-    '1005229',
-    'アンジュ 金沢店',
-    'http://reserve-1005229.esthe-datacenter.com/reserve/'
+    '1003917',
+    '都 miyako',
+    'http://reserve-1003917.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1003960',
+    'ワンフィーリング',
+    'http://reserve-1003960.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1003963',
+    'アロマイーグル',
+    'http://reserve-1003963.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1004055',
+    'クイーンビー',
+    'http://reserve-1004055.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1004152',
+    'ピーチネクスト',
+    'http://reserve-1004152.esthe-datacenter.com/reserve/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000003',
+    '1004555',
+    'レイ 旧メロディー',
+    'http://reserve-1004555.esthe-datacenter.com/reserve/'
   ),
   (
     '00000000-0000-0000-0000-000000000003',
@@ -1894,153 +1570,15 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000003',
-    '1005325',
-    'アクア',
-    'http://reserve-1005325.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1005266',
-    'アロマコットン',
-    'http://reserve-1005266.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1005355',
-    'アロマピーチ 大宮',
-    'http://reserve-1005355.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1005447',
-    'ブリスフル',
-    'http://reserve-1005447.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1004129',
-    'Carezza (カレッツァ)',
-    'http://reserve-1004129.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1005329',
-    'チェリースパ',
-    'http://reserve-1005329.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1004093',
-    'Cuore (クオーレ)',
-    'http://reserve-1004093.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1004555',
-    'レイ (REI) 旧メロディー',
-    'http://reserve-1004555.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1005301',
-    'ニューハーフメンズエステkirara',
-    'http://reserve-1005301.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1005345',
-    'ララ (LaLa) 武蔵小金井',
-    'http://reserve-1005345.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1000267',
-    'L&A (エルアンドエー)',
-    'http://reserve-1000267.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1004055',
-    'QueenBee (クイーンビー)',
-    'http://reserve-1004055.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1003917',
-    '都 miyako',
-    'http://reserve-1003917.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1005259',
-    'Aroma Grit (アロマグリット) 西明石店',
-    'http://reserve-1005259.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1001606',
-    'Aroma Grit (アロマグリット) 沼津店',
-    'http://reserve-1001606.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1003960',
-    'one feeling (ワンフィーリング)',
-    'http://reserve-1003960.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1004152',
-    'ピーチネクスト 旧ピーチサロン',
-    'https://reserve-1004152.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1005367',
-    'プレステージスパ 小山',
-    'http://reserve-1005367.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1005441',
-    'ラッドスパ (RAD SPA)',
-    'http://reserve-1005441.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1005403',
-    'Reflection (リフレクション)',
-    'http://reserve-1005403.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
     '1005269',
     'リスタイル',
     'http://reserve-1005269.esthe-datacenter.com/reserve/'
   ),
   (
     '00000000-0000-0000-0000-000000000003',
-    '1000303',
-    'The Royal Class (ロイヤルクラス)',
-    'https://reserve-1000303.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1005409',
-    'ROYAL SPA (ロイヤルスパ) 町田',
-    'http://reserve-1005409.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1000172',
-    'Secret Mode (シークレットモード) 四日市',
-    'https://reserve-1000172.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1002956',
-    'Spa Allure (スパアリュール)',
-    'http://reserve-1002956.esthe-datacenter.com/reserve/'
+    '1005325',
+    'アクア',
+    'http://reserve-1005325.esthe-datacenter.com/reserve/'
   ),
   (
     '00000000-0000-0000-0000-000000000003',
@@ -2050,50 +1588,2048 @@ insert into salons (site_id, shop_id, name, url) values
   ),
   (
     '00000000-0000-0000-0000-000000000003',
-    '1005358',
-    'スイートクラス',
-    'http://reserve-1005358.esthe-datacenter.com/reserve/'
+    '1005367',
+    'プレステージスパ 小山',
+    'http://reserve-1005367.esthe-datacenter.com/reserve/'
   ),
   (
     '00000000-0000-0000-0000-000000000003',
-    '1000167',
-    'Sweet Room (スウィートルーム) 宮崎',
-    'https://reserve-1000167.esthe-datacenter.com/reserve/'
+    '1005409',
+    'ROYAL SPA (ロイヤルスパ) 町田',
+    'http://reserve-1005409.esthe-datacenter.com/reserve/'
   ),
   (
     '00000000-0000-0000-0000-000000000003',
-    '1000276',
-    'Plenty (プレンティ)',
-    'http://reserve-1000276.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1005394',
-    'AXER (アクサー)',
-    'http://reserve-1005394.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1004497',
-    'Madam Lilly (マダムリリー)',
-    'http://reserve-1004497.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1000152',
-    'Mrs.Mermaid (ミセスマーメイド)',
-    'https://reserve-1000152.esthe-datacenter.com/reserve/'
-  ),
-  (
-    '00000000-0000-0000-0000-000000000003',
-    '1003989',
-    'ZERO first (ゼロファースト)',
-    'https://reserve-1003989.esthe-datacenter.com/reserve/'
+    '1005464',
+    'オーラ 大阪',
+    'http://reserve-1005464.esthe-datacenter.com/reserve/'
   ),
   (
     '00000000-0000-0000-0000-000000000004',
-    '26485',
-    'M''sSPA',
-    'https://estama.jp/shop/26485/reserve/'
+    '20002',
+    'メンズクラブ',
+    'https://estama.jp/shop/20002/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '20099',
+    '梅田マッサージ',
+    'https://estama.jp/shop/20099/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '21399',
+    'グランマトム 旧マトム',
+    'https://estama.jp/shop/21399/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '22302',
+    'エムセカンド',
+    'https://estama.jp/shop/22302/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '24178',
+    '和いふらいん 大阪',
+    'https://estama.jp/shop/24178/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '24312',
+    'マダムロッソ',
+    'https://estama.jp/shop/24312/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '24643',
+    'プールサイド 旧バリーノ',
+    'https://estama.jp/shop/24643/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '25052',
+    'ファースト',
+    'https://estama.jp/shop/25052/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '25081',
+    'ミセス美オーラ 大阪',
+    'https://estama.jp/shop/25081/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '25108',
+    'フェリーチェ 名古屋',
+    'https://estama.jp/shop/25108/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '25227',
+    'ヒーリングサロンサンタイ',
+    'https://estama.jp/shop/25227/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '26669',
+    'アロマジェントリー',
+    'https://estama.jp/shop/26669/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '27217',
+    'ダーリンプレミアム',
+    'https://estama.jp/shop/27217/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '27356',
+    '超レベチなエステ24',
+    'https://estama.jp/shop/27356/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '27478',
+    'スパスパスパ',
+    'https://estama.jp/shop/27478/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '27553',
+    'アロマサロンドJ',
+    'https://estama.jp/shop/27553/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '27642',
+    'ビューティーアンドビースト',
+    'https://estama.jp/shop/27642/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '27763',
+    'クラウンマーメイド',
+    'https://estama.jp/shop/27763/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '27809',
+    '銀座リッチ',
+    'https://estama.jp/shop/27809/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '27868',
+    'グランマトム 旧マトム',
+    'https://estama.jp/shop/27868/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '28180',
+    'レディボーイズ',
+    'https://estama.jp/shop/28180/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '28195',
+    'スペード',
+    'https://estama.jp/shop/28195/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '28241',
+    'セブンラックスパ',
+    'https://estama.jp/shop/28241/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '28381',
+    '1919☆SPA(イクイクスパ) 小山',
+    'https://estama.jp/shop/28381/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '28410',
+    '桃色天使 旧モモテン2.0',
+    'https://estama.jp/shop/28410/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '28426',
+    'アロマスパスノーウィー',
+    'https://estama.jp/shop/28426/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '28447',
+    'パタヤリゾート',
+    'https://estama.jp/shop/28447/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '28540',
+    'ゴールデン',
+    'https://estama.jp/shop/28540/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '28543',
+    'アロー (旧ステラキョウト)',
+    'https://estama.jp/shop/28543/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '28711',
+    'ガールズスパ',
+    'https://estama.jp/shop/28711/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '28958',
+    'Rセレクション 旧Vスパ',
+    'https://estama.jp/shop/28958/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '28963',
+    'おもてなスパ',
+    'https://estama.jp/shop/28963/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '29000',
+    'ノアール 旧ラトゥール',
+    'https://estama.jp/shop/29000/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '29005',
+    'レジェンドスパ',
+    'https://estama.jp/shop/29005/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '29092',
+    'マダムルージュ 旧マダムリライフ',
+    'https://estama.jp/shop/29092/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '29112',
+    'ダブリュースパ',
+    'https://estama.jp/shop/29112/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '29117',
+    'ジョリエ 大阪',
+    'https://estama.jp/shop/29117/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '29148',
+    'クリームソーダ',
+    'https://estama.jp/shop/29148/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '29245',
+    'レストスパプレミアム',
+    'https://estama.jp/shop/29245/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '29289',
+    '俺の家',
+    'https://estama.jp/shop/29289/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '29464',
+    'ライトウェイズ',
+    'https://estama.jp/shop/29464'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '29613',
+    '彼女ん家',
+    'https://estama.jp/shop/29613/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '29631',
+    'エデンスパ 梅田',
+    'https://estama.jp/shop/29631/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '29767',
+    'フラフィー',
+    'https://estama.jp/shop/29767/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '29855',
+    'リブスパ',
+    'https://estama.jp/shop/29855/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '30021',
+    'ロイヤルロディヘッドスパ 旧ロディーヘッドスパ',
+    'https://estama.jp/shop/30021/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '30108',
+    'ミセス大阪メンズエステ プレミア',
+    'https://estama.jp/shop/30108/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '30169',
+    'ゆ庵',
+    'https://estama.jp/shop/30169/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '30212',
+    'ラ・ビ・アン・ルフレット',
+    'https://estama.jp/shop/30212/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '30445',
+    'ウルハ',
+    'https://estama.jp/shop/30445/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '30469',
+    'アロマセシル 旧リップス',
+    'https://estama.jp/shop/30469/#RealTimeMessage'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '30605',
+    'リリカ大阪',
+    'https://estama.jp/shop/30605/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '30745',
+    '星の指輪',
+    'https://estama.jp/shop/30745/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '30874',
+    'ライディーン',
+    'https://estama.jp/shop/30874/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '30885',
+    'エステスパ',
+    'https://estama.jp/shop/30885/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '30930',
+    'ナチュレ 川越',
+    'https://estama.jp/shop/30930/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '31061',
+    '東京フェアリーランド',
+    'https://estama.jp/shop/31061/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '31190',
+    'チバスパ',
+    'https://estama.jp/shop/31190/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '31245',
+    '豪華絢爛',
+    'https://estama.jp/shop/31245/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '31319',
+    'ルアナスパ 高崎',
+    'https://estama.jp/shop/31319/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '31529',
+    'ウイニングヘブン',
+    'https://estama.jp/shop/31529/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '31574',
+    'アロマエレガンス',
+    'https://estama.jp/shop/31574/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '31586',
+    'ワイフコレクション',
+    'https://estama.jp/shop/31586/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '31589',
+    'アールトウキョウ秋葉原',
+    'https://estama.jp/shop/31589/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '31599',
+    'マンダリンスパ 神楽坂',
+    'https://estama.jp/shop/31599/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '31676',
+    'ミセスの子守唄',
+    'https://estama.jp/shop/31676/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '31770',
+    'とろりんタイム',
+    'https://estama.jp/shop/31770/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '31848',
+    'エミュスパ',
+    'https://estama.jp/shop/31848/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '31876',
+    'アロマクラウン',
+    'https://estama.jp/shop/31876/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '31879',
+    '銀座ジェントル',
+    'https://estama.jp/shop/31879/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '31887',
+    'ラマン 埼玉',
+    'https://estama.jp/shop/31887/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '31905',
+    'ラブテラス',
+    'https://estama.jp/shop/31905/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '31909',
+    'ラブプラス 大阪',
+    'https://estama.jp/shop/31909/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '32077',
+    'タケトンボ',
+    'https://estama.jp/shop/32077/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '32104',
+    'メンエス案内所',
+    'https://estama.jp/shop/32104/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '32130',
+    '大人のネバーランド',
+    'https://estama.jp/shop/32130/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '32166',
+    'ル･アンジア',
+    'https://estama.jp/shop/32166/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '32180',
+    '1919☆SPA(イクイクスパ) 小山',
+    'https://estama.jp/shop/32180/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '32316',
+    'アロマクラ',
+    'https://estama.jp/shop/32316/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '32448',
+    'レクスグラン',
+    'https://estama.jp/shop/32448/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '32591',
+    'SPA Mania (スパマニア)',
+    'https://estama.jp/shop/32591/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '32602',
+    'アールフォーティー',
+    'https://estama.jp/shop/32602/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '32644',
+    'ルアナスパ 太田 旧アメイズスパ太田',
+    'https://estama.jp/shop/32644/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '32657',
+    '1919☆SPA(イクイクスパ) 小山',
+    'https://estama.jp/shop/32657/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '32725',
+    'まじかる',
+    'https://estama.jp/shop/32725/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '32753',
+    'アロマクリスタル 旧ザセレクション',
+    'https://estama.jp/shop/32753/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '32778',
+    'フェデフルラージュ',
+    'https://estama.jp/shop/32778/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '32924',
+    'コル･カロリ',
+    'https://estama.jp/shop/32924/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '32931',
+    'チェックメイト',
+    'https://estama.jp/shop/32931/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '33007',
+    'プールサイド 新橋店',
+    'https://estama.jp/shop/33007/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '33103',
+    'LYNX (リンクス) 横浜関内店',
+    'https://estama.jp/shop/33103/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '33290',
+    'Guarigione (グアリジョーネ) 横浜・関内',
+    'https://estama.jp/shop/33290/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '33358',
+    'スパアンジュ',
+    'https://estama.jp/shop/33358/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '33392',
+    'ディースパ',
+    'https://estama.jp/shop/33392/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '33480',
+    'スパディープ',
+    'https://estama.jp/shop/33480/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '33617',
+    'パラディ',
+    'https://estama.jp/shop/33617/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '33638',
+    'ティアラ',
+    'https://estama.jp/shop/33638/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '33660',
+    '1919☆SPA(イクイクスパ) 小山',
+    'https://estama.jp/shop/33660/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '33670',
+    'キャンディスパ',
+    'https://estama.jp/shop/33670/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '33813',
+    '色気あるワイフ',
+    'https://estama.jp/shop/33813/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '33999',
+    'クロエ 横浜',
+    'https://estama.jp/shop/33999/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '34006',
+    'OLIVE (オリーブ) 名古屋',
+    'https://estama.jp/shop/34006/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '34025',
+    'リノエビス',
+    'https://estama.jp/shop/34025/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '34054',
+    'ミセスオーブスパ 京都',
+    'https://estama.jp/shop/34054/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '34099',
+    'ハイグレードラブ 上野',
+    'https://estama.jp/shop/34099/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '34111',
+    'アヌエ',
+    'https://estama.jp/shop/34111/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '34179',
+    '密着プレジール 日本橋',
+    'https://estama.jp/shop/34179/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '34200',
+    '宇都宮メンズエステ ホリデー',
+    'https://estama.jp/shop/34200/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '34288',
+    'オトスパ',
+    'https://estama.jp/shop/34288/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '34336',
+    'ナチュラルスパ 蕨',
+    'https://estama.jp/shop/34336/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '34408',
+    'アロマエメラルド',
+    'https://estama.jp/shop/34408/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '34437',
+    'スイートアロマミセス',
+    'https://estama.jp/shop/34437/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '34633',
+    'レクセラ',
+    'https://estama.jp/shop/34633/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '34681',
+    'アレスパ',
+    'https://estama.jp/shop/34681/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '34705',
+    'マーベラス つくば',
+    'https://estama.jp/shop/34705/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '34748',
+    'エーステーション',
+    'https://estama.jp/shop/34748/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '34771',
+    'スムージー',
+    'https://estama.jp/shop/34771/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '34817',
+    '美ふれ spa',
+    'https://estama.jp/shop/34817/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '34874',
+    'アナスパシア',
+    'https://estama.jp/shop/34874/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '35073',
+    'オブリージュ',
+    'https://estama.jp/shop/35073/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '35113',
+    'キングスパ 綱島',
+    'https://estama.jp/shop/35113/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '35218',
+    'ぽっちゃりのメンズエステで癒される',
+    'https://estama.jp/shop/35218/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '35277',
+    '美魔女エステ',
+    'https://estama.jp/shop/35277/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '35301',
+    'ミルクピーチ',
+    'https://estama.jp/shop/35301/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '35305',
+    '1919☆SPA(イクイクスパ) 小山',
+    'https://estama.jp/shop/35305/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '35414',
+    'アロマガーデン 矢場町',
+    'https://estama.jp/shop/35414/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '35427',
+    'メルフォア',
+    'https://estama.jp/shop/35427/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '35472',
+    'キャロットスパ',
+    'https://estama.jp/shop/35472/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '35520',
+    'ダンデライオン',
+    'https://estama.jp/shop/35520/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '35636',
+    '大人のアロマラパン',
+    'https://estama.jp/shop/35636/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '38188',
+    'シレーナ 大阪',
+    'https://estama.jp/shop/38188/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '38191',
+    'りあるすぱ',
+    'https://estama.jp/shop/38191/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '38255',
+    'セラトピア',
+    'https://estama.jp/shop/38255/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '38323',
+    'ラグモーメント',
+    'https://estama.jp/shop/38323/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '38378',
+    'ルイヴィオール',
+    'https://estama.jp/shop/38378/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '38439',
+    'ときめき竜宮城',
+    'https://estama.jp/shop/38439/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '38476',
+    'ヴィヴィモア',
+    'https://estama.jp/shop/38476/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '38484',
+    'ショータイム 越谷店',
+    'https://estama.jp/shop/38484/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '38504',
+    'ロイヤルバニー',
+    'https://estama.jp/shop/38504/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '38506',
+    'パランティア',
+    'https://estama.jp/shop/38506/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '38559',
+    'ゼットスパ',
+    'https://estama.jp/shop/38559/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '38578',
+    '神の手 つくば',
+    'https://estama.jp/shop/38578/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '38627',
+    '極みのワイフ',
+    'https://estama.jp/shop/38627/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '38664',
+    'セレブスパプレミアム',
+    'https://estama.jp/shop/38664/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '38677',
+    'なにわ女子',
+    'https://estama.jp/shop/38677/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '38736',
+    'アロー (旧ステラキョウト)',
+    'https://estama.jp/shop/38736/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '38812',
+    'Ｍの為に',
+    'https://estama.jp/shop/38812/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '38813',
+    'シェアガーデン',
+    'https://estama.jp/shop/38813/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '38819',
+    'シークレットモーメント',
+    'https://estama.jp/shop/38819/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '38863',
+    'マンダラズ',
+    'https://estama.jp/shop/38863/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '38975',
+    'モチスパ',
+    'https://estama.jp/shop/38975/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '39035',
+    'フェアリータッチ',
+    'https://estama.jp/shop/39035/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '39040',
+    'KNIT (ニット)',
+    'https://estama.jp/shop/39040/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '39071',
+    'カノジョSPA',
+    'https://estama.jp/shop/39071/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '39076',
+    '癒しの動物園 珍獣ハウス',
+    'https://estama.jp/shop/39076/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '39117',
+    'ムフフフットケアセンター',
+    'https://estama.jp/shop/39117/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '39195',
+    'ガラク 西船橋',
+    'https://estama.jp/shop/39195'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '39295',
+    'スパニスト 梅田店',
+    'https://estama.jp/shop/39295/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '39436',
+    'ゴールドアネスパ',
+    'https://estama.jp/shop/39436/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '39460',
+    'ジュエリースパ',
+    'https://estama.jp/shop/39460/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '39469',
+    '秘密のエステ 神 (GOD)',
+    'https://estama.jp/shop/39469/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '39474',
+    '1919☆SPA(イクイクスパ) 小山',
+    'https://estama.jp/shop/39474/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '39492',
+    'レーヴミストレア',
+    'https://estama.jp/shop/39492/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '39571',
+    '密着HEAVEN (ヘブン) 梅田店',
+    'https://estama.jp/shop/39571/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '39661',
+    'Alto',
+    'https://estama.jp/shop/39661/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '39832',
+    '蛍',
+    'https://estama.jp/shop/39832/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '39896',
+    '東京えすてクラブ',
+    'https://estama.jp/shop/39896/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '39975',
+    'カレン',
+    'https://estama.jp/shop/39975/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '39976',
+    'エステの王様',
+    'https://estama.jp/shop/39976/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '39981',
+    'スパすぷらっしゅ',
+    'https://estama.jp/shop/39981/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '39987',
+    '愛嬌スパ',
+    'https://estama.jp/shop/39987/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '40172',
+    'ミセスの館',
+    'https://estama.jp/shop/40172/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '40202',
+    'ロイヤルロディヘッドスパ 旧ロディーヘッドスパ',
+    'https://estama.jp/shop/40202/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '40278',
+    '1919☆SPA(イクイクスパ) 小山',
+    'https://estama.jp/shop/40278/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '40327',
+    'ダヴィンチ',
+    'https://estama.jp/shop/40327/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '40334',
+    'グリーンアップル 旧レッドアイ',
+    'https://estama.jp/shop/40334/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '40340',
+    'アルファード',
+    'https://estama.jp/shop/40340/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '40394',
+    'Aroma Zipper (アロマジッパー)',
+    'https://estama.jp/shop/40394/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '40433',
+    'マリスパ',
+    'https://estama.jp/shop/40433/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '40457',
+    'マセラスパ',
+    'https://estama.jp/shop/40457/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '40461',
+    'サルバドール',
+    'https://estama.jp/shop/40461/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '40467',
+    '花子と太郎ZERO',
+    'https://estama.jp/shop/40467/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '40473',
+    'ワイフセレクション',
+    'https://estama.jp/shop/40473/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '40482',
+    'アロマグラマー',
+    'https://estama.jp/shop/40482/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '40486',
+    '密着HEAVEN (ヘブン) 梅田店',
+    'https://estama.jp/shop/40486/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '40526',
+    'ばする～む',
+    'https://estama.jp/shop/40526/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '40744',
+    'スマイル',
+    'https://estama.jp/shop/40744/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '40783',
+    'メンズクラブ',
+    'https://estama.jp/shop/40783/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '40892',
+    'シエル',
+    'https://estama.jp/shop/40892/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '40904',
+    'フライングスパ',
+    'https://estama.jp/shop/40904/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41078',
+    'ウィズ',
+    'https://estama.jp/shop/41078/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41193',
+    'ユニゾンスパ',
+    'https://estama.jp/shop/41193/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41232',
+    'エステサロン キラリ',
+    'https://estama.jp/shop/41232/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41283',
+    'アビス',
+    'https://estama.jp/shop/41283/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41319',
+    'バンビスパ',
+    'https://estama.jp/shop/41319/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41348',
+    'ザ ベストアンドモア',
+    'https://estama.jp/shop/41348/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41349',
+    'ベルファーム',
+    'https://estama.jp/shop/41349/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41473',
+    'トロトロパラダイス',
+    'https://estama.jp/shop/41473/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41516',
+    'ととのいスパ',
+    'https://estama.jp/shop/41516/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41562',
+    'ワンピース',
+    'https://estama.jp/shop/41562/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41595',
+    'レッドリボン越谷',
+    'https://estama.jp/shop/41595/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41606',
+    'レフィナード',
+    'https://estama.jp/shop/41606/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41661',
+    'アイシー (I♡C)',
+    'https://estama.jp/shop/41661/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41696',
+    'ベルシック',
+    'https://estama.jp/shop/41696/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41707',
+    '大人のアロマラパン',
+    'https://estama.jp/shop/41707/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41745',
+    'パレット',
+    'https://estama.jp/shop/41745/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41780',
+    'シュガーミント',
+    'https://estama.jp/shop/41780/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41783',
+    'キスミント',
+    'https://estama.jp/shop/41783/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41784',
+    '心和 (こより)',
+    'https://estama.jp/shop/41784/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41850',
+    '天上人PREMIUM',
+    'https://estama.jp/shop/41850/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41895',
+    'モンロー',
+    'https://estama.jp/shop/41895/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41896',
+    '1919☆SPA(イクイクスパ) 小山',
+    'https://estama.jp/shop/41896/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41898',
+    'オフサイド',
+    'https://estama.jp/shop/41898/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41932',
+    'フォーティーファイブ (FORTY FIVE)',
+    'https://estama.jp/shop/41932/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41949',
+    'ヴィルゴ (VIRGO)',
+    'https://estama.jp/shop/41949/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '41965',
+    'カグヤ ～星乃幻想～',
+    'https://estama.jp/shop/41965/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '42001',
+    '1919☆SPA(イクイクスパ) 小山',
+    'https://estama.jp/shop/42001/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '42049',
+    'デコルテスパ',
+    'https://estama.jp/shop/42049/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '42126',
+    'ほのか',
+    'https://estama.jp/shop/42126/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '42140',
+    'テキーラ',
+    'https://estama.jp/shop/42140/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '42284',
+    'シュシュ',
+    'https://estama.jp/shop/42284/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '42302',
+    'アクア',
+    'https://estama.jp/shop/42302/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '42361',
+    '半熟SPA',
+    'https://estama.jp/shop/42361/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '42375',
+    'チョコミントフレーバー',
+    'https://estama.jp/shop/42375/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '42471',
+    'グレイス 成増',
+    'https://estama.jp/shop/42471/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '42593',
+    'レッドリボン本八幡',
+    'https://estama.jp/shop/42593/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '42685',
+    'Zero (ゼロ)',
+    'https://estama.jp/shop/42685/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '42693',
+    'ル・アンジア',
+    'https://estama.jp/shop/42693/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '42807',
+    'カイフクエステ',
+    'https://estama.jp/shop/42807/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '42827',
+    '1919☆SPA(イクイクスパ) 小山',
+    'https://estama.jp/shop/42827/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '43097',
+    '小悪魔スパトウキョウ',
+    'https://estama.jp/shop/43097/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '43122',
+    'スエルテ東京',
+    'https://estama.jp/shop/43122/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '43148',
+    'オニ感度',
+    'https://estama.jp/shop/43148/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '43175',
+    'ピクシースパ',
+    'https://estama.jp/shop/43175/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '43214',
+    'G.O.A.T 旧琥珀',
+    'https://estama.jp/shop/43214/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '43302',
+    'スイートアロマミセス',
+    'https://estama.jp/shop/43302/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '43331',
+    'ミセスの癒しエステ',
+    'https://estama.jp/shop/43331/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '43390',
+    'サラブレッド',
+    'https://estama.jp/shop/43390/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '43439',
+    '女神のエステ 大曽根店',
+    'https://estama.jp/shop/43439/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '43445',
+    'グッドスパエボリューション',
+    'https://estama.jp/shop/43445/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '43536',
+    '1919☆SPA(イクイクスパ) 小山',
+    'https://estama.jp/shop/43536/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '43543',
+    'アーバンスパ 西新宿',
+    'https://estama.jp/shop/43543/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '43564',
+    '和み (NAGOMI)',
+    'https://estama.jp/shop/43564/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '43636',
+    'ミセスあまおうセラピ 旧ミセスマドンナ',
+    'https://estama.jp/shop/43636/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '43637',
+    'スゥ',
+    'https://estama.jp/shop/43637/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '43653',
+    'Lumitia (ルミティア)',
+    'https://estama.jp/shop/43653/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '43698',
+    'YOLU SPA (ヨルスパ) Mrs店',
+    'https://estama.jp/shop/43698/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '43733',
+    'R.sスパ',
+    'https://estama.jp/shop/43733/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '43788',
+    '流星のエステ 旧爆裂スパ',
+    'https://estama.jp/shop/43788/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '43797',
+    'アマテラス',
+    'https://estama.jp/shop/43797/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '43950',
+    'LaCiel (ラシェル)',
+    'https://estama.jp/shop/43950/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '44037',
+    'Mother Complex (マザーコンプレックス)',
+    'https://estama.jp/shop/44037/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '44073',
+    '1919☆SPA(イクイクスパ) 小山',
+    'https://estama.jp/shop/44073/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '44133',
+    '花うた 旧Fururi (ふるり)',
+    'https://estama.jp/shop/44133/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '44163',
+    '1919☆SPA(イクイクスパ) 小山',
+    'https://estama.jp/shop/44163/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '44206',
+    'マダムの秘密',
+    'https://estama.jp/shop/44206/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '44216',
+    'リルーム 宇都宮',
+    'https://estama.jp/shop/44216/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '44242',
+    'ギンイロキカク',
+    'https://estama.jp/shop/44242/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '44269',
+    'BEYOND (ビヨンド) 新小岩',
+    'https://estama.jp/shop/44269/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '44293',
+    'Karisome (かりそめ)',
+    'https://estama.jp/shop/44293/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '44303',
+    'Future (フューチャー) 名古屋',
+    'https://estama.jp/shop/44303/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '44375',
+    'JUNGLE SPA (ジャングルスパ)',
+    'https://estama.jp/shop/44375/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '44380',
+    'フェリックス',
+    'https://estama.jp/shop/44380/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '44604',
+    'フォルトゥナ',
+    'https://estama.jp/shop/44604/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '44828',
+    'DOLCE SPA (ドルチェスパ) 北千住',
+    'https://estama.jp/shop/44828/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '44880',
+    'YOLU SPA (ヨルスパ) Mrs店',
+    'https://estama.jp/shop/44880/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '45008',
+    'C-MOON (シームーン)',
+    'https://estama.jp/shop/45008/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '45061',
+    'TEOTL (テオトル)',
+    'https://estama.jp/shop/45061/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '45109',
+    'Rising (ライジング)',
+    'https://estama.jp/shop/45109/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '45236',
+    'ANESSA (アネッサ) 大阪',
+    'https://estama.jp/shop/45236/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '46408',
+    'ミセスファムファタール',
+    'https://estama.jp/shop/46408/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '46530',
+    'Men''s Spa Bell (ベル)',
+    'https://estama.jp/shop/46530/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '46826',
+    'ましゅまろプラス 太田店',
+    'https://estama.jp/shop/46826/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '46872',
+    'HURRICANE (ハリケーン)',
+    'https://estama.jp/shop/46872/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '47037',
+    'YURAGI (ゆらぎ)',
+    'https://estama.jp/shop/47037/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '47117',
+    'ハルモニアスパ',
+    'https://estama.jp/shop/47117/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '47366',
+    'ゴッドブレス',
+    'https://estama.jp/shop/47366/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '47531',
+    'レッドリボン 前橋',
+    'https://estama.jp/shop/47531/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '47559',
+    '1919☆SPA(イクイクスパ) 小山',
+    'https://estama.jp/shop/47559/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '47848',
+    'ビノス',
+    'https://estama.jp/shop/47848/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '47851',
+    'マドンナの誘惑',
+    'https://estama.jp/shop/47851/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '48005',
+    'アムールブラン',
+    'https://estama.jp/shop/48005/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '48033',
+    '煌めきSPA (キラメキスパ)',
+    'https://estama.jp/shop/48033/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '48034',
+    'コットンスパ',
+    'https://estama.jp/shop/48034/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '48052',
+    '大人のごほうび',
+    'https://estama.jp/shop/48052/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '48118',
+    '完熟スパ',
+    'https://estama.jp/shop/48118/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '48172',
+    'マリアエレーナ',
+    'https://estama.jp/shop/48172/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '48177',
+    'spa Velvet (スパベルベット)',
+    'https://estama.jp/shop/48177/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '48237',
+    'ペルシア',
+    'https://estama.jp/shop/48237/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '48285',
+    'ルーチェ (Luce) 大和',
+    'https://estama.jp/shop/48285/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '48291',
+    'ミヌエット',
+    'https://estama.jp/shop/48291/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '48300',
+    'もくきん堂',
+    'https://estama.jp/shop/48300/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '48384',
+    'アクアマリン 堺',
+    'https://estama.jp/shop/48384/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '48495',
+    'ARK (アーク)',
+    'https://estama.jp/shop/48495/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '48568',
+    'ミセスフェリシアーク',
+    'https://estama.jp/shop/48568/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '48759',
+    'ユニオンプラス',
+    'https://estama.jp/shop/48759/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '48800',
+    'ブラックホール',
+    'https://estama.jp/shop/48800/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '48990',
+    'ステキスパ 旧セッピンスパ',
+    'https://estama.jp/shop/48990/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '48996',
+    'ペルシア',
+    'https://estama.jp/shop/48996/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '49207',
+    '日本橋チャーム',
+    'https://estama.jp/shop/49207/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '49209',
+    'ホワイトスワン',
+    'https://estama.jp/shop/49209/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '49210',
+    'ゆめはな 八千代',
+    'https://estama.jp/shop/49210/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '49366',
+    'リルシェ',
+    'https://estama.jp/shop/49366/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '49476',
+    'マシェリ 新大阪',
+    'https://estama.jp/shop/49476/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '49514',
+    'シスターメアリークラレンス',
+    'https://estama.jp/shop/49514/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '49597',
+    '大人の保育園 大宮M店',
+    'https://estama.jp/shop/49597/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '49694',
+    'スウィートエンジェル',
+    'https://estama.jp/shop/49694/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '49698',
+    '＆Green (アンドグリーン)',
+    'https://estama.jp/shop/49698/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '49705',
+    'スミレスパ',
+    'https://estama.jp/shop/49705/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '49706',
+    'ミセスファンタジー',
+    'https://estama.jp/shop/49706/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '49732',
+    'クジャク 旧ルガール東京',
+    'https://estama.jp/shop/49732/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '49742',
+    'レッドリボン 津田沼',
+    'https://estama.jp/shop/49742/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '49788',
+    'メンズエステ日本橋',
+    'https://estama.jp/shop/49788/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '49905',
+    'チューニング',
+    'https://estama.jp/shop/49905/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '49917',
+    'ディアヴォレット',
+    'https://estama.jp/shop/49917/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '49951',
+    'アロマルミナス 南越谷',
+    'https://estama.jp/shop/49951/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '49963',
+    '余白 町田',
+    'https://estama.jp/shop/49963/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '50018',
+    '灯 三宮',
+    'https://estama.jp/shop/50018/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '50065',
+    '池袋アリア 旧アトランティス',
+    'https://estama.jp/shop/50065/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '50082',
+    'ゼロスパ 秋葉原',
+    'https://estama.jp/shop/50082/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '50098',
+    'レソーナ',
+    'https://estama.jp/shop/50098/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '50103',
+    'マダムスイートピー',
+    'https://estama.jp/shop/50103/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '50173',
+    '1919☆SPA(イクイクスパ) 小山',
+    'https://estama.jp/shop/50173/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '50184',
+    '船橋ディープ',
+    'https://estama.jp/shop/50184/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '50205',
+    'アンビシャス 大宮',
+    'https://estama.jp/shop/50205/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '50231',
+    'アロマワン',
+    'https://estama.jp/shop/50231/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '50259',
+    'バナナ 旧エーペックス',
+    'https://estama.jp/shop/50259/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '50264',
+    'アダム＆イブ',
+    'https://estama.jp/shop/50264/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '50267',
+    'オーラ 大阪',
+    'https://estama.jp/shop/50267/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '50273',
+    '東京アロマワールド 旧アロマリゾート',
+    'https://estama.jp/shop/50273/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '50316',
+    '天華 大阪',
+    'https://estama.jp/shop/50316/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '50317',
+    'エステの気分',
+    'https://estama.jp/shop/50317/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '50347',
+    'エステの気分',
+    'https://estama.jp/shop/50347/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '50348',
+    'エステの気分',
+    'https://estama.jp/shop/50348/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '50356',
+    'カワスパ 旧すとろべりーぱふぇ',
+    'https://estama.jp/shop/50356/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '50412',
+    '魅せられ手',
+    'https://estama.jp/shop/50412/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '50454',
+    'アロマルミエール',
+    'https://estama.jp/shop/50454/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '50491',
+    '妃翠',
+    'https://estama.jp/shop/50491/'
   )
 on conflict (site_id, shop_id) do nothing;
