@@ -6,6 +6,11 @@ import type {
 } from '@alimashita/shared';
 import { supabase } from '../lib/supabase.js';
 import { createLogger } from '../lib/logger.js';
+import { env } from '../lib/env.js';
+import {
+  diffHttpMetrics,
+  snapshotHttpMetrics,
+} from '../lib/http.js';
 import { caskanAvailabilityScraper } from '../scrapers/caskan/availability.js';
 import { growAvailabilityScraper } from '../scrapers/grow/availability.js';
 import { edcAvailabilityScraper } from '../scrapers/edc/availability.js';
@@ -143,16 +148,112 @@ async function enqueueNotifications(): Promise<number> {
   return 0;
 }
 
-export async function runAvailabilityJob(): Promise<void> {
+export interface RunAvailabilityOptions {
+  /**
+   * セラピスト同時処理数。1 で従来どおり完全直列。
+   * 省略時は env.AVAILABILITY_CONCURRENCY。
+   *
+   * HostQueue がホスト単位でリクエストを直列化するため、ここを上げても
+   * 単一サイトへの負荷は守られる (= サイト数×ホスト並列度 が実効上限)。
+   */
+  concurrency?: number;
+}
+
+type SiteSummary = {
+  therapists: number;
+  success: number;
+  failure: number;
+  slots: number;
+  elapsedMs: number;
+  maxElapsedMs: number;
+};
+
+/**
+ * 並列度 N のシンプルなワーカープール。
+ * 完了順を保持する必要は無いので、各ワーカーが共有キューから取り出す方式。
+ */
+async function runWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<void>,
+): Promise<void> {
+  if (items.length === 0) return;
+  const effective = Math.max(1, Math.min(concurrency, items.length));
+  let cursor = 0;
+  const runners: Promise<void>[] = [];
+  for (let i = 0; i < effective; i++) {
+    runners.push(
+      (async () => {
+        while (true) {
+          const index = cursor++;
+          if (index >= items.length) return;
+          await worker(items[index]!, index);
+        }
+      })(),
+    );
+  }
+  await Promise.all(runners);
+}
+
+function formatHttpMetricsLine(
+  diffs: Record<string, { requests: number; errors: number; retries: number; totalElapsedMs: number; maxElapsedMs: number }>,
+): Record<string, { req: number; err: number; retries: number; avgMs: number; maxMs: number }> {
+  const out: Record<string, { req: number; err: number; retries: number; avgMs: number; maxMs: number }> = {};
+  for (const [name, m] of Object.entries(diffs)) {
+    if (m.requests === 0 && m.errors === 0) continue;
+    out[name] = {
+      req: m.requests,
+      err: m.errors,
+      retries: m.retries,
+      avgMs: m.requests > 0 ? Math.round(m.totalElapsedMs / m.requests) : 0,
+      maxMs: m.maxElapsedMs,
+    };
+  }
+  return out;
+}
+
+export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Promise<void> {
+  const concurrency = Math.max(1, opts.concurrency ?? env.AVAILABILITY_CONCURRENCY);
   const therapists = await fetchWatchedTherapists();
-  log.info(`Found ${therapists.length} watched therapist(s)`);
+
+  // サイト別の事前カウントは負荷見積もりに便利なので最初にログる。
+  const bySite: Record<string, number> = {};
+  for (const t of therapists) {
+    bySite[t.site_name] = (bySite[t.site_name] ?? 0) + 1;
+  }
+  log.info(`Found ${therapists.length} watched therapist(s)`, {
+    concurrency,
+    bySite,
+  });
+
+  const httpBefore = snapshotHttpMetrics();
+  const jobStarted = Date.now();
+
+  const siteSummary = new Map<string, SiteSummary>();
+  function bumpSite(site: string, patch: Partial<SiteSummary>): void {
+    let s = siteSummary.get(site);
+    if (!s) {
+      s = { therapists: 0, success: 0, failure: 0, slots: 0, elapsedMs: 0, maxElapsedMs: 0 };
+      siteSummary.set(site, s);
+    }
+    if (patch.therapists !== undefined) s.therapists += patch.therapists;
+    if (patch.success !== undefined) s.success += patch.success;
+    if (patch.failure !== undefined) s.failure += patch.failure;
+    if (patch.slots !== undefined) s.slots += patch.slots;
+    if (patch.elapsedMs !== undefined) {
+      s.elapsedMs += patch.elapsedMs;
+      if (patch.elapsedMs > s.maxElapsedMs) s.maxElapsedMs = patch.elapsedMs;
+    }
+  }
 
   let success = 0;
   let failure = 0;
   let totalSlots = 0;
 
-  for (const therapist of therapists) {
+  await runWithConcurrency(therapists, concurrency, async (therapist) => {
     const scraper = pickScraper(therapist.site_name);
+    const startedAt = Date.now();
+    bumpSite(therapist.site_name, { therapists: 1 });
     try {
       const records = await scraper.run(therapist);
       if (records.length > 0) {
@@ -161,21 +262,54 @@ export async function runAvailabilityJob(): Promise<void> {
       // 0 件でも初回同期済みにする（初回だけ枠ゼロのときに永久に Path B が解禁されないように）
       await markFirstAvailabilitySyncedIfNeeded(therapist.id);
       await markTherapistSynced(therapist.id);
+      const elapsed = Date.now() - startedAt;
       success += 1;
       totalSlots += records.length;
+      bumpSite(therapist.site_name, {
+        success: 1,
+        slots: records.length,
+        elapsedMs: elapsed,
+      });
       log.info('Synced therapist', {
         site: therapist.site_name,
         therapist: therapist.name,
         slots: records.length,
+        ms: elapsed,
       });
     } catch (err) {
+      const elapsed = Date.now() - startedAt;
       failure += 1;
+      bumpSite(therapist.site_name, { failure: 1, elapsedMs: elapsed });
       log.error('Failed to sync therapist', {
         site: therapist.site_name,
         therapist: therapist.name,
+        ms: elapsed,
         error: err instanceof Error ? err.message : String(err),
       });
     }
+  });
+
+  const jobElapsedMs = Date.now() - jobStarted;
+  const httpDiff = diffHttpMetrics(httpBefore, snapshotHttpMetrics());
+
+  // サイト別の集計をログに出す。avgMs はセラピスト単位の平均同期時間 (HTTP + DB込み)。
+  const siteReport: Record<string, {
+    therapists: number;
+    success: number;
+    failure: number;
+    slots: number;
+    avgMs: number;
+    maxMs: number;
+  }> = {};
+  for (const [site, s] of siteSummary.entries()) {
+    siteReport[site] = {
+      therapists: s.therapists,
+      success: s.success,
+      failure: s.failure,
+      slots: s.slots,
+      avgMs: s.therapists > 0 ? Math.round(s.elapsedMs / s.therapists) : 0,
+      maxMs: s.maxElapsedMs,
+    };
   }
 
   let notified = 0;
@@ -195,5 +329,9 @@ export async function runAvailabilityJob(): Promise<void> {
     failure,
     slots: totalSlots,
     notified,
+    elapsedMs: jobElapsedMs,
+    concurrency,
+    bySite: siteReport,
+    http: formatHttpMetricsLine(httpDiff),
   });
 }

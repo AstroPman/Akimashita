@@ -18,6 +18,7 @@ interface CliArgs {
   limit: number | null;
   onlyUnsynced: boolean;
   salonsPhase: ExternalSalonsPhase;
+  concurrency: number | null;
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -80,7 +81,25 @@ function parseArgs(argv: string[]): CliArgs {
     salonsPhase = v;
   }
 
-  return { stage: stageValue, loop, dryRun, limit, onlyUnsynced, salonsPhase };
+  const concurrencyArg = argv.find((a) => a.startsWith('--concurrency='));
+  let concurrency: number | null = null;
+  if (concurrencyArg) {
+    const parsed = Number.parseInt(concurrencyArg.split('=', 2)[1] ?? '', 10);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      throw new Error('--concurrency must be a positive integer');
+    }
+    concurrency = parsed;
+  }
+
+  return {
+    stage: stageValue,
+    loop,
+    dryRun,
+    limit,
+    onlyUnsynced,
+    salonsPhase,
+    concurrency,
+  };
 }
 
 function sleep(ms: number): Promise<void> {
@@ -112,7 +131,9 @@ async function main(): Promise<void> {
         if (args.loop > 1) {
           log.info(`availability iteration ${i + 1}/${args.loop}`);
         }
-        await runAvailabilityJob();
+        await runAvailabilityJob({
+          concurrency: args.concurrency ?? undefined,
+        });
         if (i < args.loop - 1) {
           await sleep(60_000);
         }

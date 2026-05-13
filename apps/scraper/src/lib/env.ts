@@ -43,6 +43,10 @@ export const env = {
   // Stage 1 bookings サブフェーズの並列度。homepage_url は基本サロンごとに別ホストなので
   // HostQueue による host 単位の直列化を維持したまま、worker 数だけリクエストを重ねられる。
   BOOKING_CONCURRENCY: optionalInt('BOOKING_CONCURRENCY', 10),
+  // Stage 3: availability ジョブのセラピスト同時処理数。
+  // HostQueue が同一ホストを直列化するため、ここを上げてもサイト単位の負荷は守られる。
+  // デフォルトの 1 は従来通り完全直列。検証時は --concurrency CLI 引数で上書きできる。
+  AVAILABILITY_CONCURRENCY: optionalInt('AVAILABILITY_CONCURRENCY', 1),
   // Stage 4: notify 用設定。RESEND_API_KEY / EMAIL_FROM は notify ステージ
   // 実行時のみ必須。ここでは optional として読み込み、利用側で検証する。
   RESEND_API_KEY: optional('RESEND_API_KEY', ''),

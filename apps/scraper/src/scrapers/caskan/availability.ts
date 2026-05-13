@@ -26,20 +26,24 @@ class CaskanAvailabilityScraper implements AvailabilityScraper {
       to: targetDates[targetDates.length - 1],
     });
 
-    const records: AvailabilityRecord[] = [];
-    for (const date of targetDates) {
-      try {
-        const slots = await this.fetchDaySlots(therapist, date);
-        records.push(...slots);
-      } catch (err) {
-        log.warn('Failed to fetch slots for date', {
-          therapist: therapist.name,
-          date,
-          error: errMessage(err),
-        });
-      }
-    }
-    return records;
+    // 14 日分を並列発火する。HostQueue が r.caskan.jp を直列化するため
+    // 既定 (hostConcurrency=1) では実質直列のままで負荷は増えないが、
+    // SCRAPER_HTTP_CONCURRENCY_CASKAN を上げると 1 セラピストあたりの所要時間が縮む。
+    const settled = await Promise.all(
+      targetDates.map(async (date) => {
+        try {
+          return await this.fetchDaySlots(therapist, date);
+        } catch (err) {
+          log.warn('Failed to fetch slots for date', {
+            therapist: therapist.name,
+            date,
+            error: errMessage(err),
+          });
+          return [] as AvailabilityRecord[];
+        }
+      }),
+    );
+    return settled.flat();
   }
 
   private async fetchShiftDates(therapist: Therapist): Promise<string[]> {
