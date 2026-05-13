@@ -25,8 +25,13 @@ locals {
       log_retention_days = 14
     }
     availability = {
-      handler            = "availability.handler"
-      memory_mb          = 256
+      handler = "availability.handler"
+      # 1024MB に増量。Lambda は memory に比例して vCPU が割り当てられる仕様
+      # (256MB ≒ 0.16 vCPU, 1024MB ≒ 0.6 vCPU) のため、cheerio パース・gzip
+      # 解凍・TLS ハンドシェイクなど CPU bound な処理が速くなる。
+      # 旧設定 (256MB) では Max Memory Used が 253MB に達し OOM 寸前だった点も解消。
+      # GB-秒換算でも所要時間が短くなれば課金は同等以下に収まる。
+      memory_mb          = 1024
       timeout_seconds    = 300
       log_retention_days = 14
     }

@@ -46,6 +46,24 @@ resource "aws_lambda_function" "stage" {
       # 秘密値（SSM SecureString を data source で復号取得して直接注入）
       SUPABASE_SERVICE_ROLE_KEY = data.aws_ssm_parameter.supabase_service_role_key.value
       RESEND_API_KEY            = data.aws_ssm_parameter.resend_api_key.value
+
+      # ============================================================
+      # Stage 3 (availability) パフォーマンスチューニング
+      # ============================================================
+      # ローカル実測 (caskan 12 + edc 4 + estama 1 + grow 1 = 18 人) で
+      # baseline 34s → 4.3s (-87%) を達成した「攻めセット」を採用。
+      # 全 Lambda 共通で注入するが、AVAILABILITY_CONCURRENCY 等は他ステージでは
+      # 単に無視されるだけなのでステージ別に分ける必要はない。
+      #
+      # ホスト負荷の手加減は HostQueue (lib/http.ts) が同一ホスト内で
+      # concurrency 接続だけ並列化 + min/max delay を必ず挟む形で保たれる。
+      # 攻めすぎたら 429/5xx → 指数バックオフで自動的に減速する。
+      AVAILABILITY_CONCURRENCY        = "16"
+      SCRAPER_HTTP_CONCURRENCY_CASKAN = "3"
+      SCRAPER_HTTP_CONCURRENCY_EDC    = "2"
+      SCRAPER_HTTP_CONCURRENCY_GROW   = "3" # grow-appt.com 単一ホスト + 監視多数のため
+      MIN_DELAY_MS                    = "200"
+      MAX_DELAY_MS                    = "500"
     }
   }
 
