@@ -5,7 +5,10 @@ import {
   type DispatcherOptions,
 } from '../notifications/dispatcher.js';
 import { createResendEmailSender } from '../notifications/channels/email_resend.js';
-import type { EmailSender } from '../notifications/channels/types.js';
+import type {
+  BatchSendResultItem,
+  EmailSender,
+} from '../notifications/channels/types.js';
 
 const log = createLogger('job:notify');
 
@@ -19,6 +22,10 @@ class NoopEmailSender implements EmailSender {
     // dry-run 用ダミー。dispatcher 側でも dry-run 分岐があるが、
     // 万一ここまで到達した場合に副作用を出さないようにする。
   }
+  async sendBatch(messages: { to: string }[]): Promise<BatchSendResultItem[]> {
+    // dry-run 用ダミー。すべて成功扱いで返す。
+    return messages.map(() => ({ ok: true }));
+  }
 }
 
 export async function runNotifyJob(opts: NotifyJobOptions = {}): Promise<void> {
@@ -30,7 +37,8 @@ export async function runNotifyJob(opts: NotifyJobOptions = {}): Promise<void> {
   const dispatcherOptions: DispatcherOptions = {
     dryRun,
     usersPerRun,
-    userIntervalMs: env.NOTIFY_USER_INTERVAL_MS,
+    batchSize: env.NOTIFY_BATCH_SIZE,
+    interBatchDelayMs: env.NOTIFY_USER_INTERVAL_MS,
   };
 
   const result = await dispatchEmailNotifications({ sender }, dispatcherOptions);

@@ -1,7 +1,11 @@
 import type { SiteName } from '@alimashita/shared';
 import { supabase } from '../lib/supabase.js';
 import { createLogger } from '../lib/logger.js';
-import type { EmailSender } from './channels/types.js';
+import type {
+  BatchSendResultItem,
+  EmailMessage,
+  EmailSender,
+} from './channels/types.js';
 import { buildNotifyEmail, type NotifySlot } from './templates.js';
 
 const log = createLogger('notify:dispatcher');
@@ -45,6 +49,17 @@ interface UserBatch {
   slots: NotifySlot[];
 }
 
+/**
+ * バッチ送信処理に渡る、ロック済みかつメール本文を構築済みのユニット。
+ * 元の UserBatch から、別ワーカーに先取られた row を除外したサブセットで作る。
+ */
+interface PreparedBatch {
+  userId: string;
+  userEmail: string;
+  lockedRowIds: string[];
+  message: EmailMessage;
+}
+
 export interface DispatcherDeps {
   sender: EmailSender;
 }
@@ -52,7 +67,16 @@ export interface DispatcherDeps {
 export interface DispatcherOptions {
   dryRun: boolean;
   usersPerRun: number;
-  userIntervalMs: number;
+  /**
+   * Resend Batch API の 1 リクエストに詰めるユーザ数の上限。
+   * Resend 側の上限は 100。
+   */
+  batchSize: number;
+  /**
+   * チャンク（= 1 batch HTTP リクエスト）の間に挟む待機時間。
+   * 0 で待機なし。Resend のレート制限と相談。
+   */
+  interBatchDelayMs: number;
 }
 
 export interface DispatcherResult {
@@ -192,9 +216,15 @@ function groupByUser(rows: PendingRow[]): UserBatch[] {
   return Array.from(map.values());
 }
 
-async function transitionToSending(
+/**
+ * 渡された rowIds をまとめて 'sending' に遷移させる。`status='pending'` の WHERE 句で
+ * 楽観ロックが効くため、複数ワーカーが同時に走っても 1 行は 1 ワーカーにのみ確保される。
+ * 戻り値はロックを取得できた rowId の Set。
+ */
+async function bulkTransitionToSending(
   rowIds: string[],
-): Promise<string[]> {
+): Promise<Set<string>> {
+  if (rowIds.length === 0) return new Set();
   const { data, error } = await supabase
     .from('notification_logs')
     .update({
@@ -208,15 +238,12 @@ async function transitionToSending(
   if (error) {
     throw new Error(`Failed to transition rows to sending: ${error.message}`);
   }
-  // attempt_count はサーバー側で増加させたいので別 RPC でも良いが、MVP では
-  // application 側でインクリメントせず、後段の sent/failed 更新時にまとめて
-  // 反映する（ここでは last_attempted_at のみ更新）。
-  return ((data ?? []) as { id: string }[]).map((r) => r.id);
+  return new Set(((data ?? []) as { id: string }[]).map((r) => r.id));
 }
 
 async function markSent(
   rowIds: string[],
-  emailId: string | null,
+  emailSnapshotId: string | null,
 ): Promise<void> {
   if (rowIds.length === 0) return;
   const update: Record<string, unknown> = {
@@ -224,8 +251,8 @@ async function markSent(
     sent_at: new Date().toISOString(),
     error: null,
   };
-  if (emailId) {
-    update.email_id = emailId;
+  if (emailSnapshotId) {
+    update.email_id = emailSnapshotId;
   }
   const { error } = await supabase
     .from('notification_logs')
@@ -282,11 +309,12 @@ async function markFailed(rowIds: string[], message: string): Promise<void> {
   }
 }
 
+/**
+ * 送信対象 row の attempt_count を 1 ずつ加算する。MVP では並行実行を想定せず
+ * read → +1 → write の素朴な実装。失敗してもログに残るので致命ではない。
+ */
 async function incrementAttemptCount(rowIds: string[]): Promise<void> {
   if (rowIds.length === 0) return;
-  // PostgREST 単体では数値カラムのインクリメントができないため、
-  // 取得 → +1 → 更新の素朴な実装でよい。MVP では並行実行を想定しないので
-  // race condition は無視する。失敗してもログに残るので致命ではない。
   const { data, error } = await supabase
     .from('notification_logs')
     .select('id, attempt_count')
@@ -297,12 +325,56 @@ async function incrementAttemptCount(rowIds: string[]): Promise<void> {
     });
     return;
   }
-  for (const row of data as { id: string; attempt_count: number }[]) {
-    await supabase
-      .from('notification_logs')
-      .update({ attempt_count: (row.attempt_count ?? 0) + 1 })
-      .eq('id', row.id);
+  await Promise.all(
+    (data as { id: string; attempt_count: number }[]).map((row) =>
+      supabase
+        .from('notification_logs')
+        .update({ attempt_count: (row.attempt_count ?? 0) + 1 })
+        .eq('id', row.id),
+    ),
+  );
+}
+
+/**
+ * UserBatch から「ロック済み row のみで構成された PreparedBatch」を作る。
+ * lockedRowIds が 0 件のユーザは送信対象外として null を返す（呼び出し側で skipped カウント）。
+ */
+function prepareBatch(
+  batch: UserBatch,
+  lockedSet: Set<string>,
+): PreparedBatch | null {
+  const lockedRowIds: string[] = [];
+  const lockedSlots: NotifySlot[] = [];
+  for (let i = 0; i < batch.rowIds.length; i++) {
+    const rowId = batch.rowIds[i]!;
+    if (lockedSet.has(rowId)) {
+      lockedRowIds.push(rowId);
+      lockedSlots.push(batch.slots[i]!);
+    }
   }
+  if (lockedRowIds.length === 0) return null;
+
+  const { subject, text, html } = buildNotifyEmail(lockedSlots);
+  return {
+    userId: batch.userId,
+    userEmail: batch.userEmail,
+    lockedRowIds,
+    message: { to: batch.userEmail, subject, text, html },
+  };
+}
+
+/**
+ * 送信成功 1 ユーザ分の事後処理。スナップショット保存 + sent 遷移を順に行う。
+ * snapshot 保存に失敗しても sent 遷移は実施する（メール自体は届いているため）。
+ */
+async function finalizeSent(prepared: PreparedBatch): Promise<void> {
+  const snapshotId = await recordEmailSnapshot({
+    userId: prepared.userId,
+    subject: prepared.message.subject,
+    text: prepared.message.text,
+    html: prepared.message.html,
+  });
+  await markSent(prepared.lockedRowIds, snapshotId);
 }
 
 export async function dispatchEmailNotifications(
@@ -340,6 +412,8 @@ export async function dispatchEmailNotifications(
     return result;
   }
 
+  // 送信順による「早い者勝ち」の不公平を緩和するため、毎回シャッフルしてから
+  // 上限まで取る。チャンク内は同時送信になるが、チャンクをまたぐ順序のバイアスは消える。
   shuffleInPlace(eligibleBatches);
   const targets = eligibleBatches.slice(0, options.usersPerRun);
   result.processedUsers = targets.length;
@@ -349,14 +423,14 @@ export async function dispatchEmailNotifications(
     eligible_users: eligibleBatches.length,
     processing_users: targets.length,
     users_per_run: options.usersPerRun,
+    batch_size: options.batchSize,
     dry_run: options.dryRun,
   });
 
-  for (let i = 0; i < targets.length; i++) {
-    const batch = targets[i]!;
-    const { subject, text, html } = buildNotifyEmail(batch.slots);
-
-    if (options.dryRun) {
+  // dry-run はロックも送信もせず、送信予定の内訳をログするだけで終わる。
+  if (options.dryRun) {
+    for (const batch of targets) {
+      const { subject } = buildNotifyEmail(batch.slots);
       log.info('[dry-run] would send', {
         user_id: batch.userId,
         to: batch.userEmail,
@@ -366,67 +440,121 @@ export async function dispatchEmailNotifications(
       });
       result.succeededUsers += 1;
       result.succeededRows += batch.rowIds.length;
-      continue;
     }
+    return result;
+  }
 
-    let sendingIds: string[];
-    try {
-      sendingIds = await transitionToSending(batch.rowIds);
-    } catch (err) {
-      log.error('Failed to lock rows for user', {
-        user_id: batch.userId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-      result.failedUsers += 1;
-      continue;
-    }
+  // すべての送信対象 row を 1 リクエストでまとめてロックする。
+  // 別ワーカーに先取られた row はロックセットに含まれず、prepareBatch でスキップされる。
+  const allRowIds = targets.flatMap((b) => b.rowIds);
+  let lockedSet: Set<string>;
+  try {
+    lockedSet = await bulkTransitionToSending(allRowIds);
+  } catch (err) {
+    log.error('Bulk transition to sending failed; abort run', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
 
-    if (sendingIds.length === 0) {
+  const prepared: PreparedBatch[] = [];
+  for (const batch of targets) {
+    const p = prepareBatch(batch, lockedSet);
+    if (!p) {
+      result.skippedUsers += 1;
       log.info('Skip user because rows were already taken by another worker', {
         user_id: batch.userId,
       });
-      result.skippedUsers += 1;
+      continue;
+    }
+    prepared.push(p);
+  }
+
+  if (prepared.length === 0) {
+    return result;
+  }
+
+  // attempt_count はロック直後にまとめて加算する。失敗しても致命ではない。
+  await incrementAttemptCount(prepared.flatMap((p) => p.lockedRowIds));
+
+  // チャンク（最大 batchSize 件）に分割して順番にバッチ送信する。
+  // チャンク内のユーザ間は Resend 側の処理がほぼ同時刻で完了するため、
+  // 「最初のユーザ」と「最後のユーザ」の到達差は実質ゼロになる。
+  for (let start = 0; start < prepared.length; start += options.batchSize) {
+    const chunk = prepared.slice(start, start + options.batchSize);
+    const chunkIndex = Math.floor(start / options.batchSize) + 1;
+    const totalChunks = Math.ceil(prepared.length / options.batchSize);
+
+    log.info('Sending chunk', {
+      chunk_index: chunkIndex,
+      total_chunks: totalChunks,
+      users_in_chunk: chunk.length,
+    });
+
+    let chunkResults: BatchSendResultItem[];
+    try {
+      chunkResults = await deps.sender.sendBatch(chunk.map((p) => p.message));
+    } catch (err) {
+      // sendBatch 自体が例外を投げるケース（ネットワーク断等）。
+      // チャンク内全ユーザを failed 扱いにする。
+      const message = err instanceof Error ? err.message : String(err);
+      log.error('sendBatch threw; mark whole chunk as failed', {
+        chunk_index: chunkIndex,
+        error: message,
+      });
+      await Promise.all(
+        chunk.map(async (p) => {
+          await markFailed(p.lockedRowIds, message);
+          result.failedUsers += 1;
+          result.failedRows += p.lockedRowIds.length;
+        }),
+      );
       continue;
     }
 
-    await incrementAttemptCount(sendingIds);
+    // 各ユーザの結果を並列で確定させる（成功は snapshot + markSent、失敗は markFailed）。
+    // Supabase へは PostgREST 経由なので並列実行で問題ない。
+    await Promise.all(
+      chunk.map(async (p, i) => {
+        const r = chunkResults[i];
+        if (r?.ok) {
+          try {
+            await finalizeSent(p);
+            result.succeededUsers += 1;
+            result.succeededRows += p.lockedRowIds.length;
+            log.info('Sent', {
+              user_id: p.userId,
+              to: p.userEmail,
+              slot_count: p.lockedRowIds.length,
+              provider_message_id: r.providerMessageId ?? null,
+            });
+          } catch (err) {
+            // メールは送信成功しているが、DB 側の sent 記録に失敗。
+            // notification_logs は 'sending' のまま残るが、unique 制約により再送はされない。
+            // ここでは failed としては扱わず、エラーログだけ残す。
+            log.error('Failed to finalize sent state', {
+              user_id: p.userId,
+              error: err instanceof Error ? err.message : String(err),
+            });
+            result.succeededUsers += 1;
+            result.succeededRows += p.lockedRowIds.length;
+          }
+        } else {
+          const errorMessage = r?.error ?? 'Unknown send failure';
+          await markFailed(p.lockedRowIds, errorMessage);
+          result.failedUsers += 1;
+          result.failedRows += p.lockedRowIds.length;
+          log.error('Send failed', {
+            user_id: p.userId,
+            to: p.userEmail,
+            error: errorMessage,
+          });
+        }
+      }),
+    );
 
-    try {
-      await deps.sender.send({
-        to: batch.userEmail,
-        subject,
-        text,
-        html,
-      });
-      const emailId = await recordEmailSnapshot({
-        userId: batch.userId,
-        subject,
-        text,
-        html,
-      });
-      await markSent(sendingIds, emailId);
-      result.succeededUsers += 1;
-      result.succeededRows += sendingIds.length;
-      log.info('Sent', {
-        user_id: batch.userId,
-        to: batch.userEmail,
-        slot_count: sendingIds.length,
-        email_id: emailId,
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      await markFailed(sendingIds, message);
-      result.failedUsers += 1;
-      result.failedRows += sendingIds.length;
-      log.error('Send failed', {
-        user_id: batch.userId,
-        to: batch.userEmail,
-        error: message,
-      });
-    }
-
-    if (i < targets.length - 1 && options.userIntervalMs > 0) {
-      await sleep(options.userIntervalMs);
+    if (start + options.batchSize < prepared.length && options.interBatchDelayMs > 0) {
+      await sleep(options.interBatchDelayMs);
     }
   }
 
