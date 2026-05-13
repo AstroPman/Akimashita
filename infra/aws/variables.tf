@@ -26,8 +26,8 @@ variable "scraper_schedules" {
   type        = map(string)
   default = {
     therapists   = "cron(0 19 * * ? *)"   # JST 04:00 daily
-    availability = "cron(*/10 * * * ? *)" # 5 分間隔
-    notify       = "cron(*/10 * * * ? *)" # 5 分間隔（availability 直後）
+    availability = "cron(* * * * ? *)"    #  1 分間隔
+    notify       = "cron(* * * * ? *)"    # 1 分間隔（availability 直後）
   }
 }
 
