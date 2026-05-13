@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeftIcon, MailIcon } from "lucide-react";
@@ -21,6 +22,31 @@ interface NotificationEmailRow {
   body_text: string;
   sent_at: string;
   read_at: string | null;
+}
+
+// 本文中の http/https URL を <a> に置換する。
+// 通知メール側 (apps/scraper/src/notifications/templates.ts) の text 版では
+// URL は空白区切りまたは行末に置かれており、句読点に接していない前提。
+const URL_REGEX = /(https?:\/\/[^\s<>"']+)/g;
+
+function renderLinkifiedBody(text: string): ReactNode[] {
+  const parts = text.split(URL_REGEX);
+  return parts.map((part, i) => {
+    if (i % 2 === 1) {
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline underline-offset-2 break-all hover:text-primary/80"
+        >
+          {part}
+        </a>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
 }
 
 export default async function NotificationEmailDetailPage({
@@ -80,7 +106,7 @@ export default async function NotificationEmailDetailPage({
 
         <div className="px-5 py-5">
           <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-foreground/90">
-            {data.body_text}
+            {renderLinkifiedBody(data.body_text)}
           </pre>
         </div>
       </article>
