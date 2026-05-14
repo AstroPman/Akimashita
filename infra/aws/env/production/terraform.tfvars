@@ -1,14 +1,15 @@
 environment = "production"
 
-# Supabase production（プロジェクト ID 確定後に更新する）
-supabase_url = "https://PRODUCTION-PROJECT-ID.supabase.co"
+# Supabase staging（core.mdc 参照）
+supabase_url = "https://zhvmhchwapavylwrchoe.supabase.co"
 
-# 通知系（本番ドメイン取得後に更新する）
-email_from   = "noreply@akimashita.example.com"
-app_base_url = "https://akimashita.example.com"
+# 通知系。ステージングは Resend のテスト用送信元（検証ドメイン不要）。本番は verified domain のアドレスに差し替える。
+email_from   = "Akimashita <info@akimashita.com>"
+app_base_url = "https://akimashita.com"
 
-# Lambda 失敗時のアラート通知先
+# Lambda 失敗時のアラート通知先（受信後に手動で confirmation を承認すること）
 alert_emails = []
 
-# 本番も初期は DISABLED 推奨。staging で疎通確認した後に ENABLED にする。
-scraper_schedule_state = "DISABLED"
+# Schedule の初期状態。ENABLED にすると本物の cron 起動が始まる。
+# スモークテストを完了してから "ENABLED" に変更する。
+scraper_schedule_state = "ENABLED"
