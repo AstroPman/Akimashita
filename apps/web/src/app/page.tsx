@@ -3,11 +3,8 @@ import { redirect } from "next/navigation";
 import { BellRingIcon, CalendarClockIcon, ZapIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
-import { isSubscriptionActive } from "@/lib/seats";
-import { SeatsIndicator } from "@/components/landing/seats-indicator";
 import { FeatureCard } from "@/components/landing/feature-card";
 import { HowItWorks } from "@/components/landing/how-it-works";
-import { WhyLimited } from "@/components/landing/why-limited";
 import { Faq } from "@/components/landing/faq";
 import { SiteFooter } from "@/components/landing/site-footer";
 import { PrimaryCta, SecondaryCta } from "@/components/landing/cta";
@@ -19,8 +16,7 @@ export default async function Home() {
   } = await supabase.auth.getUser();
 
   if (user) {
-    const active = await isSubscriptionActive(user.id);
-    redirect(active ? "/watches" : "/pricing");
+    redirect("/watches");
   }
 
   return (
@@ -45,7 +41,6 @@ export default async function Home() {
       <main className="flex-1">
         <section className="mx-auto w-full max-w-5xl px-4 py-20 sm:py-28">
           <div className="flex flex-col items-center text-center">
-            <SeatsIndicator />
             <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
               お気に入りのセラピストの
               <br className="hidden sm:block" />
@@ -54,7 +49,7 @@ export default async function Home() {
             <p className="mt-6 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
               指定したセラピストの予約状況を定期的にチェックし、
               空き枠が出た瞬間にメールで通知します。
-              通知の価値を保つため、登録は限定人数のサービスです。
+              無料プランから始めて、必要に応じてアップグレードできます。
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <PrimaryCta />
@@ -82,7 +77,6 @@ export default async function Home() {
         </section>
 
         <HowItWorks />
-        <WhyLimited />
         <Faq />
 
         <section className="mx-auto w-full max-w-3xl px-4 pb-20 text-center">
@@ -90,7 +84,7 @@ export default async function Home() {
             空き枠を逃さない毎日へ
           </h2>
           <p className="mt-4 text-sm leading-7 text-muted-foreground sm:text-base">
-            限定人数のため、お早めのご登録をおすすめします。
+            無料プランは登録後すぐに使い始められます。
           </p>
           <div className="mt-6 flex justify-center">
             <PrimaryCta />

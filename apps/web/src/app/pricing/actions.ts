@@ -5,111 +5,82 @@ import { getPublicOrigin } from "@/lib/public-origin";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/server";
+import { TRIAL_DAYS } from "@/lib/stripe/config";
 import {
-  TRIAL_DAYS,
-  getPriceIdFor,
-  isPlan,
-  type Plan,
-} from "@/lib/stripe/config";
-import { ensureStripeCustomer } from "@/lib/stripe/sync";
-import { tryReserveSeat } from "@/lib/seats";
+  ensureStripeCustomer,
+  syncSubscriptionFromStripe,
+} from "@/lib/stripe/sync";
+import {
+  PAID_TIERS,
+  PLAN_RANK,
+  getPriceId,
+  isBillingCycle,
+  isPlanTier,
+  type BillingCycle,
+  type PaidTier,
+} from "@/lib/plans";
 
-interface InviteRow {
-  id: string;
-  email: string;
-  invite_expires_at: string | null;
-  signed_up_at: string | null;
+interface ParsedSelection {
+  tier: PaidTier;
+  cycle: BillingCycle;
 }
 
-/**
- * 招待トークンを検証する。有効なら waitlist 行を返す。
- * 有効条件: signed_up_at が null かつ invite_expires_at が未到来。
- */
-async function validateInvite(token: string | null): Promise<InviteRow | null> {
-  if (!token) return null;
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from("waitlist")
-    .select("id, email, invite_expires_at, signed_up_at")
-    .eq("invite_token", token)
-    .maybeSingle();
-  if (!data) return null;
-  if (data.signed_up_at) return null;
-  if (
-    data.invite_expires_at &&
-    new Date(data.invite_expires_at).getTime() < Date.now()
-  ) {
-    return null;
-  }
-  return data as InviteRow;
-}
-
-/**
- * 「このプランで始める」ボタンから呼ばれる。Stripe Checkout の URL を生成して
- * リダイレクトする。途中で /signup や /waitlist に飛ばす分岐もここで担う。
- *
- * invite トークンが渡されていて有効なら、席数上限を超えていても通す（招待枠）。
- */
-export async function startCheckoutAction(formData: FormData): Promise<void> {
-  const planRaw = formData.get("plan");
-  if (!isPlan(planRaw)) {
+function parseSelection(formData: FormData): ParsedSelection {
+  const tierRaw = formData.get("tier");
+  const cycleRaw = formData.get("cycle");
+  if (!isPlanTier(tierRaw) || !(PAID_TIERS as readonly string[]).includes(tierRaw)) {
     throw new Error("不正なプランです");
   }
-  const plan: Plan = planRaw;
-  const inviteToken = (formData.get("invite") as string | null) || null;
+  if (!isBillingCycle(cycleRaw)) {
+    throw new Error("不正な支払い周期です");
+  }
+  return { tier: tierRaw as PaidTier, cycle: cycleRaw };
+}
+
+/**
+ * 「このプランで始める」ボタンから呼ばれる。
+ *   - 未ログイン        : /signup へ
+ *   - 既存有料サブスク有 : changePlanAction と同等の挙動でプラン変更
+ *   - その他            : Stripe Checkout を新規作成
+ */
+export async function startCheckoutAction(formData: FormData): Promise<void> {
+  const { tier, cycle } = parseSelection(formData);
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // 未ログインなら signup → 戻り先を保持
   if (!user) {
-    const nextUrl = inviteToken
-      ? `/pricing?plan=${plan}&invite=${encodeURIComponent(inviteToken)}`
-      : `/pricing?plan=${plan}`;
+    const nextUrl = `/pricing?tier=${tier}&cycle=${cycle}`;
     redirect(`/signup?next=${encodeURIComponent(nextUrl)}`);
-  }
-
-  const invite = await validateInvite(inviteToken);
-
-  // 席数チェック → 仮押さえ。招待トークン有効なら超過してでも通す。
-  if (!invite) {
-    const reserved = await tryReserveSeat(user.id);
-    if (!reserved) {
-      redirect("/waitlist?reason=full");
-    }
-  } else {
-    // 招待でも subscriptions 行は作っておく（Webhook で正しく upsert されるための準備）。
-    const admin = createAdminClient();
-    await admin
-      .from("subscriptions")
-      .upsert({ user_id: user.id, status: "incomplete" }, { onConflict: "user_id" });
-    // 招待を使い切ったことを記録
-    await admin
-      .from("waitlist")
-      .update({ signed_up_at: new Date().toISOString() })
-      .eq("id", invite.id);
   }
 
   const admin = createAdminClient();
 
-  // 既存の subscriptions 行（incomplete を含む）を取得
   const { data: existingRow } = await admin
     .from("subscriptions")
-    .select("stripe_customer_id, stripe_subscription_id, status")
+    .select("stripe_customer_id, stripe_subscription_id, status, tier, cycle")
     .eq("user_id", user.id)
     .maybeSingle();
 
-  // すでに有効な契約があるならアプリへ送る
+  // 既に有効な契約があるならプラン変更フローへ
   if (
-    existingRow &&
+    existingRow?.stripe_subscription_id &&
     ["trialing", "active", "past_due"].includes(existingRow.status)
   ) {
+    await changeSubscriptionPlan({
+      subscriptionId: existingRow.stripe_subscription_id,
+      from: {
+        tier: (existingRow.tier ?? "standard") as PaidTier,
+        cycle: (existingRow.cycle ?? "monthly") as BillingCycle,
+      },
+      to: { tier, cycle },
+      userId: user.id,
+    });
     redirect("/watches");
   }
 
-  // Stripe Customer を確保し、subscriptions に保存しておく
   const customerId = await ensureStripeCustomer({
     userId: user.id,
     email: user.email ?? "",
@@ -118,8 +89,16 @@ export async function startCheckoutAction(formData: FormData): Promise<void> {
   if (existingRow?.stripe_customer_id !== customerId) {
     await admin
       .from("subscriptions")
-      .update({ stripe_customer_id: customerId })
-      .eq("user_id", user.id);
+      .upsert(
+        {
+          user_id: user.id,
+          stripe_customer_id: customerId,
+          status: "incomplete",
+          tier,
+          cycle,
+        },
+        { onConflict: "user_id" },
+      );
   }
 
   const origin = (await getPublicOrigin()) ?? "";
@@ -128,10 +107,10 @@ export async function startCheckoutAction(formData: FormData): Promise<void> {
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer: customerId,
-    line_items: [{ price: getPriceIdFor(plan), quantity: 1 }],
+    line_items: [{ price: getPriceId(tier, cycle), quantity: 1 }],
     subscription_data: {
       trial_period_days: TRIAL_DAYS,
-      metadata: { user_id: user.id, plan },
+      metadata: { user_id: user.id, tier, cycle },
     },
     payment_method_collection: "always",
     allow_promotion_codes: true,
@@ -139,11 +118,115 @@ export async function startCheckoutAction(formData: FormData): Promise<void> {
     success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/checkout/cancel`,
     client_reference_id: user.id,
-    metadata: { user_id: user.id, plan },
+    metadata: { user_id: user.id, tier, cycle },
   });
 
   if (!session.url) {
     throw new Error("Checkout セッションの URL を取得できませんでした");
   }
   redirect(session.url);
+}
+
+/**
+ * 既存契約のプランを変更する。
+ *  - アップグレード   : `proration_behavior: 'always_invoice'` で即時切替＋差額即時請求
+ *  - ダウングレード   : 現周期は維持し、`cancel_at_period_end` 相当で次周期から新プラン
+ *  - 同一プラン       : 何もしない
+ */
+async function changeSubscriptionPlan(args: {
+  subscriptionId: string;
+  from: { tier: PaidTier; cycle: BillingCycle };
+  to: { tier: PaidTier; cycle: BillingCycle };
+  userId: string;
+}): Promise<void> {
+  if (args.from.tier === args.to.tier && args.from.cycle === args.to.cycle) {
+    return;
+  }
+
+  const stripe = getStripe();
+  const current = await stripe.subscriptions.retrieve(args.subscriptionId);
+  const itemId = current.items.data[0]?.id;
+  if (!itemId) {
+    throw new Error("Stripe Subscription Item が見つかりません");
+  }
+
+  const isUpgrade =
+    PLAN_RANK[args.to.tier] > PLAN_RANK[args.from.tier] ||
+    (args.from.tier === args.to.tier &&
+      args.from.cycle === "monthly" &&
+      args.to.cycle === "yearly");
+
+  // アップグレード: 即時切替・日割り課金
+  if (isUpgrade) {
+    const updated = await stripe.subscriptions.update(args.subscriptionId, {
+      items: [{ id: itemId, price: getPriceId(args.to.tier, args.to.cycle) }],
+      proration_behavior: "always_invoice",
+      metadata: {
+        user_id: args.userId,
+        tier: args.to.tier,
+        cycle: args.to.cycle,
+      },
+    });
+    await syncSubscriptionFromStripe(updated, { userIdHint: args.userId });
+    return;
+  }
+
+  // ダウングレード（年→月含む）: 現周期は維持し、次回更新で切替
+  const updated = await stripe.subscriptions.update(args.subscriptionId, {
+    items: [{ id: itemId, price: getPriceId(args.to.tier, args.to.cycle) }],
+    proration_behavior: "none",
+    billing_cycle_anchor: "unchanged",
+    metadata: {
+      user_id: args.userId,
+      tier: args.to.tier,
+      cycle: args.to.cycle,
+    },
+  });
+  await syncSubscriptionFromStripe(updated, { userIdHint: args.userId });
+}
+
+/**
+ * 「アカウント設定」等から呼べる、明示的なプラン変更アクション。
+ * 内部的には startCheckoutAction の途中フローと同じ。
+ */
+export async function changePlanAction(formData: FormData): Promise<void> {
+  const { tier, cycle } = parseSelection(formData);
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  const admin = createAdminClient();
+  const { data: existingRow } = await admin
+    .from("subscriptions")
+    .select("stripe_subscription_id, status, tier, cycle")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (
+    !existingRow?.stripe_subscription_id ||
+    !["trialing", "active", "past_due"].includes(existingRow.status)
+  ) {
+    // 有効な契約が無いなら通常の Checkout フローへ
+    const fd = new FormData();
+    fd.set("tier", tier);
+    fd.set("cycle", cycle);
+    await startCheckoutAction(fd);
+    return;
+  }
+
+  await changeSubscriptionPlan({
+    subscriptionId: existingRow.stripe_subscription_id,
+    from: {
+      tier: (existingRow.tier ?? "standard") as PaidTier,
+      cycle: (existingRow.cycle ?? "monthly") as BillingCycle,
+    },
+    to: { tier, cycle },
+    userId: user.id,
+  });
+  redirect("/account?plan_changed=1");
 }

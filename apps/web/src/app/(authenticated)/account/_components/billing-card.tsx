@@ -9,21 +9,28 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { formatJstDateTime } from "@/lib/date";
+import {
+  CYCLE_LABEL,
+  PLAN_CONFIG,
+  type BillingCycle,
+  type PlanTier,
+} from "@/lib/plans";
 import { openCustomerPortalAction } from "../actions";
 
 export interface BillingViewProps {
+  /** users.plan_tier。アプリの権限判定で使う実プラン。 */
+  planTier: PlanTier;
+  /** 直近の Stripe Subscription の状態。未契約のときは null。 */
   status: string | null;
-  plan: "monthly" | "yearly" | null;
+  /** Stripe subscription に紐づく tier（standard / premium）。 */
+  tier: PlanTier | null;
+  /** Stripe subscription に紐づく billing_cycle。 */
+  cycle: BillingCycle | null;
   currentPeriodEnd: string | null;
   trialEnd: string | null;
   cancelAtPeriodEnd: boolean;
   hasStripeCustomer: boolean;
 }
-
-const PLAN_LABEL: Record<"monthly" | "yearly", string> = {
-  monthly: "月額プラン",
-  yearly: "年額プラン",
-};
 
 const STATUS_LABEL: Record<string, string> = {
   trialing: "トライアル中",
@@ -39,8 +46,12 @@ const STATUS_LABEL: Record<string, string> = {
 export function BillingCard(props: BillingViewProps) {
   const statusLabel = props.status
     ? (STATUS_LABEL[props.status] ?? props.status)
-    : "未契約";
-  const planLabel = props.plan ? PLAN_LABEL[props.plan] : null;
+    : "未契約（無料プラン）";
+
+  const planLabel = props.tier && props.cycle
+    ? `${PLAN_CONFIG[props.tier].label} / ${CYCLE_LABEL[props.cycle]}`
+    : PLAN_CONFIG[props.planTier].label;
+
   const trialDaysLeft = countDaysLeft(props.trialEnd);
 
   return (
@@ -57,7 +68,7 @@ export function BillingCard(props: BillingViewProps) {
           <dd>{statusLabel}</dd>
 
           <dt className="text-muted-foreground">プラン</dt>
-          <dd>{planLabel ?? "—"}</dd>
+          <dd>{planLabel}</dd>
 
           {props.status === "trialing" && trialDaysLeft !== null ? (
             <>
@@ -89,6 +100,11 @@ export function BillingCard(props: BillingViewProps) {
         </dl>
 
         <div className="flex flex-col gap-2 sm:flex-row">
+          <Button asChild variant={props.hasStripeCustomer ? "outline" : "default"}>
+            <Link href="/pricing">
+              {props.planTier === "premium" ? "プランを比較" : "プランをアップグレード"}
+            </Link>
+          </Button>
           {props.hasStripeCustomer ? (
             <form action={openCustomerPortalAction}>
               <Button type="submit" variant="outline" className="gap-1.5">
@@ -96,11 +112,7 @@ export function BillingCard(props: BillingViewProps) {
                 お支払い・解約を管理
               </Button>
             </form>
-          ) : (
-            <Button asChild>
-              <Link href="/pricing">プランに加入する</Link>
-            </Button>
-          )}
+          ) : null}
         </div>
       </CardContent>
     </Card>

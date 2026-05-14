@@ -1,16 +1,22 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { MAX_WATCH_SETTINGS_PER_USER } from "./limits";
+import { getUserPlanTier } from "@/lib/seats";
+import { isUnlimited, watchLimitFor } from "./limits";
+import type { PlanTier } from "@/lib/plans";
 
 export interface WatchQuota {
+  /** ユーザの現在のプラン */
+  tier: PlanTier;
   /** 現在登録中の件数（論理削除済みは除外） */
   used: number;
-  /** 上限件数 */
+  /** 上限件数。プレミアムは `Number.POSITIVE_INFINITY`。 */
   max: number;
-  /** 残り作成可能件数 */
+  /** 残り作成可能件数。無制限プランは `Number.POSITIVE_INFINITY`。 */
   remaining: number;
   /** 上限に到達しているか */
   isFull: boolean;
+  /** 上限が無制限か */
+  isUnlimited: boolean;
 }
 
 /**
@@ -20,16 +26,31 @@ export interface WatchQuota {
  */
 export async function getWatchQuota(): Promise<WatchQuota> {
   const supabase = await createClient();
-  const max = MAX_WATCH_SETTINGS_PER_USER;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const tier: PlanTier = user ? await getUserPlanTier(user.id) : "free";
+  const max = watchLimitFor(tier);
   const { count, error } = await supabase
     .from("watch_settings")
     .select("id", { count: "exact", head: true })
     .is("deleted_at", null);
   if (error) {
     console.error("[watches] quota count failed", error);
-    return { used: 0, max, remaining: max, isFull: false };
+    return buildQuota(tier, 0, max);
   }
-  const used = count ?? 0;
-  const remaining = Math.max(0, max - used);
-  return { used, max, remaining, isFull: remaining <= 0 };
+  return buildQuota(tier, count ?? 0, max);
+}
+
+function buildQuota(tier: PlanTier, used: number, max: number): WatchQuota {
+  const unlimited = isUnlimited(max);
+  const remaining = unlimited ? Number.POSITIVE_INFINITY : Math.max(0, max - used);
+  return {
+    tier,
+    used,
+    max,
+    remaining,
+    isFull: !unlimited && remaining <= 0,
+    isUnlimited: unlimited,
+  };
 }

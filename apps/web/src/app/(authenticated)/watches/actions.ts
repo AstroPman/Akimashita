@@ -5,15 +5,14 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { WatchFormSchema, type WatchFormInput } from "@/lib/schema/watch";
 import { createClient } from "@/lib/supabase/server";
-import { isSubscriptionActive } from "@/lib/seats";
-import { MAX_WATCH_SETTINGS_PER_USER } from "@/lib/watches/limits";
+import { getUserPlanTier } from "@/lib/seats";
+import { isUnlimited, watchLimitFor } from "@/lib/watches/limits";
+import type { PlanTier } from "@/lib/plans";
 
-async function requireActiveSubscription(userId: string) {
-  const active = await isSubscriptionActive(userId);
-  if (!active) {
-    redirect("/pricing?reason=subscription_required");
-  }
-}
+/**
+ * 監視操作はログインさえしていれば実行可能。プランによって件数上限のみ
+ * 制御する。これにより無料ユーザでも 1 件は登録できる。
+ */
 
 export type ActionResult =
   | { ok: true }
@@ -23,6 +22,8 @@ export type ActionResult =
       fieldErrors?: Record<string, string[]>;
       /** duplicate: 同一セラピストの監視が既にある / limit_reached: 監視設定の上限に到達 */
       code?: "duplicate" | "limit_reached";
+      /** プラン上限到達時など、課金ページへ誘導したい場合の URL */
+      upgradeUrl?: string;
     };
 
 // 開発時は Supabase のエラー詳細をクライアントにも返してデバッグしやすくする。
@@ -62,7 +63,6 @@ export async function toggleActive(input: {
   if (!user) {
     return { ok: false, message: "ログインが必要です" };
   }
-  await requireActiveSubscription(user.id);
 
   // OFF→ON の遷移なら baseline_at を「いま」に更新し、
   // 停止期間中に積み上がった状態変化が再開直後に通知されないようにする。
@@ -114,7 +114,6 @@ export async function deleteWatch(input: { id: string }): Promise<ActionResult> 
   if (!user) {
     return { ok: false, message: "ログインが必要です" };
   }
-  await requireActiveSubscription(user.id);
 
   const { error } = await supabase
     .from("watch_settings")
@@ -154,7 +153,9 @@ export async function createWatch(input: WatchFormInput): Promise<ActionResult> 
   if (!user) {
     return { ok: false, message: "ログインが必要です" };
   }
-  await requireActiveSubscription(user.id);
+
+  const tier: PlanTier = await getUserPlanTier(user.id);
+  const limit = watchLimitFor(tier);
 
   const { count: existingCount, error: countError } = await supabase
     .from("watch_settings")
@@ -164,11 +165,16 @@ export async function createWatch(input: WatchFormInput): Promise<ActionResult> 
   if (countError) {
     return failure("監視設定数の確認に失敗しました", countError);
   }
-  if ((existingCount ?? 0) >= MAX_WATCH_SETTINGS_PER_USER) {
+  if (!isUnlimited(limit) && (existingCount ?? 0) >= limit) {
+    const upgradeHint =
+      tier === "free"
+        ? "スタンダードプラン以上にアップグレードするとさらに登録できます。"
+        : "プレミアムプランにアップグレードすると無制限に登録できます。";
     return {
       ok: false,
-      message: `監視設定は最大 ${MAX_WATCH_SETTINGS_PER_USER} 件までです。不要な設定を削除してから登録してください。`,
+      message: `現在のプランで登録できるのは最大 ${limit} 件までです。${upgradeHint}`,
       code: "limit_reached",
+      upgradeUrl: "/pricing?reason=watch_limit",
     };
   }
 
@@ -250,7 +256,6 @@ export async function updateWatch(
   if (!user) {
     return { ok: false, message: "ログインが必要です" };
   }
-  await requireActiveSubscription(user.id);
 
   const { data: duplicateOther } = await supabase
     .from("watch_settings")

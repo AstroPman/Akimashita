@@ -7,6 +7,7 @@ import { getWatchQuota } from "@/lib/watches/quota";
 import { RefreshOnMount } from "./_components/refresh-on-mount";
 import { WatchList, type WatchItem } from "./_components/watch-list";
 import { WatchQuotaIndicator } from "./_components/watch-quota-indicator";
+import { UpgradeBanner } from "./_components/upgrade-banner";
 
 export const metadata: Metadata = {
   title: "通知予約リスト",
@@ -108,6 +109,8 @@ export default async function WatchesPage() {
       </div>
 
       <WatchQuotaIndicator quota={quota} />
+
+      <UpgradeBanner tier={quota.tier} />
 
       {error ? (
         <div className="rounded-lg border bg-card p-6 text-sm text-destructive">

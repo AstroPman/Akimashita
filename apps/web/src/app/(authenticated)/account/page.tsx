@@ -9,7 +9,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatJstDateTime } from "@/lib/date";
-import { isPlan } from "@/lib/stripe/config";
+import { isBillingCycle, isPlanTier } from "@/lib/plans";
 import { UpdateEmailForm } from "./_components/update-email-form";
 import { ResetPasswordButton } from "./_components/reset-password-button";
 import { DeleteAccountDialog } from "./_components/delete-account-dialog";
@@ -43,13 +43,19 @@ export default async function AccountPage() {
   // subscriptions は service role でしか書けないが、本人の行は RLS で読める。
   // service role 経由で取得することで、RLS が将来厳しくなっても影響を受けない。
   const admin = createAdminClient();
-  const { data: subscription } = await admin
-    .from("subscriptions")
-    .select(
-      "status, plan, current_period_end, trial_end, cancel_at_period_end, stripe_customer_id",
-    )
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const [{ data: subscription }, { data: profileTier }] = await Promise.all([
+    admin
+      .from("subscriptions")
+      .select(
+        "status, tier, cycle, current_period_end, trial_end, cancel_at_period_end, stripe_customer_id",
+      )
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    admin.from("users").select("plan_tier").eq("id", user.id).maybeSingle(),
+  ]);
+  const planTier = isPlanTier(profileTier?.plan_tier)
+    ? profileTier.plan_tier
+    : "free";
 
   return (
     <div className="space-y-6">
@@ -61,8 +67,10 @@ export default async function AccountPage() {
       </div>
 
       <BillingCard
+        planTier={planTier}
         status={subscription?.status ?? null}
-        plan={isPlan(subscription?.plan) ? subscription.plan : null}
+        tier={isPlanTier(subscription?.tier) ? subscription.tier : null}
+        cycle={isBillingCycle(subscription?.cycle) ? subscription.cycle : null}
         currentPeriodEnd={subscription?.current_period_end ?? null}
         trialEnd={subscription?.trial_end ?? null}
         cancelAtPeriodEnd={subscription?.cancel_at_period_end ?? false}

@@ -1,60 +1,34 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
-import { getMaxSeats } from "@/lib/stripe/config";
-
-export interface SeatsSnapshot {
-  occupied: number;
-  max: number;
-  remaining: number;
-  isFull: boolean;
-}
+import { isPlanTier, type PlanTier } from "@/lib/plans";
 
 /**
- * 限定席の現在の状況を取得する。
- * 公開ページ（LP / 料金 / waitlist）からも呼ぶため、認証済みクライアントで OK。
- * count_occupied_seats RPC は anon にも grant 済み。
+ * ユーザの plan_tier を取得する。
+ * 行が無い・取得失敗時は安全側に倒して 'free' を返す。
+ *
+ * （旧 seats.ts には席数確保・解放のヘルパーがあったが、3 段階プラン導入で
+ *  全員登録可能としたため廃止した。）
  */
-export async function getSeatsSnapshot(): Promise<SeatsSnapshot> {
-  const supabase = await createClient();
-  const max = getMaxSeats();
-  const { data, error } = await supabase.rpc("count_occupied_seats");
-  if (error) {
-    console.error("[seats] count_occupied_seats 失敗", error);
-    return { occupied: max, max, remaining: 0, isFull: true };
-  }
-  const occupied = typeof data === "number" ? data : Number(data ?? 0);
-  const remaining = Math.max(0, max - occupied);
-  return {
-    occupied,
-    max,
-    remaining,
-    isFull: remaining <= 0,
-  };
-}
-
-/**
- * Checkout 開始時に席を予約する。
- * - 戻り値 true: 仮押さえ完了（subscriptions.status='incomplete' が立っている）
- * - 戻り値 false: 満員。呼び出し側で /waitlist へ誘導すること。
- */
-export async function tryReserveSeat(userId: string): Promise<boolean> {
+export async function getUserPlanTier(userId: string): Promise<PlanTier> {
   const supabase = createAdminClient();
-  const max = getMaxSeats();
-  const { data, error } = await supabase.rpc("try_reserve_seat", {
-    target_user_id: userId,
-    max_seats: max,
-  });
+  const { data, error } = await supabase
+    .from("users")
+    .select("plan_tier")
+    .eq("id", userId)
+    .maybeSingle();
   if (error) {
-    console.error("[seats] try_reserve_seat 失敗", error);
-    return false;
+    console.error("[plans] plan_tier 取得失敗", error);
+    return "free";
   }
-  return Boolean(data);
+  const tier = data?.plan_tier;
+  return isPlanTier(tier) ? tier : "free";
 }
 
 /**
- * ユーザのサブスクが利用可能な状態か。 (authenticated) レイアウトと
- * watches actions の防御的判定で利用する。
+ * ユーザのサブスクが利用可能（有料プラン）な状態か。
+ * `is_subscription_active` RPC を呼ぶラッパー。
+ * RPC 側は users.plan_tier が standard/premium のとき true を返すように
+ * 書き換えられている。
  */
 export async function isSubscriptionActive(userId: string): Promise<boolean> {
   const supabase = createAdminClient();
@@ -62,7 +36,7 @@ export async function isSubscriptionActive(userId: string): Promise<boolean> {
     target_user_id: userId,
   });
   if (error) {
-    console.error("[seats] is_subscription_active 失敗", error);
+    console.error("[plans] is_subscription_active 失敗", error);
     return false;
   }
   return Boolean(data);

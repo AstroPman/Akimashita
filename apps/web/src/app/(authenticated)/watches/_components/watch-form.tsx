@@ -202,7 +202,12 @@ export function WatchForm({
         if (res.fieldErrors) {
           setErrors(res.fieldErrors);
         }
-        if (res.code === "duplicate" || res.code === "limit_reached") {
+        if (res.code === "limit_reached") {
+          toast.warning(res.message);
+          if (res.upgradeUrl) {
+            router.push(res.upgradeUrl);
+          }
+        } else if (res.code === "duplicate") {
           toast.warning(res.message);
         } else {
           toast.error(res.message);

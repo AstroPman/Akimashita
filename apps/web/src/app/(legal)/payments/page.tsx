@@ -29,12 +29,17 @@ export default function PaymentsPolicyPage() {
 
       <h2 className="mt-10 text-xl font-semibold">1. 料金プラン</h2>
       <p className="mt-3 text-sm leading-7">
-        本サービスは、月額プランおよび年額プランの有料サブスクリプション（定期課金）により提供されます。
+        本サービスは、無料プランと、スタンダード／プレミアム各プラン（月額・年額）の有料サブスクリプション（定期課金）により提供されます。
         各プランの金額・内容の詳細は
         <Link href="/pricing" className="underline underline-offset-2">
           料金ページ
         </Link>
         をご覧ください。表示価格は日本円（税込）です。
+      </p>
+      <p className="mt-3 text-sm leading-7">
+        プラン変更時の取扱いは次のとおりです。アップグレード（プレミアムへの切替、または月額から年額への切替）は即時に適用され、
+        現在の請求期間における残期間分の差額のみが請求されます。ダウングレードは現在の請求期間が満了した時点で次プランに切り替わり、
+        既にお支払い済みの金額が無駄になることはありません。
       </p>
 
       <h2 className="mt-10 text-xl font-semibold">2. 無料トライアル</h2>

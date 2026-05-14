@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { TRIAL_DAYS } from "@/lib/stripe/config";
-import { getSeatsSnapshot } from "@/lib/seats";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -10,24 +8,12 @@ interface Props {
 }
 
 /**
- * 残席状況に応じてラベルと遷移先を切り替える主要 CTA。
- *  残席あり → /pricing で料金詳細を見せる
- *  満員    → /waitlist
+ * トップページの主要 CTA。新規登録（無料プラン即時利用可）へ誘導する。
  */
-export async function PrimaryCta({ size = "lg", className }: Props) {
-  const seats = await getSeatsSnapshot();
-  if (seats.isFull) {
-    return (
-      <Button asChild size={size} className={cn(className)}>
-        <Link href="/waitlist">ウェイトリストに登録する</Link>
-      </Button>
-    );
-  }
+export function PrimaryCta({ size = "lg", className }: Props) {
   return (
     <Button asChild size={size} className={cn(className)}>
-      <Link href="/pricing">
-        {TRIAL_DAYS} 日間無料で試す
-      </Link>
+      <Link href="/signup">無料で始める</Link>
     </Button>
   );
 }
@@ -35,7 +21,7 @@ export async function PrimaryCta({ size = "lg", className }: Props) {
 export function SecondaryCta({ size = "lg", className }: Props) {
   return (
     <Button asChild size={size} variant="outline" className={cn(className)}>
-      <Link href="/login">ログイン</Link>
+      <Link href="/pricing">料金プランを見る</Link>
     </Button>
   );
 }

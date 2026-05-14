@@ -6,7 +6,6 @@ const FOOTER_LINKS = [
   { href: "/#features", label: "予約通知" },
   { href: "/pricing", label: "料金" },
   { href: "/salons", label: "対応サロン" },
-  { href: "/waitlist", label: "ウェイトリスト" },
   { href: "/contact", label: "お問い合わせ" },
 ];
 

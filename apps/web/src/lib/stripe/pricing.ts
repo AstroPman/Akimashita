@@ -3,16 +3,23 @@ import "server-only";
 import { cache } from "react";
 import type Stripe from "stripe";
 import { getStripe } from "./server";
-import { PLANS, getPriceIdFor, type Plan } from "./config";
+import {
+  BILLING_CYCLES,
+  PAID_TIERS,
+  getPriceId,
+  type BillingCycle,
+  type PaidTier,
+} from "@/lib/plans";
 
 /**
- * 1 プラン分の表示用価格情報。料金ページや、表示価格が必要な箇所から参照する。
+ * 1 プラン分の表示用価格情報。料金ページ等から参照する。
  *
  * - `amount` は currency の最小単位（JPY は円、USD はセント）
  * - `priceLabel` / `periodLabel` / `note` はすでに日本語化済みの表示文字列
  */
 export interface PlanPricing {
-  plan: Plan;
+  tier: PaidTier;
+  cycle: BillingCycle;
   priceId: string;
   amount: number;
   currency: string;
@@ -23,36 +30,50 @@ export interface PlanPricing {
   note: string;
 }
 
-export type PlanPricingMap = Record<Plan, PlanPricing>;
+/** tier x cycle の全組み合わせのマップ。 */
+export type PlanPricingMap = Record<PaidTier, Record<BillingCycle, PlanPricing>>;
 
 /**
- * 料金ページなどで使う、Stripe 上の最新価格を取得する。
- * 同一リクエスト内では React の `cache` でメモ化される。
- *
- * note は月額・年額が揃っているときのみ「実質 ¥X / 月」「N ヶ月分お得」を算出する。
+ * Stripe 上の最新価格を取得する。同一リクエスト内では React の `cache` でメモ化。
+ * note は同じ tier の月額・年額が揃っているときのみ「実質 ¥X / 月」を算出する。
  */
 export const getPlanPricing = cache(async (): Promise<PlanPricingMap> => {
   const stripe = getStripe();
-  const prices = await Promise.all(
-    PLANS.map(async (plan) => {
-      const priceId = getPriceIdFor(plan);
-      const price = await stripe.prices.retrieve(priceId);
-      return { plan, price };
-    }),
+  const entries = await Promise.all(
+    PAID_TIERS.flatMap((tier) =>
+      BILLING_CYCLES.map(async (cycle) => {
+        const priceId = getPriceId(tier, cycle);
+        const price = await stripe.prices.retrieve(priceId);
+        return { tier, cycle, price };
+      }),
+    ),
   );
 
-  const monthly = prices.find((p) => p.plan === "monthly")?.price ?? null;
-  const yearly = prices.find((p) => p.plan === "yearly")?.price ?? null;
+  // tier ごとの「monthly / yearly」参照を作っておき、年額の note 計算で使う
+  const byTier = new Map<PaidTier, Partial<Record<BillingCycle, Stripe.Price>>>();
+  for (const { tier, cycle, price } of entries) {
+    const inner = byTier.get(tier) ?? {};
+    inner[cycle] = price;
+    byTier.set(tier, inner);
+  }
 
   const result = {} as PlanPricingMap;
-  for (const { plan, price } of prices) {
-    result[plan] = toPlanPricing(plan, price, { monthly, yearly });
+  for (const { tier, cycle, price } of entries) {
+    const refs = byTier.get(tier) ?? {};
+    if (!result[tier]) {
+      result[tier] = {} as Record<BillingCycle, PlanPricing>;
+    }
+    result[tier][cycle] = toPlanPricing(tier, cycle, price, {
+      monthly: refs.monthly ?? null,
+      yearly: refs.yearly ?? null,
+    });
   }
   return result;
 });
 
 function toPlanPricing(
-  plan: Plan,
+  tier: PaidTier,
+  cycle: BillingCycle,
   price: Stripe.Price,
   refs: { monthly: Stripe.Price | null; yearly: Stripe.Price | null },
 ): PlanPricing {
@@ -65,7 +86,8 @@ function toPlanPricing(
   }
 
   return {
-    plan,
+    tier,
+    cycle,
     priceId: price.id,
     amount,
     currency: price.currency,
@@ -76,20 +98,19 @@ function toPlanPricing(
       price.recurring.interval,
       price.recurring.interval_count,
     ),
-    note: buildNote(plan, price, refs),
+    note: buildNote(cycle, price, refs),
   };
 }
 
 function buildNote(
-  plan: Plan,
+  cycle: BillingCycle,
   price: Stripe.Price,
   refs: { monthly: Stripe.Price | null; yearly: Stripe.Price | null },
 ): string {
-  if (plan === "monthly") {
+  if (cycle === "monthly") {
     return "毎月自動更新。いつでも解約可能。";
   }
 
-  // 年額の note は、月額が取得できているときだけ「実質 ¥X / 月（N ヶ月分お得）」を算出する。
   const yearAmount = price.unit_amount ?? 0;
   const monthAmount = refs.monthly?.unit_amount ?? null;
   if (!monthAmount || yearAmount <= 0) {
@@ -109,10 +130,8 @@ function buildNote(
 
 function formatCurrency(amount: number, currency: string): string {
   const code = currency.toUpperCase();
-  // JPY のように最小単位 = 主単位の通貨はそのまま。USD/EUR などは 100 で割る。
   const isZeroDecimal = ZERO_DECIMAL_CURRENCIES.has(code);
   const major = isZeroDecimal ? amount : amount / 100;
-  // JPY は Intl だと環境（ICU）依存で「￥」(全角) になるため、半角 ¥ で固定する。
   if (code === "JPY") {
     return `¥${new Intl.NumberFormat("ja-JP", {
       maximumFractionDigits: 0,
@@ -143,7 +162,6 @@ const INTERVAL_LABEL: Record<Stripe.Price.Recurring.Interval, string> = {
 /**
  * Stripe で最小単位 = 主単位の通貨。
  * https://docs.stripe.com/currencies#zero-decimal
- * 必要に応じて追加する。
  */
 const ZERO_DECIMAL_CURRENCIES = new Set([
   "BIF",

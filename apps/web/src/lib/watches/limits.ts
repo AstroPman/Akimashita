@@ -1,5 +1,16 @@
+import { getWatchLimitForTier, type PlanTier } from "@/lib/plans";
+
 /**
- * 1 ユーザが作成できる監視設定（watch_settings）の上限件数。
- * UI 表示・サーバ判定の双方でこの値を参照する。
+ * 監視設定の上限件数は plan_tier ごとに決まる。
+ * UI 表示・サーバ判定の双方でこの関数を経由して値を取得する。
+ *
+ * `Number.POSITIVE_INFINITY` は「無制限」を意味する。UI 側では数値
+ * リテラル表示を避け、専用ラベルにフォールバックする。
  */
-export const MAX_WATCH_SETTINGS_PER_USER = 20;
+export function watchLimitFor(tier: PlanTier): number {
+  return getWatchLimitForTier(tier);
+}
+
+export function isUnlimited(limit: number): boolean {
+  return !Number.isFinite(limit);
+}
