@@ -1,37 +1,44 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { BellRingIcon, CalendarClockIcon, ZapIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/server";
 import { FeatureCard } from "@/components/landing/feature-card";
 import { HowItWorks } from "@/components/landing/how-it-works";
 import { Faq } from "@/components/landing/faq";
 import { SiteFooter } from "@/components/landing/site-footer";
 import { PrimaryCta, SecondaryCta } from "@/components/landing/cta";
 
-export default async function Home() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) {
-    redirect("/watches");
-  }
-
+/** ログイン済みの `/` は middleware で `/watches` にリダイレクト（二重の getUser を避ける） */
+export default function Home() {
   return (
     <div className="flex flex-col flex-1">
       <header className="border-b">
         <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-4">
           <Link href="/" className="flex items-center" aria-label="アキマシタ">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.svg" alt="アキマシタ" className="h-12 w-auto" />
+            <img
+              src="/logo.svg"
+              alt=""
+              width={700}
+              height={250}
+              className="h-12 w-auto"
+              decoding="async"
+            />
           </Link>
           <div className="flex items-center gap-2">
-            <Button asChild variant="ghost" size="sm">
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="min-h-12 min-w-12 px-3 sm:min-w-0"
+            >
               <Link href="/pricing">料金</Link>
             </Button>
-            <Button asChild variant="ghost" size="sm">
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="min-h-12 min-w-12 px-3 sm:min-w-0"
+            >
               <Link href="/login">ログイン</Link>
             </Button>
           </div>
@@ -57,7 +64,13 @@ export default async function Home() {
             </div>
           </div>
 
-          <div className="mt-20 grid gap-6 sm:grid-cols-3">
+          <h2 id="landing-features-heading" className="sr-only">
+            主な機能
+          </h2>
+          <div
+            className="mt-20 grid gap-6 sm:grid-cols-3"
+            aria-labelledby="landing-features-heading"
+          >
             <FeatureCard
               icon={<BellRingIcon className="size-5" />}
               title="即時通知"

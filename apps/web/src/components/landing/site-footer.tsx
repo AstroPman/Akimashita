@@ -16,7 +16,15 @@ export function SiteFooter() {
         <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
           <Link href="/" className="flex items-center gap-2" aria-label="アキマシタ">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.svg" alt="" className="h-10 w-auto" />
+            <img
+              src="/logo.svg"
+              alt=""
+              width={700}
+              height={250}
+              className="h-10 w-auto"
+              loading="lazy"
+              decoding="async"
+            />
             <span className="text-sm font-semibold tracking-tight text-foreground">
               アキマシタ
             </span>

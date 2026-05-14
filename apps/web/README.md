@@ -50,7 +50,7 @@ npm run dev   # http://localhost:3000
 - `/signup` `/login` `/forgot-password` 認証まわり
 - `/watches` 監視一覧（全ユーザ閲覧可。プランごとに登録件数上限あり）
 - `/watches/new` `/watches/[id]` `/watches/[id]/edit` 監視の作成・詳細・編集
-- `/notifications` メール通知・お知らせ一覧（スタンダード以上）、`/notifications/email/[id]` `/notifications/announcement/[id]` 詳細
+- `/notifications` メール通知・お知らせ一覧（全ユーザ閲覧可）、`/notifications/email/[id]` `/notifications/announcement/[id]` 詳細
 - `/rankings` ランキング表示（スタンダード以上）
 - `/account` アカウント／ご契約管理（Customer Portal 遷移）
 - `/reset-password` ログイン済みユーザ向けパスワード変更
@@ -61,8 +61,8 @@ npm run dev   # http://localhost:3000
 
 3 段階のプラン構成。プラン定義は [`src/lib/plans.ts`](src/lib/plans.ts) に集約。
 
-| プラン | 価格 | 監視数 | 通知遅延 | ランキング・通知履歴 |
-|--------|------|--------|----------|----------------------|
+| プラン | 価格 | 監視数 | 通知遅延 | ランキング |
+|--------|------|--------|----------|------------|
 | 無料 (free) | ¥0 | 1 件 | 10 分 | × |
 | スタンダード | 月 ¥1,980 / 年 ¥19,800 | 10 件 | 5 分 | ○ |
 | プレミアム | 月 ¥4,980 / 年 ¥49,800 | 無制限 | 即時 | ○ |

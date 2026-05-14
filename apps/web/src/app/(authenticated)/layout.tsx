@@ -63,7 +63,10 @@ export default async function AuthenticatedLayout({
             <img
               src="/logo.svg"
               alt="アキマシタ"
+              width={700}
+              height={250}
               className="h-12 w-auto"
+              decoding="async"
             />
           </Link>
           <div className="flex items-center gap-1 sm:gap-2">

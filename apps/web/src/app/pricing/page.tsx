@@ -24,7 +24,6 @@ const REASON_MESSAGE: Record<string, string> = {
   subscription_required: "この機能を利用するには有料プランへのお申し込みが必要です。",
   watch_limit: "現在のプランの監視設定数の上限に達しています。プランをアップグレードすると追加できます。",
   ranking_locked: "ランキングはスタンダード以上のプランで閲覧できます。",
-  notifications_locked: "通知履歴の閲覧はスタンダード以上のプランで利用できます。",
   canceled: "お申し込みはキャンセルされました。プランの比較からやり直すことができます。",
 };
 
@@ -50,7 +49,14 @@ export default async function PricingPage({
         <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-4">
           <Link href="/" className="flex items-center" aria-label="アキマシタ">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.svg" alt="アキマシタ" className="h-12 w-auto" />
+            <img
+              src="/logo.svg"
+              alt="アキマシタ"
+              width={700}
+              height={250}
+              className="h-12 w-auto"
+              decoding="async"
+            />
           </Link>
           <div className="flex items-center gap-2">
             <Button asChild variant="ghost" size="sm">

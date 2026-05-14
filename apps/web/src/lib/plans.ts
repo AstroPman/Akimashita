@@ -79,7 +79,7 @@ export const PLAN_CONFIG: Record<PlanTier, PlanConfig> = {
     notifyDelayMs: TEN_MIN,
     notifyDelayLabel: "10 分遅延",
     canAccessRanking: false,
-    canAccessNotificationsInbox: false,
+    canAccessNotificationsInbox: true,
     label: "無料プラン",
     features: {
       watchCount: { available: true, value: "1 名" },
