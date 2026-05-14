@@ -14,12 +14,15 @@ export default function ContactPage() {
 
       <div className="mt-6 rounded-xl border bg-card p-6 text-sm">
         <p className="text-muted-foreground">メールアドレス</p>
-        <p className="mt-1 break-all font-medium">support@example.com</p>
+        <p className="mt-1 break-all font-medium">
+          <a
+            href="mailto:akimashita.support@gmail.com"
+            className="underline underline-offset-2 hover:text-foreground"
+          >
+            akimashita.support@gmail.com
+          </a>
+        </p>
       </div>
-
-      <p className="mt-6 text-xs text-muted-foreground">
-        ※ 公開前に問い合わせ先のメールアドレス・問い合わせフォーム等を整備してください。
-      </p>
     </>
   );
 }
