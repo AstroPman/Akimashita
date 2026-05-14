@@ -10,6 +10,8 @@ import { buildNotifyEmail, type NotifySlot } from './templates.js';
 
 const log = createLogger('notify:dispatcher');
 
+export type PlanTier = 'free' | 'standard' | 'premium';
+
 interface PendingRow {
   id: string;
   watch_setting_id: string;
@@ -18,6 +20,7 @@ interface PendingRow {
   start_time: string;
   channel: 'email' | 'line';
   created_at: string;
+  send_after: string;
   watch_settings: {
     user_id: string;
     is_active: boolean;
@@ -26,6 +29,7 @@ interface PendingRow {
       id: string;
       email: string | null;
       deleted_at: string | null;
+      plan_tier: PlanTier;
     } | null;
   } | null;
   therapists: {
@@ -45,6 +49,7 @@ interface PendingRow {
 interface UserBatch {
   userId: string;
   userEmail: string;
+  planTier: PlanTier;
   rowIds: string[];
   slots: NotifySlot[];
 }
@@ -56,6 +61,7 @@ interface UserBatch {
 interface PreparedBatch {
   userId: string;
   userEmail: string;
+  planTier: PlanTier;
   lockedRowIds: string[];
   message: EmailMessage;
 }
@@ -106,13 +112,15 @@ function sleep(ms: number): Promise<void> {
 async function fetchPendingRows(): Promise<PendingRow[]> {
   // 一括取得してから Node 側でユーザ単位にグルーピングする。
   // limit は安全弁（極端なバックログ時のメモリ保護）。
+  // send_after <= now() でプラン別の遅延を反映する（free=+10min, standard=+5min, premium=now()）。
+  const nowIso = new Date().toISOString();
   const { data, error } = await supabase
     .from('notification_logs')
     .select(
-      `id, watch_setting_id, therapist_id, date, start_time, channel, created_at,
+      `id, watch_setting_id, therapist_id, date, start_time, channel, created_at, send_after,
        watch_settings!inner(
          user_id, is_active, deleted_at,
-         users!inner(id, email, deleted_at)
+         users!inner(id, email, deleted_at, plan_tier)
        ),
        therapists!inner(
          id, therapist_id, name, salon_id,
@@ -121,10 +129,12 @@ async function fetchPendingRows(): Promise<PendingRow[]> {
     )
     .eq('status', 'pending')
     .eq('channel', 'email')
+    .lte('send_after', nowIso)
     .is('watch_settings.deleted_at', null)
     .eq('watch_settings.is_active', true)
     .is('watch_settings.users.deleted_at', null)
     .not('watch_settings.users.email', 'is', null)
+    .order('send_after', { ascending: true })
     .order('created_at', { ascending: true })
     .limit(5000);
 
@@ -133,45 +143,6 @@ async function fetchPendingRows(): Promise<PendingRow[]> {
   }
 
   return (data ?? []) as unknown as PendingRow[];
-}
-
-/**
- * 渡された user_id 集合のうち、サブスクが有効な user_id だけを返す。
- * enqueue_notifications 側でも絞り込んでいるが、念のため dispatcher でも再判定する。
- */
-async function filterActiveSubscribers(userIds: string[]): Promise<Set<string>> {
-  if (userIds.length === 0) return new Set();
-  const { data, error } = await supabase
-    .from('subscriptions')
-    .select('user_id, status, current_period_end')
-    .in('user_id', userIds);
-  if (error) {
-    log.warn('Failed to fetch subscriptions for filter', {
-      error: error.message,
-    });
-    // サブスク情報を取れない場合は安全側に倒して全員除外
-    return new Set();
-  }
-  const now = Date.now();
-  const active = new Set<string>();
-  for (const row of (data ?? []) as Array<{
-    user_id: string;
-    status: string;
-    current_period_end: string | null;
-  }>) {
-    if (['trialing', 'active', 'past_due'].includes(row.status)) {
-      active.add(row.user_id);
-      continue;
-    }
-    if (
-      row.status === 'canceled' &&
-      row.current_period_end &&
-      new Date(row.current_period_end).getTime() > now
-    ) {
-      active.add(row.user_id);
-    }
-  }
-  return active;
 }
 
 function rowToSlot(row: PendingRow): NotifySlot | null {
@@ -208,6 +179,7 @@ function groupByUser(rows: PendingRow[]): UserBatch[] {
       map.set(user.id, {
         userId: user.id,
         userEmail: user.email,
+        planTier: user.plan_tier,
         rowIds: [row.id],
         slots: [slot],
       });
@@ -354,10 +326,13 @@ function prepareBatch(
   }
   if (lockedRowIds.length === 0) return null;
 
-  const { subject, text, html } = buildNotifyEmail(lockedSlots);
+  const { subject, text, html } = buildNotifyEmail(lockedSlots, {
+    tier: batch.planTier,
+  });
   return {
     userId: batch.userId,
     userEmail: batch.userEmail,
+    planTier: batch.planTier,
     lockedRowIds,
     message: { to: batch.userEmail, subject, text, html },
   };
@@ -399,23 +374,20 @@ export async function dispatchEmailNotifications(
     return result;
   }
 
-  // サブスクが有効でないユーザを除外（多重防御）
-  const activeUserIds = await filterActiveSubscribers(
-    batches.map((b) => b.userId),
-  );
-  const eligibleBatches = batches.filter((b) => activeUserIds.has(b.userId));
-  const dropped = batches.length - eligibleBatches.length;
-  if (dropped > 0) {
-    log.info('Dropped batches for non-subscribers', { dropped });
-  }
-  if (eligibleBatches.length === 0) {
-    return result;
-  }
+  // free / standard / premium 全プランが通知対象。enqueue_notifications RPC が
+  // プランごとの send_after を設定し、fetchPendingRows がそれを反映してフィルタする。
+  const eligibleBatches = batches;
 
-  // 送信順による「早い者勝ち」の不公平を緩和するため、毎回シャッフルしてから
-  // 上限まで取る。チャンク内は同時送信になるが、チャンクをまたぐ順序のバイアスは消える。
-  shuffleInPlace(eligibleBatches);
-  const targets = eligibleBatches.slice(0, options.usersPerRun);
+  // プラン別公平性: premium を優先しつつ、同 tier 内は無作為に並べる。
+  // チャンクをまたぐ順序のバイアスを緩和する。
+  const premium = eligibleBatches.filter((b) => b.planTier === 'premium');
+  const standard = eligibleBatches.filter((b) => b.planTier === 'standard');
+  const free = eligibleBatches.filter((b) => b.planTier === 'free');
+  shuffleInPlace(premium);
+  shuffleInPlace(standard);
+  shuffleInPlace(free);
+  const ordered = [...premium, ...standard, ...free];
+  const targets = ordered.slice(0, options.usersPerRun);
   result.processedUsers = targets.length;
 
   log.info('Dispatch plan', {
@@ -430,10 +402,11 @@ export async function dispatchEmailNotifications(
   // dry-run はロックも送信もせず、送信予定の内訳をログするだけで終わる。
   if (options.dryRun) {
     for (const batch of targets) {
-      const { subject } = buildNotifyEmail(batch.slots);
+      const { subject } = buildNotifyEmail(batch.slots, { tier: batch.planTier });
       log.info('[dry-run] would send', {
         user_id: batch.userId,
         to: batch.userEmail,
+        plan_tier: batch.planTier,
         subject,
         slot_count: batch.slots.length,
         row_ids: batch.rowIds,

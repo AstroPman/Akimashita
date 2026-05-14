@@ -213,15 +213,68 @@ function escapeHtml(s: string): string {
     .replaceAll("'", '&#39;');
 }
 
-export function buildNotifyEmail(slots: NotifySlot[]): NotifyEmailContent {
+export type PlanTier = 'free' | 'standard' | 'premium';
+
+export interface BuildNotifyEmailOptions {
+  /** 受信者のプラン。アップグレード誘導 CTA を出し分けるために使う。 */
+  tier?: PlanTier;
+}
+
+interface UpsellContent {
+  textLines: string[];
+  htmlBlock: string;
+}
+
+function buildUpsell(tier: PlanTier, baseUrl: string): UpsellContent | null {
+  if (tier === 'premium') return null;
+  const pricingUrl = `${baseUrl}/pricing?source=email_${tier}`;
+  if (tier === 'free') {
+    const text = [
+      '─ アップグレードのご案内 ─',
+      '現在、無料プランの 10 分遅延で通知をお届けしています。',
+      'スタンダードプランで 5 分遅延、プレミアムプランなら即時通知。',
+      '監視できるセラピスト数もアップグレードで増やせます。',
+      `プランを比較する: ${pricingUrl}`,
+    ];
+    const html =
+      '<div style="margin-top:24px;padding:12px 14px;border:1px solid #fcd34d;background:#fffbeb;border-radius:8px;font-size:13px;color:#92400e">' +
+      '<strong>アップグレードのご案内</strong>' +
+      '<p style="margin:6px 0 4px;color:#92400e">現在、無料プランの 10 分遅延で通知中。スタンダードで 5 分遅延、プレミアムなら即時通知が届きます。</p>' +
+      `<p style="margin:6px 0 0"><a href="${escapeHtml(pricingUrl)}" style="color:#92400e;font-weight:bold">プランを比較する</a></p>` +
+      '</div>';
+    return { textLines: text, htmlBlock: html };
+  }
+  // standard
+  const text = [
+    '─ アップグレードのご案内 ─',
+    '現在、スタンダードプランの 5 分遅延で通知をお届けしています。',
+    'プレミアムプランなら即時通知＋監視数も無制限。',
+    `プランを比較する: ${pricingUrl}`,
+  ];
+  const html =
+    '<div style="margin-top:24px;padding:12px 14px;border:1px solid #c7d2fe;background:#eef2ff;border-radius:8px;font-size:13px;color:#3730a3">' +
+    '<strong>アップグレードのご案内</strong>' +
+    '<p style="margin:6px 0 4px;color:#3730a3">現在、5 分遅延で通知中。プレミアムなら即時通知＋監視数も無制限です。</p>' +
+    `<p style="margin:6px 0 0"><a href="${escapeHtml(pricingUrl)}" style="color:#3730a3;font-weight:bold">プランを比較する</a></p>` +
+    '</div>';
+  return { textLines: text, htmlBlock: html };
+}
+
+export function buildNotifyEmail(
+  slots: NotifySlot[],
+  options: BuildNotifyEmailOptions = {},
+): NotifyEmailContent {
   if (slots.length === 0) {
     throw new Error('buildNotifyEmail requires at least one slot');
   }
 
+  const tier: PlanTier = options.tier ?? 'premium';
   const groups = groupByTherapist(slots);
   const groupRanges = groups.map((g) => groupConsecutiveRanges(g.slots));
   const subject = buildSubject(slots, groups, groupRanges);
-  const watchesUrl = `${env.APP_BASE_URL.replace(/\/$/, '')}/watches`;
+  const baseUrl = env.APP_BASE_URL.replace(/\/$/, '');
+  const watchesUrl = `${baseUrl}/watches`;
+  const upsell = buildUpsell(tier, baseUrl);
 
   const textLines: string[] = [];
   textLines.push('監視中のセラピストに空きが出ました。');
@@ -244,6 +297,10 @@ export function buildNotifyEmail(slots: NotifySlot[]): NotifyEmailContent {
     }
     textLines.push('');
   });
+  if (upsell) {
+    for (const line of upsell.textLines) textLines.push(line);
+    textLines.push('');
+  }
   textLines.push('──');
   textLines.push(`通知設定の変更: ${watchesUrl}`);
   const text = textLines.join('\n');
@@ -273,6 +330,9 @@ export function buildNotifyEmail(slots: NotifySlot[]): NotifyEmailContent {
     }
     htmlParts.push('</ul>');
   });
+  if (upsell) {
+    htmlParts.push(upsell.htmlBlock);
+  }
   htmlParts.push(
     `<hr style="margin:16px 0;border:none;border-top:1px solid #eee" /><p style="font-size:12px;color:#666">通知設定の変更: <a href="${escapeHtml(
       watchesUrl,
