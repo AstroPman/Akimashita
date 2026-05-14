@@ -7,6 +7,17 @@
 #   - 月 1 回 phase=areas を Lambda 直接呼び出し  → salons_areas
 #   - 定期で SFN を StartExecution            → salons_pipeline
 # ============================================================================
+
+# ----------------------------------------------------------------------------
+# Schedule Group: 環境ごとに 1 つ作成し、本モジュールの全 Schedule を所属させる。
+# - コンソールでの一覧 / 一括操作（DISABLE 等）が環境単位で行えるようになる。
+# - group_name の変更は Schedule 側で ForceNew のため、既存環境では default
+#   グループから本グループへ移行する初回 apply で Schedule が再作成される。
+# ----------------------------------------------------------------------------
+resource "aws_scheduler_schedule_group" "scraper" {
+  name = var.name_prefix
+}
+
 resource "aws_scheduler_schedule" "stage" {
   for_each = {
     for stage_name, _ in local.stages :
@@ -14,7 +25,8 @@ resource "aws_scheduler_schedule" "stage" {
     if stage_name != "salons" && contains(keys(var.schedules), stage_name) && var.schedules[stage_name] != ""
   }
 
-  name = "${var.name_prefix}-${each.key}"
+  name       = "${var.name_prefix}-${each.key}"
+  group_name = aws_scheduler_schedule_group.scraper.name
 
   flexible_time_window {
     mode = "OFF"
@@ -43,7 +55,8 @@ resource "aws_scheduler_schedule" "stage" {
 resource "aws_scheduler_schedule" "salons_areas" {
   count = var.salons_areas_schedule == "" ? 0 : 1
 
-  name = "${var.name_prefix}-salons-areas"
+  name       = "${var.name_prefix}-salons-areas"
+  group_name = aws_scheduler_schedule_group.scraper.name
 
   flexible_time_window {
     mode = "OFF"
@@ -71,7 +84,8 @@ resource "aws_scheduler_schedule" "salons_areas" {
 resource "aws_scheduler_schedule" "salons_pipeline" {
   count = var.salons_pipeline_schedule == "" ? 0 : 1
 
-  name = "${var.name_prefix}-salons-pipeline"
+  name       = "${var.name_prefix}-salons-pipeline"
+  group_name = aws_scheduler_schedule_group.scraper.name
 
   flexible_time_window {
     mode = "OFF"
