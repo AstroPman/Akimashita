@@ -38,6 +38,72 @@ alwaysApply: false
 - **DynamoDB**: 状態保管は Supabase 側で完結。
 - **CloudWatch Container Insights / X-Ray**: 課金対象になりやすい。MVP では使わない。
 
+# 現在使っている主なリソースの無料枠
+
+下記は `infra/aws` で **実際に Terraform 管理しているリソース** の無料枠まとめ。リージョンは `ap-northeast-1`（東京）前提。AWS の料金体系は変動するため、**変更前には必ず公式の最新ページで確認**する（[AWS Free Tier](https://aws.amazon.com/free/) / 各サービスの Pricing ページ）。
+
+## 無料枠一覧
+
+| リソース | Terraform リソース型 | 無料枠 | 種別 | 超過時の概算課金（東京リージョン）|
+|---------|---------------------|--------|------|-----------------------------------|
+| **Lambda** | `aws_lambda_function` | 1M リクエスト + 400,000 GB-秒 / 月 | Always Free | $0.20 / 1M req + $0.0000166667 / GB-秒 |
+| **EventBridge Scheduler** | `aws_scheduler_schedule` | 14M invocations / 月 | Always Free | $1.00 / 1M invocations |
+| **Step Functions (Standard)** | `aws_sfn_state_machine` | 4,000 state transitions / 月 | Always Free | $0.025 / 1,000 transitions |
+| **SNS** | `aws_sns_topic` / `aws_sns_topic_subscription` | 1M publish + 1,000 email 配信 / 月 | Always Free | $0.50 / 1M publish + $2.00 / 100,000 email |
+| **CloudWatch Logs** | `aws_cloudwatch_log_group` | 5GB ingest + 5GB storage / 月 | Always Free | $0.76 / GB ingest + $0.033 / GB-月 storage |
+| **CloudWatch Alarms** | `aws_cloudwatch_metric_alarm` | 10 アラーム / 月（Standard resolution） | Always Free | $0.10 / アラーム-月 |
+| **ECR (private)** | `aws_ecr_repository` | 500MB ストレージ / 月 | Always Free | $0.10 / GB-月 |
+| **SSM Parameter Store** | `aws_ssm_parameter`（Standard / SecureString） | 完全無料（10,000 params 以下 / 4KB 以下） | Always Free | Advanced Tier 切替時のみ $0.05 / param-月 |
+| **IAM Role / Policy** | `aws_iam_role` / `aws_iam_role_policy` | 完全無料 | Always Free | なし |
+| **S3（Terraform State）** | bootstrap 側で管理 | 5GB ストレージ + 20,000 GET + 2,000 PUT / 月 | **12-month Free Tier** | $0.025 / GB-月 + リクエスト課金 |
+
+## Always Free と 12-month Free Tier の違い
+
+- **Always Free**: アカウント年齢に関係なく **永続的に** 無料。本プロジェクトの主要サービス（Lambda / Scheduler / Step Functions / SNS / SSM / IAM / ECR / CloudWatch Logs/Alarms）はすべてここに該当。
+- **12-month Free Tier**: アカウント作成から **最初の 12 ヶ月のみ** 無料。本プロジェクトでは **S3（Terraform State 用）** のみがこの区分。
+- **`KoppePan` アカウント（695668793500）の作成日** を把握しておき、12-month 枠が切れて S3 が課金対象に切り替わるタイミングをカレンダー登録する。State の容量は微々たるものなので、12 ヶ月後でも数セント / 月で済む見込み。
+
+## 監視すべきメトリクス
+
+無料枠超過に直結する指標。AWS Billing コンソール / CloudWatch Metrics で月次確認する。bootstrap の `$1/月` Budgets が発火したら **即下記を確認**。
+
+- **Lambda**: `Invocations`（合計）/ `Duration` × メモリ（GB-秒換算）
+- **EventBridge Scheduler**: `InvocationsCount`
+- **Step Functions**: `ExecutionsStarted` × 1 実行あたりの状態遷移数
+  - 例：`salons-pipeline` は 4 タスク × `lambda:invoke` ごとに約 2〜3 transitions ≒ **1 実行あたり 10〜15 transitions**
+- **CloudWatch Logs**: `IncomingBytes`（保持期間ではなく ingest 量で課金される）
+- **ECR**: `RepositoryStorageBytes`（500MB 接近時は lifecycle policy の世代数を絞る）
+- **SNS**: `NumberOfMessagesPublished` / `NumberOfNotificationsDelivered`
+- **CloudWatch Alarms**: 設置中のアラーム総数（10 個に近づいたら整理）
+
+## 想定運用の無料枠試算
+
+参考までに、現状の運用（`availability` 5 分間隔・`salons-pipeline` 日次・`therapists` 日次・`notify` 5 分間隔）での概算。
+
+| 指標 | 月間消費量（運用前提） | 無料枠 | 備考 |
+|------|----------------------|--------|------|
+| Lambda Invocations（5 分間隔ステージ） | 約 8,640 / ステージ | 1,000,000 | 全ステージ合計でも余裕 |
+| Lambda GB-秒（1024MB × 平均 5 秒・5 分間隔） | 約 44,000 / ステージ | 400,000 | メモリ × 実行時間で増減 |
+| EventBridge Scheduler（5 分間隔） | 約 8,640 / ステージ | 14,000,000 | ほぼ消費しない |
+| Step Functions transitions（`salons-pipeline` 日次・1 実行 ≒ 12 transitions） | 約 360 / 月 | 4,000 | 頻度を 1 時間ごとに上げると 8,640 で **即超過** |
+| CloudWatch Logs ingest | 実測必須 | 5GB | 過剰 `console.log` は要注意 |
+| ECR storage | イメージ × 世代数で増加 | 500MB | lifecycle policy で世代を絞る |
+
+**無料枠を超えそうな場合のレバー**:
+
+1. **cron 頻度を下げる**（1 分 → 5 分 → 10 分）
+2. **対象を絞る**（watch_settings に登録されたセラピストのみ）
+3. **Lambda メモリ / タイムアウトを下げる**（GB-秒の節約）
+4. **ログレベルを上げる**（`console.log` を `debug` に落とす）
+5. **ECR のタグ世代数を減らす**（`var.ecr_keep_image_count` を縮小）
+
+## 注意すべき「無料枠の盲点」
+
+- **データ転送（egress）**: ほとんどのサービスでアウトバウンド転送に課金される。Lambda → Supabase は外部 HTTPS 通信なので、**1GB / 月の Always Free 枠（インターネット egress）** を超えるとリージョン単価で課金。スクレイピング応答を保存せずパースだけして捨てる構成を維持する。
+- **CloudWatch Logs Insights クエリ**: スキャン量で課金される（$0.0076 / GB スキャン）。**dashboard の自動更新で連続クエリを回さない**。
+- **KMS（カスタマー管理キー）**: 1 キーあたり $1/月。SSM SecureString は **AWS 管理キー（`aws/ssm`）を使う**ことで無料を維持。
+- **CloudWatch Metrics（カスタムメトリクス）**: 10 メトリクスまで無料。Lambda / SQS の標準メトリクスはノーカウントだが、`PutMetricData` API で発行するカスタムメトリクスは枠を消費する。
+
 # infra/aws 概要
 
 `infra/aws` は **akimashita のサーバーサイドリソース** を AWS 上で管理する Terraform 構成。
