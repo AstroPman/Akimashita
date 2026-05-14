@@ -1,19 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import type {
-  BillingCycle,
-  PaidTier,
-  PlanConfig,
-  PlanTier,
+import {
+  PLAN_FEATURE_KEYS,
+  PLAN_FEATURE_LABELS,
+  type BillingCycle,
+  type PaidTier,
+  type PlanConfig,
+  type PlanTier,
 } from "@/lib/plans";
 import type { PlanPricingMap } from "@/lib/stripe/pricing";
 import { startCheckoutAction } from "../actions";
 
-const HIGHLIGHT_TIER: PaidTier = "standard";
+const HIGHLIGHT_TIER: PaidTier = "premium";
 
 export function PricingPlanGrid(props: {
   pricing: PlanPricingMap;
@@ -82,14 +84,7 @@ function FreeCard({ config }: { config: PlanConfig }) {
       <p className="mt-1 text-xs text-muted-foreground">
         アカウント登録のみで利用可能。
       </p>
-      <ul className="mt-6 space-y-2 text-sm">
-        {config.bullets.map((b) => (
-          <li key={b} className="flex items-start gap-2">
-            <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" />
-            <span>{b}</span>
-          </li>
-        ))}
-      </ul>
+      <PlanFeatureList config={config} />
       <div className="mt-6">
         <Button asChild variant="outline" className="w-full" size="lg">
           <Link href="/signup">無料で始める</Link>
@@ -133,14 +128,7 @@ function PaidCard(props: {
       </div>
       <p className="mt-1 text-xs text-muted-foreground">{props.note}</p>
 
-      <ul className="mt-6 space-y-2 text-sm">
-        {props.config.bullets.map((b) => (
-          <li key={b} className="flex items-start gap-2">
-            <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" />
-            <span>{b}</span>
-          </li>
-        ))}
-      </ul>
+      <PlanFeatureList config={props.config} />
 
       <form action={startCheckoutAction} className="mt-6">
         <input type="hidden" name="tier" value={props.tier} />
@@ -150,5 +138,48 @@ function PaidCard(props: {
         </Button>
       </form>
     </div>
+  );
+}
+
+function PlanFeatureList({ config }: { config: PlanConfig }) {
+  return (
+    <ul className="mt-6 space-y-2 text-sm">
+      {PLAN_FEATURE_KEYS.map((key) => {
+        const feature = config.features[key];
+        const label = PLAN_FEATURE_LABELS[key];
+        return (
+          <li
+            key={key}
+            className="flex items-center justify-between gap-3"
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              {feature.available ? (
+                <CheckIcon
+                  className="size-4 shrink-0 text-primary"
+                  aria-label="利用可能"
+                />
+              ) : (
+                <XIcon
+                  className="size-4 shrink-0 text-muted-foreground/70"
+                  aria-label="利用不可"
+                />
+              )}
+              <span
+                className={
+                  feature.available ? "" : "text-muted-foreground"
+                }
+              >
+                {label}
+              </span>
+            </span>
+            {feature.value ? (
+              <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                {feature.value}
+              </span>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
   );
 }

@@ -23,6 +23,32 @@ export const PLAN_RANK: Record<PlanTier, number> = {
   premium: 2,
 };
 
+/**
+ * 料金プラン表で比較するための機能キー。
+ * UI ではこの順序で表示し、すべてのプランで同じ項目を並べる。
+ */
+export const PLAN_FEATURE_KEYS = [
+  "watchCount",
+  "notifyTiming",
+  "ranking",
+] as const;
+
+export type PlanFeatureKey = (typeof PLAN_FEATURE_KEYS)[number];
+
+/** 料金プラン表での機能ラベル（日本語）。 */
+export const PLAN_FEATURE_LABELS: Record<PlanFeatureKey, string> = {
+  watchCount: "監視できるセラピスト",
+  notifyTiming: "通知タイミング",
+  ranking: "ランキング閲覧",
+};
+
+export interface PlanFeatureValue {
+  /** 機能を利用できるか（チェック/バツの表示に使う）。 */
+  available: boolean;
+  /** 利用可能な場合に併記する値（例: "10 名" / "5 分後"）。 */
+  value?: string;
+}
+
 export interface PlanConfig {
   /** 1 アカウントが登録できる watch_settings の最大件数。`Infinity` は無制限。 */
   watchLimit: number;
@@ -36,8 +62,12 @@ export interface PlanConfig {
   canAccessNotificationsInbox: boolean;
   /** プラン名（日本語） */
   label: string;
-  /** UI で要点を箇条書きにするためのフラグ群 */
-  bullets: string[];
+  /**
+   * 料金プラン表で表示する機能一覧。
+   * すべてのプランで {@link PLAN_FEATURE_KEYS} と同じキーを揃え、
+   * 利用可否（available）と必要に応じて値（value）を持たせる。
+   */
+  features: Record<PlanFeatureKey, PlanFeatureValue>;
 }
 
 const FIVE_MIN = 5 * 60_000;
@@ -51,11 +81,11 @@ export const PLAN_CONFIG: Record<PlanTier, PlanConfig> = {
     canAccessRanking: false,
     canAccessNotificationsInbox: false,
     label: "無料プラン",
-    bullets: [
-      "監視できるセラピストは 1 名まで",
-      "通知は 10 分遅れ",
-      "ランキングや通知履歴は閲覧不可",
-    ],
+    features: {
+      watchCount: { available: true, value: "1 名" },
+      notifyTiming: { available: true, value: "10 分後" },
+      ranking: { available: false },
+    },
   },
   standard: {
     watchLimit: 10,
@@ -64,11 +94,11 @@ export const PLAN_CONFIG: Record<PlanTier, PlanConfig> = {
     canAccessRanking: true,
     canAccessNotificationsInbox: true,
     label: "スタンダードプラン",
-    bullets: [
-      "監視できるセラピストは 10 名まで",
-      "通知は 5 分遅れ",
-      "ランキング・通知履歴の閲覧",
-    ],
+    features: {
+      watchCount: { available: true, value: "10 名" },
+      notifyTiming: { available: true, value: "5 分後" },
+      ranking: { available: true },
+    },
   },
   premium: {
     watchLimit: Number.POSITIVE_INFINITY,
@@ -77,11 +107,11 @@ export const PLAN_CONFIG: Record<PlanTier, PlanConfig> = {
     canAccessRanking: true,
     canAccessNotificationsInbox: true,
     label: "プレミアムプラン",
-    bullets: [
-      "監視できるセラピストは無制限",
-      "通知は即時",
-      "ランキング・通知履歴の閲覧",
-    ],
+    features: {
+      watchCount: { available: true, value: "無制限" },
+      notifyTiming: { available: true, value: "即時" },
+      ranking: { available: true },
+    },
   },
 };
 
