@@ -37,10 +37,10 @@ export default function TermsPage() {
         迷惑メールフォルダへの振り分け等の外部要因により、目標を超えて通知が遅延することがあります。
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold">第 3 条（料金・トライアル）</h2>
+      <h2 className="mt-8 text-xl font-semibold">第 3 条（料金）</h2>
       <p className="mt-3 text-sm leading-7">
-        本サービスは有料サブスクリプションです。お申し込み時にお支払い情報をご登録いただきます。
-        所定の無料トライアル期間中は料金が発生しません。トライアル期間経過後はお選びのプランで自動的に課金されます。
+        本サービスは有料サブスクリプションです。お申し込み時にお支払い情報をご登録いただき、
+        お選びのプラン・請求サイクル（月額／年額）に基づき自動的に課金されます。
         解約は所定の方法でいつでも可能で、解約後も次回請求日までは引き続き利用できます。
         料金・お支払い・返金の詳細は
         <Link href="/payments" className="underline underline-offset-2">

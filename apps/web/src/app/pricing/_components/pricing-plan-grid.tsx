@@ -23,7 +23,6 @@ export function PricingPlanGrid(props: {
   cycles: BillingCycle[];
   defaultCycle: BillingCycle;
   planConfig: Record<PlanTier, PlanConfig>;
-  trialDays: number;
 }) {
   const [cycle, setCycle] = useState<BillingCycle>(props.defaultCycle);
 
@@ -63,7 +62,6 @@ export function PricingPlanGrid(props: {
               priceLabel={price.priceLabel}
               periodLabel={price.periodLabel}
               note={price.note}
-              trialDays={props.trialDays}
               highlight={tier === HIGHLIGHT_TIER}
             />
           );
@@ -101,7 +99,6 @@ function PaidCard(props: {
   priceLabel: string;
   periodLabel: string;
   note: string;
-  trialDays: number;
   highlight?: boolean;
 }) {
   return (
@@ -134,7 +131,7 @@ function PaidCard(props: {
         <input type="hidden" name="tier" value={props.tier} />
         <input type="hidden" name="cycle" value={props.cycle} />
         <Button type="submit" className="w-full" size="lg">
-          {props.trialDays} 日間無料で試す
+          このプランで始める
         </Button>
       </form>
     </div>

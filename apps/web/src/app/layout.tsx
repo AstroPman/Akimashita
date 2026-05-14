@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     template: "%s | アキマシタ",
   },
   description:
-    "お気に入りのセラピストの予約空き枠が出た瞬間にメール通知。通知の価値を保つための限定人数制サービスです。14 日間の無料トライアル付き。",
+    "お気に入りのセラピストの予約空き枠が出た瞬間にメール通知。通知の価値を保つための限定人数制サービスです。",
   openGraph: {
     type: "website",
     siteName: "アキマシタ",

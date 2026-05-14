@@ -1,15 +1,10 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { TRIAL_DAYS } from "@/lib/stripe/config";
 
 const FAQS: { q: string; a: ReactNode }[] = [
   {
     q: "本当に通知が来る前提で大丈夫？",
     a: "予約サイトの仕様変更や障害がある場合は通知が遅れる・届かない可能性があります。あくまで監視を補助するサービスであり、通知の到達と予約成立を保証するものではありません。",
-  },
-  {
-    q: `${TRIAL_DAYS} 日間の無料トライアル中に料金は発生しますか？`,
-    a: `料金は発生しません。お申し込み時にお支払い情報のご登録をお願いしておりますが、${TRIAL_DAYS} 日間は無料でご利用いただけます。${TRIAL_DAYS} 日経過時にお選びのプランで自動課金が始まります。`,
   },
   {
     q: "解約はどうすればいいですか？",

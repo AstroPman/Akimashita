@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { SupportedSalonsTeaser } from "@/components/landing/supported-salons";
 import { SiteFooter } from "@/components/landing/site-footer";
 import { getPublicSalons } from "@/lib/salons";
-import { TRIAL_DAYS } from "@/lib/stripe/config";
 import { getPlanPricing } from "@/lib/stripe/pricing";
 import {
   BILLING_CYCLES,
@@ -17,7 +16,7 @@ import { PricingPlanGrid } from "./_components/pricing-plan-grid";
 export const metadata: Metadata = {
   title: "料金プラン",
   description:
-    "アキマシタの料金プラン。無料・スタンダード・プレミアムの 3 段階。お試し 14 日間。",
+    "アキマシタの料金プラン。無料・スタンダード・プレミアムの 3 段階。",
 };
 
 const REASON_MESSAGE: Record<string, string> = {
@@ -74,7 +73,6 @@ export default async function PricingPage({
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
               無料プランから始めて、必要に応じてアップグレードできます。
-              有料プランは最初の {TRIAL_DAYS} 日間無料でお試しいただけます。
             </p>
           </div>
 
@@ -94,20 +92,18 @@ export default async function PricingPage({
             cycles={[...BILLING_CYCLES]}
             defaultCycle={defaultCycle}
             planConfig={PLAN_CONFIG}
-            trialDays={TRIAL_DAYS}
           />
 
           <div className="mt-12 rounded-xl border bg-muted/40 p-6 text-sm text-muted-foreground">
             <h3 className="text-sm font-semibold text-foreground">
-              プラン変更・トライアル・請求について
+              プラン変更・請求について
             </h3>
             <ul className="mt-3 space-y-1.5 text-xs leading-6">
               <li>
                 ・無料プランはアカウント作成後すぐにご利用いただけます。
               </li>
               <li>
-                ・有料プランは最初の {TRIAL_DAYS} 日間無料です。{TRIAL_DAYS}{" "}
-                日経過後に自動課金されます。
+                ・有料プランはお申し込み時に選択された請求サイクル（月額／年額）で自動課金されます。
               </li>
               <li>
                 ・アップグレード（スタンダード→プレミアム、月額→年額）は即時切替となり、

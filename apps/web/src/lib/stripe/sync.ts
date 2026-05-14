@@ -206,6 +206,9 @@ function timestampToIso(unixSeconds: number | null | undefined): string | null {
 /**
  * 既存の Customer を email から検索、無ければ新規作成する。
  * 1ユーザに1顧客しか作らないようにするためのヘルパー。
+ *
+ * 既存 ID や email 検索ヒットが Stripe 上で削除済み (`deleted: true`) の場合は
+ * 無効とみなし、新規作成にフォールバックする。
  */
 export async function ensureStripeCustomer(args: {
   userId: string;
@@ -215,11 +218,23 @@ export async function ensureStripeCustomer(args: {
   const stripe = getStripe();
 
   if (args.existingCustomerId) {
-    return args.existingCustomerId;
+    try {
+      const retrieved = await stripe.customers.retrieve(args.existingCustomerId);
+      if (!retrieved.deleted) {
+        return retrieved.id;
+      }
+      console.warn(
+        "[stripe.sync] existingCustomerId が deleted 状態のため新規作成へフォールバック",
+        { customer_id: args.existingCustomerId, user_id: args.userId },
+      );
+    } catch (err) {
+      console.warn("[stripe.sync] existingCustomerId の取得に失敗", err);
+    }
   }
 
-  const list = await stripe.customers.list({ email: args.email, limit: 1 });
-  const existing = list.data[0];
+  // email 検索ヒットでも deleted を弾く（list は基本 deleted を返さないが念のため）
+  const list = await stripe.customers.list({ email: args.email, limit: 10 });
+  const existing = list.data.find((c) => !c.deleted);
   if (existing) {
     if (existing.metadata?.user_id !== args.userId) {
       await stripe.customers.update(existing.id, {

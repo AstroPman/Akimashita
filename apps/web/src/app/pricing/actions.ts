@@ -5,7 +5,6 @@ import { getPublicOrigin } from "@/lib/public-origin";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/server";
-import { TRIAL_DAYS } from "@/lib/stripe/config";
 import {
   ensureStripeCustomer,
   syncSubscriptionFromStripe,
@@ -109,7 +108,6 @@ export async function startCheckoutAction(formData: FormData): Promise<void> {
     customer: customerId,
     line_items: [{ price: getPriceId(tier, cycle), quantity: 1 }],
     subscription_data: {
-      trial_period_days: TRIAL_DAYS,
       metadata: { user_id: user.id, tier, cycle },
     },
     payment_method_collection: "always",

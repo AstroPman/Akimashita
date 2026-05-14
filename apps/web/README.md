@@ -67,7 +67,7 @@ npm run dev   # http://localhost:3000
 | スタンダード | 月 ¥1,980 / 年 ¥19,800 | 10 件 | 5 分 | ○ |
 | プレミアム | 月 ¥4,980 / 年 ¥49,800 | 無制限 | 即時 | ○ |
 
-- Stripe Checkout でサブスクリプションを作成（14 日間トライアル、カード登録必須）
+- Stripe Checkout でサブスクリプションを作成（カード登録必須）
 - Webhook（`/api/stripe/webhook`）で `subscriptions.tier` / `subscriptions.cycle` / `users.plan_tier` を同期
 - 通知遅延は DB 側 `notification_logs.send_after` で表現し、scraper はその時刻に達した行のみ送信する
 - プラン変更時の挙動:
