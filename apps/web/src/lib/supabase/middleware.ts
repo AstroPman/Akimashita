@@ -47,15 +47,29 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(url);
+    return redirectWithSupabaseCookies(url, supabaseResponse);
   }
 
   if (user && isAuthOnly) {
     const url = request.nextUrl.clone();
     url.pathname = "/watches";
     url.search = "";
-    return NextResponse.redirect(url);
+    return redirectWithSupabaseCookies(url, supabaseResponse);
   }
 
   return supabaseResponse;
+}
+
+// NextResponse.redirect は新しいレスポンスを生成するため、
+// supabaseResponse に書き込まれた更新済み Cookie（リフレッシュされたアクセストークン等）が失われる。
+// 引き継がないと Cookie が更新されず、リダイレクトの度に古いトークンに戻り再認証が頻発する。
+function redirectWithSupabaseCookies(
+  url: URL,
+  supabaseResponse: NextResponse,
+): NextResponse {
+  const redirectResponse = NextResponse.redirect(url);
+  supabaseResponse.cookies.getAll().forEach((cookie) => {
+    redirectResponse.cookies.set(cookie);
+  });
+  return redirectResponse;
 }
