@@ -1,6 +1,7 @@
 import type { Salon, SiteName, TherapistRecord, TherapistScraper } from '@alimashita/shared';
 import { supabase } from '../lib/supabase.js';
 import { createLogger } from '../lib/logger.js';
+import { isGonePageError } from '../lib/http.js';
 import { caskanTherapistScraper } from '../scrapers/caskan/therapists.js';
 import { growTherapistScraper } from '../scrapers/grow/therapists.js';
 import { edcTherapistScraper } from '../scrapers/edc/therapists.js';
@@ -117,6 +118,39 @@ async function markSalonSynced(salonId: string): Promise<void> {
   }
 }
 
+/**
+ * セラピスト一覧ページが恒久的に消えた (404/410) ケースで salon ごと論理削除する。
+ *
+ * - `salons.deleted_at` を打つ: 次回以降の Stage 2 / Stage 3 取得対象から外れる。
+ * - 配下 `therapists` も deleted_at を打つ: Stage 3 (availability) は
+ *   `salons.deleted_at` を直接見ないため、ここで明示的に閉じておかないと
+ *   watch_settings に残った監視が空クロールを続けてしまう。
+ * - `external_salons` / `external_salon_bookings` は意図的に触らない:
+ *   実店舗の閉店ではなく単に「この予約サイトでの運用をやめた」可能性があり、
+ *   men-esthe.jp 経由で別サイトに移行している場合は external 側のリッチ情報を
+ *   保持したまま将来の再リンクに使いたい。
+ */
+async function softDeleteMissingSalon(salon: Salon): Promise<void> {
+  const now = new Date().toISOString();
+
+  const { error: tErr } = await supabase
+    .from('therapists')
+    .update({ deleted_at: now })
+    .eq('salon_id', salon.id)
+    .is('deleted_at', null);
+  if (tErr) {
+    throw new Error(`Failed to soft-delete therapists for missing salon: ${tErr.message}`);
+  }
+
+  const { error: sErr } = await supabase
+    .from('salons')
+    .update({ deleted_at: now })
+    .eq('id', salon.id);
+  if (sErr) {
+    throw new Error(`Failed to soft-delete salons: ${sErr.message}`);
+  }
+}
+
 export interface RunTherapistsJobOptions {
   /** true の場合、last_synced_at IS NULL のサロン（未スクレイピング）のみを対象にする。 */
   onlyUnsynced?: boolean;
@@ -132,6 +166,8 @@ export async function runTherapistsJob(
   let success = 0;
   let failure = 0;
 
+  let softDeleted = 0;
+
   for (const salon of salons) {
     const scraper = pickScraper(salon.site_name);
     try {
@@ -145,6 +181,26 @@ export async function runTherapistsJob(
         count: records.length,
       });
     } catch (err) {
+      if (isGonePageError(err)) {
+        try {
+          await softDeleteMissingSalon(salon);
+          softDeleted += 1;
+          log.warn('Soft-deleted salon: page gone (404/410)', {
+            site: salon.site_name,
+            salon: salon.name,
+            salon_id: salon.id,
+            shop_id: salon.shop_id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          continue;
+        } catch (cleanupErr) {
+          log.error('Failed to soft-delete missing salon', {
+            site: salon.site_name,
+            salon: salon.name,
+            error: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
+          });
+        }
+      }
       failure += 1;
       log.error(`Failed to sync salon`, {
         site: salon.site_name,
@@ -154,5 +210,5 @@ export async function runTherapistsJob(
     }
   }
 
-  log.info(`Stage 2 complete`, { success, failure, total: salons.length });
+  log.info(`Stage 2 complete`, { success, failure, softDeleted, total: salons.length });
 }

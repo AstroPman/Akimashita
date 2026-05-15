@@ -9,6 +9,7 @@ import { createLogger } from '../lib/logger.js';
 import { env } from '../lib/env.js';
 import {
   diffHttpMetrics,
+  isGonePageError,
   snapshotHttpMetrics,
 } from '../lib/http.js';
 import { caskanAvailabilityScraper } from '../scrapers/caskan/availability.js';
@@ -52,15 +53,18 @@ function unwrapNested<T>(value: T | T[] | null): T | null {
 }
 
 async function fetchWatchedTherapists(): Promise<Therapist[]> {
-  // watch_settings に登録されているセラピストのみ重複排除して取得する
+  // watch_settings に登録されているセラピストのみ重複排除して取得する。
+  // 親 salon が論理削除されているケース (Stage 2 で 404/410 検出など) は
+  // セラピスト側の deleted_at 反映が遅れる前に取りこぼさないよう、ここでも除外する。
   const { data, error } = await supabase
     .from('therapists')
     .select(
       'id, therapist_id, name, salon_id, ' +
-        'salons!inner(shop_id, sites!inner(name)), ' +
+        'salons!inner(shop_id, deleted_at, sites!inner(name)), ' +
         'watch_settings!inner(id, is_active, deleted_at)',
     )
     .is('deleted_at', null)
+    .is('salons.deleted_at', null)
     .is('watch_settings.deleted_at', null)
     .eq('watch_settings.is_active', true)
     .order('last_synced_at', { ascending: true, nullsFirst: true });
@@ -118,6 +122,25 @@ async function markTherapistSynced(therapistId: string): Promise<void> {
       therapist_id: therapistId,
       error: error.message,
     });
+  }
+}
+
+/**
+ * セラピスト個別ページが恒久的に消えた (404/410) ケースで therapists を論理削除する。
+ *
+ * salon 単位の判断は Stage 2 (therapists ジョブ) に任せ、ここではセラピスト単位だけ閉じる
+ * (1人だけ卒業/転店した可能性が高く、保守的に振る舞う)。
+ * salon ごと閉店している場合は次回 Stage 2 で salon ごと soft-delete される。
+ */
+async function softDeleteMissingTherapist(therapistId: string): Promise<void> {
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from('therapists')
+    .update({ deleted_at: now })
+    .eq('id', therapistId)
+    .is('deleted_at', null);
+  if (error) {
+    throw new Error(`Failed to soft-delete therapist: ${error.message}`);
   }
 }
 
@@ -248,6 +271,7 @@ export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Pro
 
   let success = 0;
   let failure = 0;
+  let softDeleted = 0;
   let totalSlots = 0;
 
   await runWithConcurrency(therapists, concurrency, async (therapist) => {
@@ -278,6 +302,27 @@ export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Pro
       });
     } catch (err) {
       const elapsed = Date.now() - startedAt;
+      if (isGonePageError(err)) {
+        try {
+          await softDeleteMissingTherapist(therapist.id);
+          softDeleted += 1;
+          bumpSite(therapist.site_name, { elapsedMs: elapsed });
+          log.warn('Soft-deleted therapist: page gone (404/410)', {
+            site: therapist.site_name,
+            therapist: therapist.name,
+            therapist_id: therapist.id,
+            ms: elapsed,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          return;
+        } catch (cleanupErr) {
+          log.error('Failed to soft-delete missing therapist', {
+            site: therapist.site_name,
+            therapist: therapist.name,
+            error: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
+          });
+        }
+      }
       failure += 1;
       bumpSite(therapist.site_name, { failure: 1, elapsedMs: elapsed });
       log.error('Failed to sync therapist', {
@@ -327,6 +372,7 @@ export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Pro
     therapists: therapists.length,
     success,
     failure,
+    softDeleted,
     slots: totalSlots,
     notified,
     elapsedMs: jobElapsedMs,

@@ -241,6 +241,21 @@ export class HttpError extends Error {
   }
 }
 
+/**
+ * 「リソースが恒久的に存在しない」とみなせる HTTP エラーか。
+ *
+ * 404 (Not Found) と 410 (Gone) を同一視する。
+ * これらはサーバーが「このリソースはもう存在しない」と明示しているため、
+ * Stage 2/3 で検知した場合は対象を論理削除して以後の確認対象から外す。
+ *
+ * 403 / 5xx / ネットワーク途切れ等は一時障害の可能性が残るため含めない。
+ * `homepage_resolver.ts:shouldSoftDeleteExternalSalonForHomepageFailure` も
+ * 同じ 404/410 ポリシーを採用している。
+ */
+export function isGonePageError(err: unknown): boolean {
+  return err instanceof HttpError && (err.status === 404 || err.status === 410);
+}
+
 function parseRetryAfter(headerValue: string | null): number | undefined {
   if (!headerValue) return undefined;
   const seconds = Number.parseInt(headerValue, 10);
