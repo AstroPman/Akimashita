@@ -3631,5 +3631,11 @@ insert into salons (site_id, shop_id, name, url) values
     '50491',
     '妃翠',
     'https://estama.jp/shop/50491/'
+  ),
+  (
+    '00000000-0000-0000-0000-000000000004',
+    '22605',
+    'メンズエステ恵比寿',
+    'https://estama.jp/shop/22605/'
   )
 on conflict (site_id, shop_id) do nothing;
