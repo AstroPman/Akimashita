@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { BellRingIcon, CalendarClockIcon, ZapIcon } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/brand-logo";
 import { FeatureCard } from "@/components/landing/feature-card";
 import { HowItWorks } from "@/components/landing/how-it-works";
 import { Faq } from "@/components/landing/faq";
@@ -11,18 +12,10 @@ import { PrimaryCta, SecondaryCta } from "@/components/landing/cta";
 export default function Home() {
   return (
     <div className="flex flex-col flex-1">
-      <header className="border-b">
+      <header className="relative z-20">
         <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-4">
           <Link href="/" className="flex items-center" aria-label="アキマシタ">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo.svg"
-              alt=""
-              width={700}
-              height={250}
-              className="h-12 w-auto"
-              decoding="async"
-            />
+            <BrandLogo priority />
           </Link>
           <div className="flex items-center gap-2">
             <Button
@@ -46,61 +39,108 @@ export default function Home() {
       </header>
 
       <main className="flex-1">
-        <section className="mx-auto w-full max-w-5xl px-4 py-20 sm:py-28">
-          <div className="flex flex-col items-center text-center">
-            <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
-              お気に入りのセラピストの
-              <br className="hidden sm:block" />
-              空き枠を、誰よりも早く。
-            </h1>
-            <p className="mt-6 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-              指定したセラピストの予約状況を定期的にチェックし、
-              空き枠が出た瞬間にメールで通知します。
-              無料プランから始めて、必要に応じてアップグレードできます。
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <PrimaryCta />
-              <SecondaryCta />
-            </div>
+        <section className="relative overflow-hidden">
+          <div aria-hidden className="absolute inset-0 -z-10">
+            <Image
+              src="/landing/hero-bg-wave.png"
+              alt=""
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover object-center"
+            />
+            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-white" />
           </div>
 
-          <h2 id="landing-features-heading" className="sr-only">
-            主な機能
-          </h2>
-          <div
-            className="mt-20 grid gap-6 sm:grid-cols-3"
-            aria-labelledby="landing-features-heading"
-          >
-            <FeatureCard
-              icon={<BellRingIcon className="size-5" />}
-              title="即時通知"
-              body="空き枠が出たらすぐに通知。チャンスを逃さず予約できます。"
-            />
-            <FeatureCard
-              icon={<CalendarClockIcon className="size-5" />}
-              title="日時で絞り込み"
-              body="行ける日・時間帯だけを監視対象に。無駄な通知を減らせます。"
-            />
-            <FeatureCard
-              icon={<ZapIcon className="size-5" />}
-              title="自動で監視"
-              body="登録するだけ。あとはサービスがあなたの代わりに見張り続けます。"
-            />
+          <div className="mx-auto w-full max-w-5xl px-4 pb-20 pt-10 sm:pb-28 sm:pt-14">
+            <div className="flex flex-col items-center text-center">
+              <Image
+                src="/landing/hero-clock.png"
+                alt=""
+                width={1024}
+                height={1024}
+                priority
+                sizes="(min-width: 640px) 320px, 240px"
+                className="h-auto w-60 sm:w-80"
+              />
+
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl md:text-5xl">
+                お気に入りのセラピストの
+                <br />
+                空き枠を、誰よりも早く。
+              </h1>
+              <p className="mt-5 max-w-2xl text-sm leading-7 text-neutral-700 sm:text-base">
+                指定したセラピストの予約状況を定期的にチェックし、
+                <br className="hidden sm:block" />
+                空き枠が出た瞬間にメールで通知します。
+                <br className="hidden sm:block" />
+                無料プランから始めて、必要に応じてアップグレードできます。
+              </p>
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                <PrimaryCta />
+                <SecondaryCta />
+              </div>
+            </div>
           </div>
         </section>
 
         <HowItWorks />
+
+        <section
+          aria-labelledby="landing-features-heading"
+          className="mx-auto w-full max-w-5xl px-4 pb-16 sm:pb-24"
+        >
+          <h2 id="landing-features-heading" className="sr-only">
+            主な機能
+          </h2>
+          <div className="grid gap-10 sm:grid-cols-3 sm:gap-6">
+            <FeatureCard
+              icon={
+                <Image
+                  src="/landing/icon-bell.png"
+                  alt=""
+                  width={1536}
+                  height={1024}
+                  sizes="80px"
+                />
+              }
+              title="即時通知"
+              body="アカウントを定期巡回し、希望日を見ながら比べやすくします。"
+            />
+            <FeatureCard
+              icon={
+                <Image
+                  src="/landing/icon-clock.png"
+                  alt=""
+                  width={1536}
+                  height={1024}
+                  sizes="80px"
+                />
+              }
+              title="日時で絞り込み"
+              body="対応サロンの中から、希望日・時間帯を登録します。"
+            />
+            <FeatureCard
+              icon={
+                <Image
+                  src="/landing/icon-zap.png"
+                  alt=""
+                  width={1536}
+                  height={1024}
+                  sizes="80px"
+                />
+              }
+              title="自動で監視"
+              body="予約サイトを定期巡回し、空き枠ページで登録します。"
+            />
+          </div>
+        </section>
+
         <Faq />
 
         <section className="mx-auto w-full max-w-3xl px-4 pb-20 text-center">
-          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            空き枠を逃さない毎日へ
-          </h2>
-          <p className="mt-4 text-sm leading-7 text-muted-foreground sm:text-base">
-            無料プランは登録後すぐに使い始められます。
-          </p>
           <div className="mt-6 flex justify-center">
-            <PrimaryCta />
+            <PrimaryCta className="min-w-[280px]" />
           </div>
         </section>
       </main>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandLogo } from "@/components/brand-logo";
 import { NotificationTimingDisclaimer } from "@/components/notification-timing-disclaimer";
 
 const FOOTER_LINKS = [
@@ -14,20 +15,8 @@ export function SiteFooter() {
     <footer className="border-t border-neutral-200/80 bg-white/90 backdrop-blur-sm">
       <div className="mx-auto w-full max-w-6xl px-4 py-12">
         <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
-          <Link href="/" className="flex items-center gap-2" aria-label="アキマシタ">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo.svg"
-              alt=""
-              width={700}
-              height={250}
-              className="h-10 w-auto"
-              loading="lazy"
-              decoding="async"
-            />
-            <span className="text-sm font-semibold tracking-tight text-foreground">
-              アキマシタ
-            </span>
+          <Link href="/" className="flex items-center" aria-label="アキマシタ">
+            <BrandLogo />
           </Link>
           <nav className="flex flex-wrap gap-x-6 gap-y-3 text-sm text-muted-foreground">
             {FOOTER_LINKS.map((item) => (

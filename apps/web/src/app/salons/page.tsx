@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/brand-logo";
 import { SupportedSalonsList } from "@/components/landing/supported-salons";
 import { SiteFooter } from "@/components/landing/site-footer";
 import { getPublicSalons } from "@/lib/salons";
@@ -19,15 +20,7 @@ export default async function SalonsPage() {
       <header className="border-b">
         <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-4">
           <Link href="/" className="flex items-center" aria-label="アキマシタ">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo.svg"
-              alt="アキマシタ"
-              width={700}
-              height={250}
-              className="h-12 w-auto"
-              decoding="async"
-            />
+            <BrandLogo />
           </Link>
           <div className="flex items-center gap-2">
             <Button asChild variant="ghost" size="sm">

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { BrandLogo } from "@/components/brand-logo";
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
@@ -11,15 +12,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             className="flex items-center"
             aria-label="アキマシタ"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo.svg"
-              alt="アキマシタ"
-              width={700}
-              height={250}
-              className="h-12 w-auto"
-              decoding="async"
-            />
+            <BrandLogo />
           </Link>
         </div>
       </header>

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BarChart3Icon, BellIcon, LogOutIcon, UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/brand-logo";
 import { createClient } from "@/lib/supabase/server";
 
 async function fetchUnreadNotificationCount(): Promise<number> {
@@ -59,15 +60,7 @@ export default async function AuthenticatedLayout({
             className="flex items-center"
             aria-label="アキマシタ"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo.svg"
-              alt="アキマシタ"
-              width={700}
-              height={250}
-              className="h-12 w-auto"
-              decoding="async"
-            />
+            <BrandLogo />
           </Link>
           <div className="flex items-center gap-1 sm:gap-2">
             <Button asChild variant="ghost" size="sm" className="gap-1.5">

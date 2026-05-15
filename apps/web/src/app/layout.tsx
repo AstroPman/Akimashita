@@ -1,20 +1,14 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
-import { Geist, Noto_Sans_JP } from "next/font/google";
+import { M_PLUS_Rounded_1c } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 
-const notoSansJp = Noto_Sans_JP({
-  variable: "--font-noto-sans-jp",
+const mplusRounded = M_PLUS_Rounded_1c({
+  variable: "--font-mplus-rounded",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+  weight: ["400", "500", "700", "800"],
   display: "swap",
 });
 
@@ -49,7 +43,7 @@ export default function RootLayout({
   return (
     <html
       lang="ja"
-      className={`${notoSansJp.variable} ${geistSans.variable} h-full antialiased`}
+      className={`${mplusRounded.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
