@@ -3,7 +3,7 @@ import type {
   AvailabilityScraper,
   Therapist,
 } from '@alimashita/shared';
-import { httpGrow } from '../../lib/http.js';
+import { HttpError, httpGrow } from '../../lib/http.js';
 import { createLogger } from '../../lib/logger.js';
 
 const BASE_URL = 'https://grow-appt.com';
@@ -13,6 +13,13 @@ const DISPLAY_DAY_NUM = Math.min(
   Math.max(Number.parseInt(process.env.GROW_DISPLAY_DAYS ?? '14', 10) || 14, 1),
   14,
 );
+
+// grow-appt の status API は、同一スタッフでも 1 日の営業時間を約 8 時間ごとの
+// シフトグループに分割しており、`group_no` を未指定 / 1 / 2 ... と順に指定しないと
+// 全スロットが取得できない。観測されたグループ数は店舗によって異なる（深夜帯まで
+// 営業する店舗ほど多くなる）ため、終端（sales が空 or レスポンス全体が null）まで
+// 動的にループする。 4 日相当の余地を上限としておく。
+const MAX_GROUP_NO = 12;
 
 interface MenuListItem {
   no: number;
@@ -50,7 +57,90 @@ class GrowAvailabilityScraper implements AvailabilityScraper {
     }
 
     const seldate = todayGrowDate();
-    const url =
+    const referer =
+      `${BASE_URL}/reserve/order?SID=${encodeURIComponent(sid)}` +
+      `&page=time&staff_no=${encodeURIComponent(staffNo)}&menu_no=${menuNo}`;
+
+    // 全グループから集めたスロットを (date, start_time) で重複排除しつつ蓄積。
+    // 観測上、グループ間で範囲は重ならないが将来 grow 側の仕様変更に備えた防御。
+    const slotMap = new Map<string, AvailabilityRecord>();
+    let groupsFetched = 0;
+
+    for (let groupNo = 0; groupNo <= MAX_GROUP_NO; groupNo++) {
+      const url = this.buildStatusUrl({ sid, staffNo, menuNo, seldate, groupNo });
+      log.info('Fetching status API', {
+        therapist: therapist.name,
+        group_no: groupNo,
+        url,
+      });
+
+      // 存在しない group_no に対して grow は HTTP 500 を返す（実機観測）。
+      // 終端のシグナルとして扱いたいため、ループ内のリクエストはリトライ無しで叩く。
+      // 一時的なネットワーク不調等で 500 が出た場合は次回ジョブ実行で再取得される。
+      let json: StatusResponse | null;
+      try {
+        json = await httpGrow.getJson<StatusResponse | null>(
+          url,
+          { headers: { Referer: referer } },
+          { maxRetries: 0 },
+        );
+      } catch (err) {
+        if (err instanceof HttpError && err.status === 500 && groupNo > 0) {
+          log.info('Reached terminal group_no via HTTP 500', {
+            therapist: therapist.name,
+            group_no: groupNo,
+          });
+          break;
+        }
+        throw err;
+      }
+
+      // grow は存在しない group_no に対してレスポンス本体が `null` を返すこともあるため、
+      // 念のため null / sales 空のケースも終端とみなす。
+      if (!json || !json.sales || Object.keys(json.sales).length === 0) {
+        if (groupNo === 0) {
+          log.info('Empty status response for first group', {
+            therapist: therapist.name,
+          });
+        }
+        break;
+      }
+
+      groupsFetched++;
+      for (const record of parseSales(json.sales)) {
+        const key = `${record.date} ${record.start_time}`;
+        // 同一 (date, start_time) が複数グループに登場した場合は「空きあり」を優先する。
+        // 「埋まり」「空き」が同時に返るケースは無い想定だが、観測誤差で空きを取りこぼす方が痛い。
+        const existing = slotMap.get(key);
+        if (!existing || (record.is_available && !existing.is_available)) {
+          slotMap.set(key, record);
+        }
+      }
+    }
+
+    if (groupsFetched >= MAX_GROUP_NO) {
+      log.warn(
+        'Hit MAX_GROUP_NO without terminator; grow may have introduced more shift groups',
+        { therapist: therapist.name, groupsFetched },
+      );
+    }
+
+    const records = Array.from(slotMap.values());
+    records.sort((a, b) =>
+      a.date === b.date ? a.start_time.localeCompare(b.start_time) : a.date.localeCompare(b.date),
+    );
+    return records;
+  }
+
+  private buildStatusUrl(params: {
+    sid: string;
+    staffNo: string;
+    menuNo: number;
+    seldate: string;
+    groupNo: number;
+  }): string {
+    const { sid, staffNo, menuNo, seldate, groupNo } = params;
+    let url =
       `${BASE_URL}/reserve/api/reserve/${encodeURIComponent(sid)}/status` +
       `?sid=${encodeURIComponent(sid)}` +
       `&staff_no=${encodeURIComponent(staffNo)}` +
@@ -58,17 +148,12 @@ class GrowAvailabilityScraper implements AvailabilityScraper {
       `&seldate=${encodeURIComponent(seldate)}` +
       `&displaydaynum=${DISPLAY_DAY_NUM}` +
       `&coupon_no=&customer_no=`;
-
-    log.info('Fetching status API', { therapist: therapist.name, url });
-    const referer =
-      `${BASE_URL}/reserve/order?SID=${encodeURIComponent(sid)}` +
-      `&page=time&staff_no=${encodeURIComponent(staffNo)}&menu_no=${menuNo}`;
-
-    const json = await httpGrow.getJson<StatusResponse>(url, {
-      headers: { Referer: referer },
-    });
-
-    return parseSales(json.sales);
+    // group_no=0 はパラメータ未指定と同義。実機 (DevTools) の挙動に合わせて
+    // 最初のリクエストは付与しない。
+    if (groupNo > 0) {
+      url += `&group_no=${groupNo}`;
+    }
+    return url;
   }
 
   private async getRepresentativeMenuNo(
@@ -126,9 +211,7 @@ function parseSales(sales: StatusResponse['sales']): AvailabilityRecord[] {
     records.push({ date, start_time: startTime, is_available: status === 4 });
   }
 
-  records.sort((a, b) =>
-    a.date === b.date ? a.start_time.localeCompare(b.start_time) : a.date.localeCompare(b.date),
-  );
+  // 並び替えは呼び出し側（グループ横断で集約後）にまとめて行う。
   return records;
 }
 

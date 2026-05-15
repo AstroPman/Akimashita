@@ -12,10 +12,19 @@ export type HttpPreset = {
   apiHeaders?: Record<string, string>;
 };
 
+export interface RequestOverrides {
+  /** 当該リクエストのみリトライ回数を上書きしたい場合に指定する。0 でリトライ無効。 */
+  maxRetries?: number;
+}
+
 export interface SiteHttp {
   name: string;
-  getHtml(url: string, init?: RequestInit): Promise<string>;
-  getJson<T = unknown>(url: string, init?: RequestInit): Promise<T>;
+  getHtml(url: string, init?: RequestInit, overrides?: RequestOverrides): Promise<string>;
+  getJson<T = unknown>(
+    url: string,
+    init?: RequestInit,
+    overrides?: RequestOverrides,
+  ): Promise<T>;
 }
 
 const COMMON_HEADERS: Record<string, string> = {
@@ -287,10 +296,19 @@ export function createHttp(preset: HttpPreset, opts?: CreateHttpOptions): SiteHt
     opts?.maxDelayMs ??
     env.MAX_DELAY_MS;
 
-  async function request(url: string, mode: 'html' | 'json', init?: RequestInit): Promise<Response> {
+  async function request(
+    url: string,
+    mode: 'html' | 'json',
+    init?: RequestInit,
+    overrides?: RequestOverrides,
+  ): Promise<Response> {
     const host = new URL(url).host;
     const release = await semaphores.acquire(host, hostConcurrency);
     const metric = getMetric(preset.name);
+    const effectiveMaxRetries = Math.max(
+      0,
+      overrides?.maxRetries ?? maxRetries,
+    );
     try {
       await sleep(randomDelayMs(minDelayMs, maxDelayMs));
       const started = Date.now();
@@ -324,7 +342,7 @@ export function createHttp(preset: HttpPreset, opts?: CreateHttpOptions): SiteHt
               clearTimeout(timer);
             }
           },
-          maxRetries,
+          effectiveMaxRetries,
           () => {
             metric.retries += 1;
           },
@@ -345,12 +363,12 @@ export function createHttp(preset: HttpPreset, opts?: CreateHttpOptions): SiteHt
 
   return {
     name: preset.name,
-    async getHtml(url, init) {
-      const res = await request(url, 'html', init);
+    async getHtml(url, init, overrides) {
+      const res = await request(url, 'html', init, overrides);
       return res.text();
     },
-    async getJson<T>(url: string, init?: RequestInit): Promise<T> {
-      const res = await request(url, 'json', init);
+    async getJson<T>(url: string, init?: RequestInit, overrides?: RequestOverrides): Promise<T> {
+      const res = await request(url, 'json', init, overrides);
       return (await res.json()) as T;
     },
   };
