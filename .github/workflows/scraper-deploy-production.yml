@@ -1,26 +1,22 @@
-name: scraper-deploy (staging)
+name: scraper-deploy (production)
 
-# 任意のブランチへ push したら以下を順番に実行する（main も含む）:
+# main へ push したら以下を順番に実行する:
 #   1. apps/scraper を docker build (linux/arm64)
-#   2. ECR (akimashita-staging-scraper) に push
+#   2. ECR (akimashita-production-scraper) に push
 #   3. 全ステージの Lambda を新イメージに update-function-code --publish
 #   4. live エイリアスを新バージョンに付け替え
 #
-# 全部 Makefile の `scraper-deploy` ターゲットに集約しているので、
-# このワークフローはほぼ「OIDC で AssumeRole して make を呼ぶだけ」の薄いラッパー。
-#
-# 本番 (akimashita-production-*) は scraper-deploy-production.yml が main push でのみ
-# 並走する。両者は別 ECR / 別 Lambda を更新するため衝突しない。
+# staging 用 (.github/workflows/scraper-deploy-staging.yml) と双子のワークフロー。
+# main push 時は staging と production が並行で走り、それぞれ別 ECR / 別 Lambda を
+# 更新するため衝突しない。
 #
 # AWS への認証は OIDC + AssumeRole。Role ARN は Terraform (infra/bootstrap) で
 # 作成した akimashita-github-deploy を Repository Variable AWS_DEPLOY_ROLE_ARN
-# に手動で登録しておくこと。
+# に手動で登録しておくこと（staging と共用、Role 自体が両環境を許可）。
 
 on:
   push:
-    # 任意のブランチへの push で staging に反映する（main も含む）。
-    # main マージ時は scraper-deploy-production.yml と並行で走り、
-    # それぞれ別 ECR / 別 Lambda を更新するので衝突しない。
+    branches: [main]
     paths:
       - 'apps/scraper/**'
       - 'packages/shared/**'
@@ -28,22 +24,22 @@ on:
       - 'package-lock.json'
       - 'infra/aws/modules/scraper/**'
       - 'Makefile'
-      - '.github/workflows/scraper-deploy-staging.yml'
+      - '.github/workflows/scraper-deploy-production.yml'
   workflow_dispatch:
 
 # 同時並走を避ける。新しい push が来ても実行中のデプロイは最後まで走らせ、
 # その後ろに 1 件だけキューする（さらに新しい push が来たら待機分は GitHub
 # 側で自動キャンセル）。
 concurrency:
-  group: scraper-deploy-staging
+  group: scraper-deploy-production
   cancel-in-progress: false
 
 jobs:
   deploy:
-    name: Build & deploy scraper image (staging)
+    name: Build & deploy scraper image (production)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: staging
+    environment: production
 
     permissions:
       id-token: write # OIDC で AWS に AssumeRole するために必須
@@ -51,7 +47,7 @@ jobs:
 
     env:
       AWS_REGION: ap-northeast-1
-      ENV: staging
+      ENV: production
 
     steps:
       - name: Checkout
@@ -80,4 +76,4 @@ jobs:
           make scraper-deploy ENV=$ENV SCRAPER_IMAGE_TAG=$SCRAPER_IMAGE_TAG
 
       - name: Show deployed image tag
-        run: echo "Deployed image tag = ${{ steps.sha.outputs.value }}"
+        run: echo "Deployed image tag (production) = ${{ steps.sha.outputs.value }}"
