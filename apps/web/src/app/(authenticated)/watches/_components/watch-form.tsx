@@ -3,7 +3,14 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CheckIcon, ChevronsUpDownIcon, Loader2Icon, PlusIcon, TrashIcon } from "lucide-react";
+import {
+  CheckIcon,
+  ChevronsUpDownIcon,
+  Loader2Icon,
+  PlusIcon,
+  TrashIcon,
+  UserRoundIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,7 +41,50 @@ type SalonOption = {
   areas: string[];
 };
 
-type TherapistOption = { id: string; name: string };
+type TherapistOption = {
+  id: string;
+  name: string;
+  /** 表示用 (年齢括弧つきなど)。external_therapists.display_name 由来。 */
+  display_name?: string | null;
+  /** アバター画像 URL。未紐付けは null。 */
+  primary_image_url?: string | null;
+  /** "T153 G" 等の補助メタ。 */
+  style_raw?: string | null;
+  age?: number | null;
+};
+
+type TherapistRow = {
+  id: string;
+  name: string;
+  external_therapists:
+    | {
+        primary_image_url: string | null;
+        display_name: string | null;
+        age: number | null;
+        style_raw: string | null;
+      }
+    | Array<{
+        primary_image_url: string | null;
+        display_name: string | null;
+        age: number | null;
+        style_raw: string | null;
+      }>
+    | null;
+};
+
+function pickExt(
+  ext: TherapistRow["external_therapists"],
+):
+  | {
+      primary_image_url: string | null;
+      display_name: string | null;
+      age: number | null;
+      style_raw: string | null;
+    }
+  | null {
+  if (!ext) return null;
+  return Array.isArray(ext) ? (ext[0] ?? null) : ext;
+}
 
 type WatchFormProps = {
   mode: "create" | "edit";
@@ -83,7 +133,9 @@ export function WatchForm({
     const supabase = createClient();
     supabase
       .from("therapists")
-      .select("id, name")
+      .select(
+        "id, name, external_therapists (primary_image_url, display_name, age, style_raw)",
+      )
       .eq("salon_id", salonId)
       .is("deleted_at", null)
       .order("name", { ascending: true })
@@ -93,7 +145,20 @@ export function WatchForm({
           toast.error("セラピスト一覧の取得に失敗しました");
           setTherapists([]);
         } else {
-          setTherapists((data ?? []) as TherapistOption[]);
+          const rows = (data ?? []) as TherapistRow[];
+          setTherapists(
+            rows.map((r) => {
+              const ext = pickExt(r.external_therapists);
+              return {
+                id: r.id,
+                name: r.name,
+                display_name: ext?.display_name ?? null,
+                primary_image_url: ext?.primary_image_url ?? null,
+                style_raw: ext?.style_raw ?? null,
+                age: ext?.age ?? null,
+              };
+            }),
+          );
         }
         setTherapistsLoading(false);
       });
@@ -383,7 +448,7 @@ export function WatchForm({
                   )}
                 >
                   {selectedTherapist
-                    ? selectedTherapist.name
+                    ? (selectedTherapist.display_name ?? selectedTherapist.name)
                     : salonId
                       ? "セラピストを選択"
                       : "先にサロンを選択"}
@@ -403,24 +468,62 @@ export function WatchForm({
                       <>
                         <CommandEmpty>該当するセラピストがいません</CommandEmpty>
                         <CommandGroup>
-                          {therapists.map((t) => (
-                            <CommandItem
-                              key={t.id}
-                              value={t.name}
-                              onSelect={() => {
-                                setTherapistId(t.id);
-                                setTherapistOpen(false);
-                              }}
-                            >
-                              <CheckIcon
-                                className={cn(
-                                  "mr-2 size-4",
-                                  therapistId === t.id ? "opacity-100" : "opacity-0",
-                                )}
-                              />
-                              {t.name}
-                            </CommandItem>
-                          ))}
+                          {therapists.map((t) => {
+                            const subParts: string[] = [];
+                            if (t.age) subParts.push(`${t.age}歳`);
+                            if (t.style_raw) subParts.push(t.style_raw);
+                            const sub = subParts.join(" / ");
+                            const label = t.display_name ?? t.name;
+                            return (
+                              <CommandItem
+                                key={t.id}
+                                // 検索対象に display_name と (年齢括弧剥離後の) name を両方含める
+                                value={`${label} ${t.name}`}
+                                onSelect={() => {
+                                  setTherapistId(t.id);
+                                  setTherapistOpen(false);
+                                }}
+                              >
+                                <CheckIcon
+                                  className={cn(
+                                    "mr-2 size-4 shrink-0",
+                                    therapistId === t.id ? "opacity-100" : "opacity-0",
+                                  )}
+                                />
+                                <div className="size-8 shrink-0 overflow-hidden rounded-md bg-muted">
+                                  {t.primary_image_url ? (
+                                    // eslint-disable-next-line @next/next/no-img-element -- 外部ホスト由来で next/image の許可リストに載せない
+                                    <img
+                                      src={t.primary_image_url}
+                                      alt=""
+                                      className="size-full object-cover"
+                                      loading="lazy"
+                                      decoding="async"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                  ) : (
+                                    <div
+                                      className="flex size-full items-center justify-center text-muted-foreground"
+                                      aria-hidden
+                                    >
+                                      <UserRoundIcon
+                                        className="size-4"
+                                        strokeWidth={1.5}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="ml-2 flex min-w-0 flex-col">
+                                  <span className="truncate text-sm">{label}</span>
+                                  {sub ? (
+                                    <span className="truncate text-xs text-muted-foreground">
+                                      {sub}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </CommandItem>
+                            );
+                          })}
                         </CommandGroup>
                       </>
                     )}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useId, useState } from "react";
-import { MapPinIcon, SearchIcon, UserRoundIcon } from "lucide-react";
+import Link from "next/link";
+import { ChevronRightIcon, MapPinIcon, SearchIcon, UserRoundIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -160,43 +161,53 @@ export function SupportedSalonsList({
       ) : (
         <ul className="grid gap-2 sm:grid-cols-2">
           {filtered.map((salon) => (
-            <li
-              key={salon.id}
-              className="flex items-start justify-between gap-3 rounded-lg border bg-card px-3 py-2.5 text-sm text-card-foreground shadow-sm"
-            >
-              <div className="min-w-0 space-y-1">
-                <div className="leading-snug">{salon.name}</div>
-                {(salon.prefecture || salon.areas.length > 0) && (
-                  <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                    <MapPinIcon className="size-3 shrink-0" aria-hidden />
-                    {salon.prefecture && (
-                      <Badge variant="secondary" className="font-normal">
-                        {salon.prefecture}
-                      </Badge>
-                    )}
-                    {salon.areas.slice(0, 3).map((area) => (
-                      <span key={area} className="truncate">
-                        {area}
-                      </span>
-                    ))}
-                    {salon.areas.length > 3 && (
-                      <span aria-label={`他 ${salon.areas.length - 3} エリア`}>
-                        +{salon.areas.length - 3}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-              <span
-                className="inline-flex shrink-0 items-center gap-1 tabular-nums text-muted-foreground"
-                aria-label={`在籍 ${salon.therapistCount} 名`}
-                title={`在籍 ${salon.therapistCount} 名`}
+            <li key={salon.id}>
+              <Link
+                href={`/salons/${salon.id}`}
+                className="group flex items-start justify-between gap-3 rounded-lg border bg-card px-3 py-2.5 text-sm text-card-foreground shadow-sm outline-none transition-colors hover:border-foreground/30 hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
-                <UserRoundIcon className="size-4 shrink-0" aria-hidden />
-                <span className="text-sm font-medium text-foreground" aria-hidden>
-                  {salon.therapistCount}
+                <div className="min-w-0 space-y-1">
+                  <div className="flex items-center gap-1 leading-snug">
+                    <span className="truncate group-hover:underline">
+                      {salon.name}
+                    </span>
+                    <ChevronRightIcon
+                      className="size-3.5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+                      aria-hidden
+                    />
+                  </div>
+                  {(salon.prefecture || salon.areas.length > 0) && (
+                    <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                      <MapPinIcon className="size-3 shrink-0" aria-hidden />
+                      {salon.prefecture && (
+                        <Badge variant="secondary" className="font-normal">
+                          {salon.prefecture}
+                        </Badge>
+                      )}
+                      {salon.areas.slice(0, 3).map((area) => (
+                        <span key={area} className="truncate">
+                          {area}
+                        </span>
+                      ))}
+                      {salon.areas.length > 3 && (
+                        <span aria-label={`他 ${salon.areas.length - 3} エリア`}>
+                          +{salon.areas.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <span
+                  className="inline-flex shrink-0 items-center gap-1 tabular-nums text-muted-foreground"
+                  aria-label={`在籍 ${salon.therapistCount} 名`}
+                  title={`在籍 ${salon.therapistCount} 名`}
+                >
+                  <UserRoundIcon className="size-4 shrink-0" aria-hidden />
+                  <span className="text-sm font-medium text-foreground" aria-hidden>
+                    {salon.therapistCount}
+                  </span>
                 </span>
-              </span>
+              </Link>
             </li>
           ))}
         </ul>

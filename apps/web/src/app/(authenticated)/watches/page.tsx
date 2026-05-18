@@ -29,6 +29,7 @@ export default async function WatchesPage() {
         watch_schedules (id, target_date, time_from, time_to),
         therapists!inner (
           id, name, image_url, profile_url,
+          external_therapists (primary_image_url, display_name, age, style_raw),
           salons!inner (
             id, name, url,
             sites!inner (id)

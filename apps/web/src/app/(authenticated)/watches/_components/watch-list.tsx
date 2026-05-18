@@ -49,6 +49,26 @@ export type WatchItem = {
     name: string;
     image_url: string | null;
     profile_url: string | null;
+    /**
+     * 外部ポータル (men-esthe.jp) 由来のリッチ情報。
+     * Supabase のリレーション展開 `external_therapists (...)` の戻り値。
+     * - 既存セラピストは未リンクのことがあるため null も許容する。
+     * - 1:1 だが PostgREST が配列で返すケースもあるためどちらも許容。
+     */
+    external_therapists:
+      | {
+          primary_image_url: string | null;
+          display_name: string | null;
+          age: number | null;
+          style_raw: string | null;
+        }
+      | Array<{
+          primary_image_url: string | null;
+          display_name: string | null;
+          age: number | null;
+          style_raw: string | null;
+        }>
+      | null;
     salons: {
       id: string;
       name: string;
@@ -58,6 +78,20 @@ export type WatchItem = {
   };
   next_available_slot: { date: string; start_time: string } | null;
 };
+
+function pickExternal(
+  ext: WatchItem["therapists"]["external_therapists"],
+):
+  | {
+      primary_image_url: string | null;
+      display_name: string | null;
+      age: number | null;
+      style_raw: string | null;
+    }
+  | null {
+  if (!ext) return null;
+  return Array.isArray(ext) ? (ext[0] ?? null) : ext;
+}
 
 type OptimisticAction =
   | { type: "toggle"; id: string; is_active: boolean }
@@ -139,17 +173,20 @@ function WatchRow({
     });
   };
 
-  const imageSrc = resolveTherapistImageSrc(
-    item.therapists.image_url,
-    item.therapists.profile_url,
-  );
+  const ext = pickExternal(item.therapists.external_therapists);
+  // 外部ポータルの primary_image_url は絶対 URL なのでそのまま。
+  // 自社 image_url は予約サイトホストに対する相対パスのことがあるため resolve する。
+  const imageSrc =
+    ext?.primary_image_url ??
+    resolveTherapistImageSrc(item.therapists.image_url, item.therapists.profile_url);
+  const displayName = ext?.display_name ?? item.therapists.name;
 
   return (
     <li className="w-full min-w-0 overflow-hidden rounded-xl border bg-card text-card-foreground">
       <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:p-5">
         <Link
           href={`/watches/${item.id}`}
-          aria-label={`${item.therapists.name} の詳細を見る`}
+          aria-label={`${displayName} の詳細を見る`}
           className="group/link flex min-w-0 flex-1 gap-4 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           <div className="relative size-14 shrink-0 overflow-hidden rounded-lg bg-muted">
@@ -175,7 +212,7 @@ function WatchRow({
           <div className="min-w-0 flex-1 space-y-1">
             <h3 className="flex items-center gap-1 truncate text-base font-semibold">
               <span className="truncate group-hover/link:underline">
-                {item.therapists.name}
+                {displayName}
               </span>
               <ChevronRightIcon
                 className="size-4 shrink-0 text-muted-foreground transition-transform group-hover/link:translate-x-0.5"
@@ -184,6 +221,11 @@ function WatchRow({
             </h3>
             <p className="truncate text-xs text-muted-foreground">
               {item.therapists.salons.name}
+              {ext?.style_raw ? (
+                <span className="ml-2 text-muted-foreground/70">
+                  {ext.style_raw}
+                </span>
+              ) : null}
             </p>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
               {item.notify_email || item.notify_line ? (
@@ -269,7 +311,7 @@ function WatchRow({
           <DialogHeader>
             <DialogTitle>この監視を削除しますか？</DialogTitle>
             <DialogDescription>
-              {`「${item.therapists.name}」（${item.therapists.salons.name}）の通知予約を削除すると、空き枠の通知は届きません。`}
+              {`「${displayName}」（${item.therapists.salons.name}）の通知予約を削除すると、空き枠の通知は届きません。`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="sm:justify-end">

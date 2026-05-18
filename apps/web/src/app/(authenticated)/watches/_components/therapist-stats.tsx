@@ -183,7 +183,18 @@ function NextAvailableSlotBlock({
   );
 }
 
-export function TherapistStatsBlock({ stats }: { stats: TherapistStats }) {
+export function TherapistStatsBlock({
+  stats,
+  killSecondsGate,
+}: {
+  stats: TherapistStats;
+  /**
+   * 平均瞬殺時間 (median_kill_seconds) のカードを差し替える。
+   * 公開セラピスト詳細ページで「無料/未ログインユーザにはぼかし表示」を実現するために使う。
+   * 渡されなかった場合は従来通り素の値を表示する。
+   */
+  killSecondsGate?: React.ReactNode;
+}) {
   const next = formatNextShift(stats.next_shift_date);
   const windowLabel = `直近${stats.window_days}日`;
   const hasAnyEvent =
@@ -212,12 +223,14 @@ export function TherapistStatsBlock({ stats }: { stats: TherapistStats }) {
           value={`${stats.recent_opening_count}回`}
           helper="キャンセル + 新着の合計"
         />
-        <SummaryStat
-          icon={<TimerIcon className="size-4" />}
-          label="平均瞬殺時間"
-          value={formatKillSeconds(stats.median_kill_seconds)}
-          helper="出現から再満枠までの中央値"
-        />
+        {killSecondsGate ?? (
+          <SummaryStat
+            icon={<TimerIcon className="size-4" />}
+            label="平均瞬殺時間"
+            value={formatKillSeconds(stats.median_kill_seconds)}
+            helper="出現から再満枠までの中央値"
+          />
+        )}
       </div>
 
       <div className="rounded-xl border bg-card p-4">

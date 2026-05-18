@@ -71,11 +71,12 @@ function parseArgs(argv: string[]): CliArgs {
       v !== 'discover' &&
       v !== 'details' &&
       v !== 'bookings' &&
+      v !== 'therapists' &&
       v !== 'link' &&
       v !== 'all'
     ) {
       throw new Error(
-        `--phase must be one of: areas | discover | details | bookings | link | all (got "${v}")`,
+        `--phase must be one of: areas | discover | details | bookings | therapists | link | all (got "${v}")`,
       );
     }
     salonsPhase = v;

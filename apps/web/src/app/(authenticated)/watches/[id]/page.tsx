@@ -20,6 +20,17 @@ export const metadata: Metadata = {
   title: "セラピストの詳細",
 };
 
+type ExternalTherapistRow = {
+  primary_image_url: string | null;
+  display_name: string | null;
+  age: number | null;
+  height: number | null;
+  cup: string | null;
+  style_raw: string | null;
+  comment: string | null;
+  therapist_url: string | null;
+};
+
 type WatchDetail = {
   id: string;
   therapist_id: string;
@@ -28,6 +39,10 @@ type WatchDetail = {
     name: string;
     image_url: string | null;
     profile_url: string | null;
+    external_therapists:
+      | ExternalTherapistRow
+      | ExternalTherapistRow[]
+      | null;
     salons: {
       id: string;
       name: string;
@@ -38,6 +53,13 @@ type WatchDetail = {
     };
   };
 };
+
+function pickExternalTherapist(
+  ext: ExternalTherapistRow | ExternalTherapistRow[] | null,
+): ExternalTherapistRow | null {
+  if (!ext) return null;
+  return Array.isArray(ext) ? (ext[0] ?? null) : ext;
+}
 
 export default async function WatchDetailPage({
   params,
@@ -56,6 +78,9 @@ export default async function WatchDetailPage({
       therapist_id,
       therapists!inner (
         id, name, image_url, profile_url,
+        external_therapists (
+          primary_image_url, display_name, age, height, cup, style_raw, comment, therapist_url
+        ),
         salons!inner (
           id, name, url,
           external_salons (homepage_url)
@@ -86,10 +111,18 @@ export default async function WatchDetailPage({
   const therapist = watchTyped.therapists;
   const salon = therapist.salons;
   const salonHomepageUrl = salon.external_salons?.homepage_url ?? null;
-  const imageSrc = resolveTherapistImageSrc(
-    therapist.image_url,
-    therapist.profile_url,
-  );
+  const ext = pickExternalTherapist(therapist.external_therapists);
+  const imageSrc =
+    ext?.primary_image_url ??
+    resolveTherapistImageSrc(therapist.image_url, therapist.profile_url);
+  const displayName = ext?.display_name ?? therapist.name;
+  // 身長/カップを優先的に表示する。それ以外は ext.style_raw を fallback として使う。
+  const styleParts: string[] = [];
+  if (ext?.height) styleParts.push(`T${ext.height}`);
+  if (ext?.cup) styleParts.push(`${ext.cup}カップ`);
+  if (ext?.age) styleParts.push(`${ext.age}歳`);
+  const styleLabel =
+    styleParts.length > 0 ? styleParts.join(" / ") : (ext?.style_raw ?? null);
 
   return (
     <div className="space-y-6 pb-24 sm:pb-6">
@@ -125,10 +158,13 @@ export default async function WatchDetailPage({
           </div>
           <div className="min-w-0 flex-1 space-y-1">
             <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">
-              {therapist.name}
+              {displayName}
             </h1>
             <p className="truncate text-sm text-muted-foreground">
               {salon.name}
+              {styleLabel ? (
+                <span className="ml-2 text-muted-foreground/70">{styleLabel}</span>
+              ) : null}
             </p>
             <div className="flex flex-wrap items-center gap-2 pt-1">
               {therapist.profile_url ? (
@@ -140,6 +176,19 @@ export default async function WatchDetailPage({
                     className="gap-1"
                   >
                     予約サイトを開く
+                    <ExternalLinkIcon className="size-3.5" />
+                  </a>
+                </Button>
+              ) : null}
+              {ext?.therapist_url ? (
+                <Button asChild variant="ghost" size="sm">
+                  <a
+                    href={ext.therapist_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="gap-1"
+                  >
+                    公式プロフィール
                     <ExternalLinkIcon className="size-3.5" />
                   </a>
                 </Button>
@@ -158,6 +207,11 @@ export default async function WatchDetailPage({
                 </Button>
               ) : null}
             </div>
+            {ext?.comment ? (
+              <p className="pt-2 text-sm text-muted-foreground whitespace-pre-line">
+                {ext.comment}
+              </p>
+            ) : null}
           </div>
         </div>
       </section>

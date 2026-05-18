@@ -8,9 +8,9 @@ import {
 const log = createLogger('handler:salons');
 
 interface SalonsEvent {
-  /** 'areas' | 'discover' | 'details' | 'bookings' | 'all'。デフォルト 'all'。 */
+  /** 'areas' | 'discover' | 'details' | 'bookings' | 'therapists' | 'link' | 'all'。デフォルト 'all'。 */
   phase?: ExternalSalonsPhase;
-  /** details / bookings フェーズの 1 回あたり処理上限。 */
+  /** details / bookings / therapists フェーズの 1 回あたり処理上限。 */
   limit?: number;
   /** 詳細を再取得するしきい値 (日数)。 */
   staleAfterDays?: number;

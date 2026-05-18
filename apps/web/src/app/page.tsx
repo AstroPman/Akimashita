@@ -1,42 +1,16 @@
-import Link from "next/link";
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
-import { BrandLogo } from "@/components/brand-logo";
 import { FeatureCard } from "@/components/landing/feature-card";
 import { HowItWorks } from "@/components/landing/how-it-works";
 import { Faq } from "@/components/landing/faq";
 import { SiteFooter } from "@/components/landing/site-footer";
 import { PrimaryCta, SecondaryCta } from "@/components/landing/cta";
+import { PublicSiteHeader } from "@/components/public-site-header";
 
 /** ログイン済みの `/` は middleware で `/watches` にリダイレクト（二重の getUser を避ける） */
 export default function Home() {
   return (
     <div className="flex flex-col flex-1">
-      <header className="relative z-20">
-        <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-4">
-          <Link href="/" className="flex items-center" aria-label="アキマシタ">
-            <BrandLogo priority />
-          </Link>
-          <div className="flex items-center gap-2">
-            <Button
-              asChild
-              variant="ghost"
-              size="sm"
-              className="min-h-12 min-w-12 px-3 sm:min-w-0"
-            >
-              <Link href="/pricing">料金</Link>
-            </Button>
-            <Button
-              asChild
-              variant="ghost"
-              size="sm"
-              className="min-h-12 min-w-12 px-3 sm:min-w-0"
-            >
-              <Link href="/login">ログイン</Link>
-            </Button>
-          </div>
-        </div>
-      </header>
+      <PublicSiteHeader logoPriority bordered={false} />
 
       <main className="flex-1">
         <section className="relative overflow-hidden">

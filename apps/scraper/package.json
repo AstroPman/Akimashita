@@ -11,6 +11,7 @@
     "dev:salons:discover": "tsx src/index.ts --stage=salons --phase=discover",
     "dev:salons:details": "tsx src/index.ts --stage=salons --phase=details",
     "dev:salons:bookings": "tsx src/index.ts --stage=salons --phase=bookings",
+    "dev:salons:therapists": "tsx src/index.ts --stage=salons --phase=therapists",
     "dev:salons:link": "tsx src/index.ts --stage=salons --phase=link",
     "dev:therapists": "tsx src/index.ts --stage=therapists",
     "dev:therapists:new": "tsx src/index.ts --stage=therapists --only-unsynced",

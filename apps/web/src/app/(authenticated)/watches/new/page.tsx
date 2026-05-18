@@ -7,15 +7,53 @@ import { WatchQuotaIndicator } from "../_components/watch-quota-indicator";
 import { defaultWatchFormValues } from "@/lib/schema/watch";
 import { getWatchQuota } from "@/lib/watches/quota";
 import { getPublicSalons } from "@/lib/salons";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "新しく登録",
 };
 
-export default async function NewWatchPage() {
-  const [salons, quota] = await Promise.all([
+interface PageProps {
+  searchParams: Promise<{ therapist_id?: string }>;
+}
+
+/**
+ * /salons/[id] の「監視に追加」ボタンから飛んできた場合、
+ * `?therapist_id=...` を解決してフォームの初期サロン/セラピストを埋める。
+ * - 不正な UUID / 削除済み / 退店済みは無視 (空フォームで開始)。
+ * - 認証必須レイアウト配下なので RLS は問題なく通るが、therapists は anon でも
+ *   select 可なので server client で十分。
+ */
+async function resolveInitialTherapist(
+  rawId: string | undefined,
+): Promise<{
+  salonId: string;
+  therapist: { id: string; name: string };
+} | null> {
+  if (!rawId) return null;
+  // UUID 以外は弾く (DB クエリで型エラーを起こさないため)。
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId)) {
+    return null;
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("therapists")
+    .select("id, name, salon_id, deleted_at")
+    .eq("id", rawId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error || !data) return null;
+  const row = data as { id: string; name: string; salon_id: string };
+  return { salonId: row.salon_id, therapist: { id: row.id, name: row.name } };
+}
+
+export default async function NewWatchPage({ searchParams }: PageProps) {
+  const { therapist_id: rawTherapistId } = await searchParams;
+
+  const [salons, quota, initial] = await Promise.all([
     getPublicSalons(),
     getWatchQuota(),
+    resolveInitialTherapist(rawTherapistId),
   ]);
 
   return (
@@ -58,7 +96,13 @@ export default async function NewWatchPage() {
             prefecture: s.prefecture,
             areas: s.areas,
           }))}
-          defaultValues={defaultWatchFormValues}
+          initialSalonId={initial?.salonId}
+          initialTherapist={initial?.therapist}
+          defaultValues={
+            initial
+              ? { ...defaultWatchFormValues, therapist_id: initial.therapist.id }
+              : defaultWatchFormValues
+          }
         />
       )}
     </div>

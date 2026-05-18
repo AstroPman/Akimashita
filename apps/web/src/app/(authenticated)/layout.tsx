@@ -1,7 +1,13 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BarChart3Icon, BellIcon, LogOutIcon, UserIcon } from "lucide-react";
+import {
+  BarChart3Icon,
+  BellIcon,
+  LogOutIcon,
+  SearchIcon,
+  UserIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
 import { createClient } from "@/lib/supabase/server";
@@ -63,6 +69,12 @@ export default async function AuthenticatedLayout({
             <BrandLogo />
           </Link>
           <div className="flex items-center gap-1 sm:gap-2">
+            <Button asChild variant="ghost" size="sm" className="gap-1.5">
+              <Link href="/salons" aria-label="サロン・セラピストを検索">
+                <SearchIcon className="size-4" />
+                <span className="hidden text-xs sm:inline">検索</span>
+              </Link>
+            </Button>
             <Button asChild variant="ghost" size="sm" className="gap-1.5">
               <Link href="/rankings" aria-label="ランキング">
                 <BarChart3Icon className="size-4" />

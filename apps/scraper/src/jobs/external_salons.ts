@@ -2,6 +2,7 @@ import type {
   ExternalSalonBooking,
   ExternalSalonListEntry,
   ExternalSalonRecord,
+  ExternalTherapistRecord,
 } from '@alimashita/shared';
 import { supabase } from '../lib/supabase.js';
 import { env } from '../lib/env.js';
@@ -13,6 +14,7 @@ import {
   resolveHomepage,
   shouldSoftDeleteExternalSalonForHomepageFailure,
 } from '../scrapers/menesthe/homepage_resolver.js';
+import { fetchExternalTherapists } from '../scrapers/menesthe/therapist_list.js';
 
 const log = createLogger('job:external_salons');
 
@@ -23,6 +25,7 @@ export type ExternalSalonsPhase =
   | 'discover'
   | 'details'
   | 'bookings'
+  | 'therapists'
   | 'link'
   | 'all';
 
@@ -86,6 +89,14 @@ export async function runExternalSalonsJob(
       log.warn('Budget exhausted before bookings phase, skipping');
     } else {
       await resolveBookings({ limit, staleAfterDays, deadlineAt });
+    }
+  }
+
+  if (phase === 'therapists' || phase === 'all') {
+    if (overBudget()) {
+      log.warn('Budget exhausted before therapists phase, skipping');
+    } else {
+      await syncExternalTherapists({ limit, staleAfterDays, deadlineAt });
     }
   }
 
@@ -549,6 +560,194 @@ async function markBookingsSynced(externalSalonId: string): Promise<void> {
 
 
 // ============================================================
+// Phase 4.5: therapists (men-esthe.jp の per-salon JSON API でセラピスト一覧を取得)
+// ============================================================
+
+interface DbExternalSalonForTherapists {
+  id: string;
+  source_id: string;
+}
+
+interface TherapistsCounters {
+  success: number;
+  failure: number;
+  upserted: number;
+  softDeleted: number;
+}
+
+async function syncExternalTherapists(ctx: {
+  limit: number;
+  staleAfterDays: number;
+  deadlineAt: number;
+}): Promise<void> {
+  const targets = await fetchSalonsForTherapistsRefresh(ctx.limit, ctx.staleAfterDays);
+  log.info(`Therapist sync: ${targets.length} salons`);
+
+  const counters: TherapistsCounters = { success: 0, failure: 0, upserted: 0, softDeleted: 0 };
+
+  for (const row of targets) {
+    if (Date.now() > ctx.deadlineAt) {
+      log.warn('Budget exhausted during therapists phase', {
+        processed: counters.success + counters.failure,
+        total: targets.length,
+      });
+      break;
+    }
+    try {
+      const records = await fetchExternalTherapists(row.source_id);
+      const { upserted, softDeleted } = await replaceExternalTherapistsForSalon(row.id, records);
+      counters.upserted += upserted;
+      counters.softDeleted += softDeleted;
+      counters.success += 1;
+    } catch (err) {
+      counters.failure += 1;
+      log.warn('Failed to sync external therapists', {
+        external_salon_id: row.id,
+        source_id: row.source_id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+    // 取得失敗でも therapists_synced_at は進める: 同じサロンが nullsFirst で先頭に
+    // 張り付くのを防ぐ。次回 stale で再訪する。
+    try {
+      await markTherapistsSynced(row.id);
+    } catch (markErr) {
+      log.warn('markTherapistsSynced failed', {
+        external_salon_id: row.id,
+        error: markErr instanceof Error ? markErr.message : String(markErr),
+      });
+    }
+  }
+
+  log.info('Therapists phase done', {
+    success: counters.success,
+    failure: counters.failure,
+    upserted: counters.upserted,
+    soft_deleted: counters.softDeleted,
+  });
+}
+
+async function fetchSalonsForTherapistsRefresh(
+  limit: number,
+  staleAfterDays: number,
+): Promise<DbExternalSalonForTherapists[]> {
+  const stale = new Date(Date.now() - staleAfterDays * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from('external_salons')
+    .select('id, source_id')
+    .eq('source', SOURCE)
+    .is('deleted_at', null)
+    .or(`therapists_synced_at.is.null,therapists_synced_at.lt.${stale}`)
+    .order('therapists_synced_at', { ascending: true, nullsFirst: true })
+    .limit(limit);
+  if (error) {
+    throw new Error(`Failed to fetch external_salons for therapists refresh: ${error.message}`);
+  }
+  return (data ?? []) as DbExternalSalonForTherapists[];
+}
+
+/**
+ * external_salon 配下のセラピスト一覧を「丸ごと差し替える」。
+ *
+ * - 取得した在籍セラピスト (status=1) は upsert + deleted_at=null で復活/更新。
+ * - 取得した退店セラピスト (status=2) は upsert 後に deleted_at を打つ
+ *   (履歴は残し、UI からは外す)。
+ * - 今回の JSON に登場しなかった既存行は「ポータルから消失」とみなし deleted_at を打つ。
+ *   後続で復活して JSON に再出現すれば deleted_at がクリアされる。
+ *
+ * @returns upserted: 取得 JSON 行数、softDeleted: 消失で論理削除した行数
+ */
+async function replaceExternalTherapistsForSalon(
+  externalSalonId: string,
+  records: ExternalTherapistRecord[],
+): Promise<{ upserted: number; softDeleted: number }> {
+  const now = new Date().toISOString();
+
+  // 既存行 (deleted_at の有無を問わず) を全て取り、今回の JSON に無かった分を後で論理削除する。
+  const { data: existing, error: selErr } = await supabase
+    .from('external_therapists')
+    .select('id, source_id, deleted_at')
+    .eq('source', SOURCE)
+    .eq('external_salon_id', externalSalonId);
+  if (selErr) {
+    throw new Error(`Failed to fetch existing external_therapists: ${selErr.message}`);
+  }
+  const existingBySourceId = new Map<string, { id: string; deleted_at: string | null }>(
+    (existing ?? []).map((r: { id: string; source_id: string; deleted_at: string | null }) => [
+      r.source_id,
+      { id: r.id, deleted_at: r.deleted_at },
+    ]),
+  );
+
+  let upserted = 0;
+  let softDeleted = 0;
+
+  if (records.length > 0) {
+    const rows = records.map((r) => ({
+      source: SOURCE,
+      source_id: r.source_id,
+      external_salon_id: externalSalonId,
+      name: r.name,
+      display_name: r.display_name,
+      kana: r.kana,
+      age: r.age,
+      height: r.height,
+      cup: r.cup,
+      style_raw: r.style_raw,
+      image_urls: r.image_urls,
+      primary_image_url: r.primary_image_url,
+      therapist_url: r.therapist_url,
+      comment: r.comment,
+      status: r.status,
+      source_updated_at: r.source_updated_at,
+      source_url: r.source_url,
+      // status=2 (退店) は明示的に deleted_at=now を立て、status=1 は復活させる。
+      deleted_at: r.status === 2 ? now : null,
+    }));
+
+    const { error: upErr } = await supabase
+      .from('external_therapists')
+      .upsert(rows, { onConflict: 'source,source_id' });
+    if (upErr) {
+      throw new Error(`Failed to upsert external_therapists: ${upErr.message}`);
+    }
+    upserted = rows.length;
+  }
+
+  // 今回 JSON に出てこなかった既存行を論理削除する (まだ削除済みでないものに限る)。
+  const seenSourceIds = new Set(records.map((r) => r.source_id));
+  const orphanIds: string[] = [];
+  for (const [sourceId, row] of existingBySourceId.entries()) {
+    if (seenSourceIds.has(sourceId)) continue;
+    if (row.deleted_at) continue;
+    orphanIds.push(row.id);
+  }
+  if (orphanIds.length > 0) {
+    const { error: delErr } = await supabase
+      .from('external_therapists')
+      .update({ deleted_at: now })
+      .in('id', orphanIds);
+    if (delErr) {
+      throw new Error(`Failed to soft-delete missing external_therapists: ${delErr.message}`);
+    }
+    softDeleted = orphanIds.length;
+  }
+
+  return { upserted, softDeleted };
+}
+
+async function markTherapistsSynced(externalSalonId: string): Promise<void> {
+  const { error } = await supabase
+    .from('external_salons')
+    .update({ therapists_synced_at: new Date().toISOString() })
+    .eq('id', externalSalonId);
+  if (error) {
+    throw new Error(`Failed to update therapists_synced_at: ${error.message}`);
+  }
+}
+
+
+// ============================================================
 // Phase 5: link (salons.external_salon_id を埋める)
 // ============================================================
 
@@ -560,6 +759,21 @@ async function linkSalonsToExternal(): Promise<void> {
   if (error) {
     throw new Error(`Failed to link salons to external: ${error.message}`);
   }
-  const updated = typeof data === 'number' ? data : 0;
-  log.info('Link phase done', { newly_linked: updated });
+  const linkedSalons = typeof data === 'number' ? data : 0;
+
+  // therapists 側のリンクも同じフェーズで張る (A+ URL parse → A name match)。
+  // salons リンクが先に走るため、external_salon_id が新規に埋まったサロンも
+  // 同じトランザクション境界の中で therapists リンクの対象に入る。
+  const { data: therapistData, error: therapistErr } = await supabase.rpc(
+    'link_therapists_to_external',
+  );
+  if (therapistErr) {
+    throw new Error(`Failed to link therapists to external: ${therapistErr.message}`);
+  }
+  const linkedTherapists = typeof therapistData === 'number' ? therapistData : 0;
+
+  log.info('Link phase done', {
+    newly_linked_salons: linkedSalons,
+    newly_linked_therapists: linkedTherapists,
+  });
 }

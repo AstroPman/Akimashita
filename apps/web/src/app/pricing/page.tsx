@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { BrandLogo } from "@/components/brand-logo";
 import { SupportedSalonsTeaser } from "@/components/landing/supported-salons";
 import { SiteFooter } from "@/components/landing/site-footer";
+import { PublicSiteHeader } from "@/components/public-site-header";
 import { getPublicSalons } from "@/lib/salons";
 import { getPlanPricing } from "@/lib/stripe/pricing";
 import {
@@ -45,18 +44,7 @@ export default async function PricingPage({
 
   return (
     <div className="flex flex-col flex-1">
-      <header className="border-b">
-        <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-4">
-          <Link href="/" className="flex items-center" aria-label="アキマシタ">
-            <BrandLogo />
-          </Link>
-          <div className="flex items-center gap-2">
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/login">ログイン</Link>
-            </Button>
-          </div>
-        </div>
-      </header>
+      <PublicSiteHeader />
 
       <main className="flex-1">
         <section className="mx-auto w-full max-w-5xl px-4 py-12 sm:py-16">
