@@ -1,0 +1,87 @@
+---
+description: 運営者向け管理ダッシュボード（apps/dashboard）の方針
+globs: ["apps/dashboard/**/*"]
+alwaysApply: false
+---
+
+# Dashboard アプリ概要
+
+`apps/dashboard` は **運営者向けの管理ダッシュボード**。本番 Supabase（`zhvmhchwapavylwrchoe`）に **service_role キーで直接接続** し、ユーザ数・テーブル件数・通知 / スクレイパの健全性を可視化する。
+
+プロジェクト全体の構成・基本方針は `core.mdc` を参照。
+
+# 絶対に守るルール
+
+1. **ローカル限定運用**。Vercel や任意のクラウドに **デプロイしない**。`apps/dashboard/.env.local` には service_role キーが入るため、コミットも共有も禁止。
+2. **読み取り専用**。Supabase クライアント経由で `insert / update / upsert / delete` を **書かない**。Server Action も作らない。集計用の RPC のみを呼ぶ。
+3. **認証は組まない**。dev サーバを `localhost` 以外にバインドしない。
+4. **`@/lib/supabase/admin.ts` は `import "server-only"` 必須**。Client Component から import されたらビルドが失敗するようにする。
+5. **クエリは必ず SQL 関数経由**。`supabase/migrations/20260518000000_admin_dashboard_stats.sql` に集約された `stats_*` 関数を呼ぶ。新規集計が必要になったら、同じ migration 規約で **新しい RPC を追加** し、`service_role` のみに grant する。
+
+# 技術スタック（web に揃える）
+
+- **Next.js 16** App Router / **React 19** / **TypeScript** / **Tailwind v4** / **shadcn 風コンポーネント**
+- **recharts** でグラフ描画（Client Component に切り出した `time-series-chart` / `stacked-bar-chart` / `plan-breakdown` を再利用）
+- **dayjs** + `timezone` プラグインで JST 表示を統一
+
+# ディレクトリ
+
+```
+apps/dashboard/
+├── .env.local.example
+├── README.md
+├── components.json
+├── eslint.config.mjs
+├── next.config.ts
+├── package.json
+├── postcss.config.mjs
+├── tsconfig.json
+└── src/
+    ├── app/
+    │   ├── globals.css
+    │   ├── layout.tsx          # 共通レイアウト + サイドナビ
+    │   ├── page.tsx            # 概要（全KPI抜粋）
+    │   ├── users/page.tsx
+    │   ├── tables/page.tsx
+    │   ├── notifications/page.tsx
+    │   └── scraper/page.tsx
+    ├── components/
+    │   ├── ui/                 # 軽量版 card / badge / table のみ
+    │   ├── kpi-card.tsx
+    │   ├── time-series-chart.tsx
+    │   ├── stacked-bar-chart.tsx
+    │   ├── plan-breakdown.tsx
+    │   ├── period-selector.tsx
+    │   └── nav.tsx
+    └── lib/
+        ├── supabase/admin.ts
+        ├── queries/
+        │   ├── users.ts
+        │   ├── tables.ts
+        │   ├── notifications.ts
+        │   └── scraper.ts
+        ├── format.ts
+        └── utils.ts
+```
+
+# 実装ルール
+
+- **デフォルトは Server Component**。リクエストごとに最新の値を見たいので `export const dynamic = "force-dynamic"` と `revalidate = 0` を各ページに付ける。
+- **データ取得は `lib/queries/*.ts` 経由**。Page 直下で `createAdminClient()` を呼ばず、必ず query 関数を経由する（型と命名を一元化する）。
+- **複数クエリは `Promise.all` で並列化**。Page で順番待ちしない。
+- **ローカライズ**: 日付・数値は `lib/format.ts` のヘルパで JST + `ja-JP` 形式に統一。
+- **チャート用のコンポーネントは Client Component**（`"use client"`）。Server Component からはデータを props で渡すだけ。
+- **期間切替**は `?range=30|90|365` のクエリ。`components/period-selector.tsx` の `parseRange()` でバリデーション。
+
+# 起動
+
+```bash
+cd apps/dashboard && npm run dev    # http://localhost:3001
+```
+
+ポートは web (3000) と被らないよう **3001** に固定済み。
+
+# 既存方針との関係
+
+- スクレイパや web のコードは編集対象に含めない。観測したい指標が増えたら **`stats_*` の RPC だけ追加** し、ダッシュボード側はそれを呼ぶ。
+- 表示専用なので、ドメインロジック（プラン判定、リンク仕様 etc）は再実装せず、SQL 集計の結果に従う。
