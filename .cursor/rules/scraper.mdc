@@ -62,34 +62,39 @@ EventBridge スケジュールで起動される。
 ### Stage 1: 外部ポータルクロール (salons)
 
 外部ポータル (men-esthe.jp) を巡回して `external_*` テーブルを育て、
-最後に自社 `salons` とのリンクを埋める。1回の Lambda 実行内で 5 サブフェーズに分割でき、
-`--phase` 引数 (areas / discover / details / bookings / link / all) で個別実行できる。
+最後に自社 `salons` / `therapists` とのリンクを埋める。1回の Lambda 実行内で 6 サブフェーズに分割でき、
+`--phase` 引数 (areas / discover / details / bookings / therapists / link / all) で個別実行できる。
 
-AWS 上では `areas` のみ単独 Schedule（月 1 回）で動かし、残り 4 サブフェーズ
-(`discover → details → bookings → link`) は Step Functions ステートマシン
+AWS 上では `areas` のみ単独 Schedule（月 1 回）で動かし、残り 5 サブフェーズ
+(`discover → details → bookings → therapists → link`) は Step Functions ステートマシン
 `<name_prefix>-salons-pipeline` で 1 日 1 回直列実行する。各 Task は同じ Lambda
 (`salons.handler`) を `Payload = {"phase": "<phase>"}` で呼び、`limit` / `staleAfterDays` /
 `budgetMs` は Lambda 側のデフォルトに任せる。
 
 - 入力: `external_areas` / `external_salons` （前回までの自己出力）
-- 出力: `external_areas` / `external_salons` / `external_salon_bookings` に upsert、
-        `link` フェーズで `salons.external_salon_id` を埋める
+- 出力: `external_areas` / `external_salons` / `external_salon_bookings` /
+        `external_therapists` に upsert、
+        `link` フェーズで `salons.external_salon_id` と
+        `therapists.external_therapist_id` を埋める
 - 頻度: 1日1回 〜 週1回（Lambda 1 実行で 13 分の予算上限）
 
-| サブフェーズ | 入口 URL                            | 出力                              | しきい値カラム             |
-| ------------ | ----------------------------------- | --------------------------------- | -------------------------- |
-| `areas`      | `area-list.php`                     | `external_areas` upsert           | （毎回全件）               |
-| `discover`   | `area.php?id=N&p=P`                 | `external_salons` shell record    | （毎回全エリア）           |
-| `details`    | `salon.php?id=N`                    | `external_salons` 詳細を埋める    | `details_synced_at`        |
-| `bookings`   | `external_salons.homepage_url`      | `external_salon_bookings` 入替    | `bookings_synced_at`       |
-| `link`       | SQL関数 `link_salons_to_external()` | `salons.external_salon_id`        | （毎回全候補をスキャン）   |
+| サブフェーズ  | 入口 URL                                          | 出力                                          | しきい値カラム               |
+| ------------- | ------------------------------------------------- | --------------------------------------------- | ---------------------------- |
+| `areas`       | `area-list.php`                                   | `external_areas` upsert                       | （毎回全件）                 |
+| `discover`    | `area.php?id=N&p=P`                               | `external_salons` shell record                | （毎回全エリア）             |
+| `details`     | `salon.php?id=N`                                  | `external_salons` 詳細を埋める                | `details_synced_at`          |
+| `bookings`    | `external_salons.homepage_url`                    | `external_salon_bookings` 入替                | `bookings_synced_at`         |
+| `therapists`  | `therapistlist.php?id=N&more&p=P` (JSON)          | `external_therapists` 差し替え                | `therapists_synced_at`       |
+| `link`        | SQL関数 `link_salons_to_external()` ＋ `link_therapists_to_external()` | `salons.external_salon_id` / `therapists.external_therapist_id` | （毎回全候補をスキャン）     |
 
 - 効率化:
-  - `details` / `bookings` は `*_synced_at < now - staleAfterDays days` を優先
+  - `details` / `bookings` / `therapists` は `*_synced_at < now - staleAfterDays days` を優先
   - 各フェーズの開始時に `budgetMs` をチェックし、超過したら早期終了
 - 異常系:
   - canonical URL 不一致 / 404 → `external_salons.deleted_at` を打って論理削除
   - 公式サイト fetch 失敗 → `ok:false` で `bookings` 空のまま `bookings_synced_at` だけ進めて無限再試行を防止
+  - `therapists` フェーズで取得失敗 → `external_therapists` は更新せず `therapists_synced_at` だけ進めて再試行を抑制
+  - `therapists` フェーズで JSON から消失したセラピスト → `external_therapists.deleted_at` を打って論理削除（再出現時は自動復活）
 
 ### Stage 2: セラピスト同期 (therapists)
 - 入力: `salons` テーブル（`deleted_at` が null のサロン）
@@ -203,22 +208,28 @@ URL構造:
 - エリア一覧: `https://men-esthe.jp/area-list.php`
 - エリア別サロン一覧: `https://men-esthe.jp/area.php?id={area_id}&p={page_index}`
 - サロン詳細: `https://men-esthe.jp/salon.php?id={salon_id}`
+- セラピスト一覧 (JSON): `https://men-esthe.jp/therapistlist.php?id={salon_id}&more&p={page_index}`
 
 取得項目:
 - area: `source_id`（例: `'18'`）/ 都道府県 / 地区 / エリア名
 - salon: 名前 / `areas[]` / `area_source_ids[]` / `nearest_stations[]` / `genre` / `price_range` / `opening_hours` / `homepage_url`
 - 公式サイトから抽出する booking: `site_name` (caskan/grow/edc/estama) / `shop_id` / `booking_url`
+- therapist: `source_id` / `name` / `display_name` ("メイ (28)") / `kana` / `age` / `height` (T153 → 153) /
+            `cup` (T153 G → "G") / `image_urls[]` / `therapist_url` (公式 HP cast URL) / `comment` / `status` (1=在籍 / 2=退店)
 
 # データモデル
 
 ```
 external_areas ──< external_salons ──< external_salon_bookings >── salons ──< therapists ──< availability
-                                              │                       │
-                                              │ (site_name, shop_id)  │ (site_id)
-                                              ▼                       ▼
-                                                                    sites
-                                                  ※ external_salon_bookings.(site_name, shop_id)
-                                                    と sites.name, salons.shop_id が同一命名規則で揃う
+                          │                   │                       │           │
+                          │                   │ (site_name, shop_id)  │ (site_id) │
+                          │                   ▼                       ▼           │
+                          │                                         sites         │
+                          │                   ※ external_salon_bookings.(site_name, shop_id)
+                          │                     と sites.name, salons.shop_id が同一命名規則で揃う
+                          ▼
+              external_therapists ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┘
+                                       (therapists.external_therapist_id を A+/A で埋める)
 ```
 
 ## 外部ポータル参照テーブル群
@@ -228,19 +239,34 @@ external_areas ──< external_salons ──< external_salon_bookings >── s
 - `external_areas (source, source_id)` : ポータルのエリアマスタ。`prefecture` を保持。
 - `external_salons (source, source_id)` : ポータルのサロンマスタ。
   - `area_source_ids text[]` : `external_areas.source_id` への弱リンク（外部キーは張らず、ポータル側 ID 変動に強くする）
-  - `details_synced_at` / `bookings_synced_at` : 段階同期のしきい値カラム
+  - `details_synced_at` / `bookings_synced_at` / `therapists_synced_at` : 段階同期のしきい値カラム
   - `deleted_at` : canonical 不一致 / 404 を論理削除
 - `external_salon_bookings (external_salon_id, site_name, shop_id) unique`
   : 公式サイトから抽出した予約システムURL。1サロン複数併用に対応 (1:N)
+- `external_therapists (source, source_id) unique`
+  : ポータルのセラピストマスタ (例: `name`, `age`, `height`, `cup`, `image_urls[]`,
+    `comment`, `therapist_url`, `status`)。`external_salon_id` で external_salons に
+    親リンク。`status=2` (退店) または JSON から消失した行は `deleted_at` で論理削除。
 
-## 自社 `salons` との結合
+## 自社 `salons` / `therapists` との結合
 
 - `salons.external_salon_id uuid` : 自社サロン → 外部ポータルへの逆リンク。`on delete set null`
+- `therapists.external_therapist_id uuid` : 自社セラピスト → 外部ポータルへの逆リンク。`on delete set null`
 - `link_salons_to_external(p_limit int default null) returns int` : `service_role` 専用 RPC。
   Stage 1.link フェーズが呼び、`(sites.name, salons.shop_id)` ↔ `external_salon_bookings.(site_name, shop_id)`
   で照合して `salons.external_salon_id` を埋める。複数候補は `external_salons.updated_at desc` で1件採用。
+- `link_therapists_to_external() returns int` : `service_role` 専用 RPC。
+  Stage 1.link フェーズが `link_salons_to_external` と同時に呼び、2 段階で `therapists.external_therapist_id` を埋める。
+  - **A+ パス（deterministic）**: `external_therapists.therapist_url` を `r.caskan.jp/{shop}/cast/{cast_id}` /
+    `grow-appt.com/...staff_(?:id|no)={N}` / `estama.jp/shop/{shop}/cast/{N}` のパターンに突き合わせ、
+    `(site, shop_id, therapist_id)` がサロン配下の `therapists` と一致した行を直接リンク
+  - **A パス（fallback, name match）**: A+ で外れたものを、`salons.external_salon_id` 配下で
+    末尾 `(数字)` 括弧を剥離した name の完全一致 ＋ 同一サロン内同名重複なし のときだけ採用
 - `get_public_salons() returns (id, name, therapist_count, prefecture, areas[])` : フロント公開 RPC。
   `LEFT JOIN external_salons` で `prefecture` と `areas` を露出して地域絞り込み UI に使う。
+- `get_public_salon_therapists(p_salon_id uuid) returns (...)` : フロント公開 RPC。
+  `therapists LEFT JOIN external_therapists` で写真 / 年齢 / スタイル / 紹介文 / 公式 HP URL を露出する。
+  サロン詳細ページ (/salons/[id]) と /watches 系の enrich に使う。
 
 結合フロー:
 
@@ -249,8 +275,11 @@ external_salon_bookings.(site_name, shop_id)
    = (sites.name, salons.shop_id)
         ↓ link_salons_to_external()
 salons.external_salon_id = external_salons.id
-        ↓ get_public_salons()
-フロント: prefecture / areas / therapist_count
+        ↓ external_therapists.external_salon_id 経由
+        ↓ link_therapists_to_external()  (A+ URL parse → A name match)
+therapists.external_therapist_id = external_therapists.id
+        ↓ get_public_salons() / get_public_salon_therapists()
+フロント: prefecture / areas / therapist_count / セラピスト写真・プロフィール
 ```
 
 # 技術スタック
@@ -291,6 +320,7 @@ apps/scraper/
 │   │       ├── area_list.ts         # area-list.php
 │   │       ├── area_salons.ts       # area.php?id=N&p=P
 │   │       ├── salon_detail.ts      # salon.php?id=N
+│   │       ├── therapist_list.ts    # therapistlist.php?id=N&more (JSON)
 │   │       └── homepage_resolver.ts # homepage_url → booking URL 抽出
 │   ├── jobs/
 │   │   ├── external_salons.ts       # Stage 1 (areas/discover/details/bookings/link)
@@ -334,6 +364,7 @@ interface ExternalAreaRecord       { source_id; name; district; prefecture; sour
 interface ExternalSalonListEntry   { source_id; name; source_url }                   // discover フェーズ用
 interface ExternalSalonRecord      { source_id; name; prefecture; areas[]; area_source_ids[]; nearest_stations[]; genre; price_range; opening_hours; homepage_url; source_url }
 interface ExternalSalonBooking     { site_name: BookingSiteName; shop_id; booking_url }
+interface ExternalTherapistRecord  { source_id; salon_source_id; name; display_name; kana; age; height; cup; style_raw; image_urls[]; primary_image_url; therapist_url; comment; status; source_updated_at; source_url }
 type BookingSiteName = SiteName    // 我々の sites.name と完全に整合
 ```
 
