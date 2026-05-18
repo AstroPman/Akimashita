@@ -4,13 +4,12 @@ import { HowItWorks } from "@/components/landing/how-it-works";
 import { Faq } from "@/components/landing/faq";
 import { SiteFooter } from "@/components/landing/site-footer";
 import { PrimaryCta, SecondaryCta } from "@/components/landing/cta";
-import { PublicSiteHeader } from "@/components/public-site-header";
+import { SiteHeader } from "@/components/site-header";
 
-/** ログイン済みの `/` は middleware で `/watches` にリダイレクト（二重の getUser を避ける） */
 export default function Home() {
   return (
     <div className="flex flex-col flex-1">
-      <PublicSiteHeader logoPriority bordered={false} />
+      <SiteHeader logoPriority bordered={false} />
 
       <main className="flex-1">
         <section className="relative overflow-hidden">

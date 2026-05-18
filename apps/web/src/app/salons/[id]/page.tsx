@@ -11,7 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/landing/site-footer";
-import { PublicSiteHeader } from "@/components/public-site-header";
+import { SiteHeader } from "@/components/site-header";
 import { getPublicSalon, getPublicSalonTherapists } from "@/lib/salons";
 
 interface PageProps {
@@ -125,7 +125,7 @@ export default async function SalonDetailPage({ params }: PageProps) {
         }}
       />
 
-      <PublicSiteHeader />
+      <SiteHeader />
 
       <main className="flex-1">
         <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:py-12">

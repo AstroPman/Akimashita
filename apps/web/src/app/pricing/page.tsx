@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SupportedSalonsTeaser } from "@/components/landing/supported-salons";
 import { SiteFooter } from "@/components/landing/site-footer";
-import { PublicSiteHeader } from "@/components/public-site-header";
+import { SiteHeader } from "@/components/site-header";
 import { getPublicSalons } from "@/lib/salons";
 import { getPlanPricing } from "@/lib/stripe/pricing";
 import {
@@ -44,7 +44,7 @@ export default async function PricingPage({
 
   return (
     <div className="flex flex-col flex-1">
-      <PublicSiteHeader />
+      <SiteHeader />
 
       <main className="flex-1">
         <section className="mx-auto w-full max-w-5xl px-4 py-12 sm:py-16">

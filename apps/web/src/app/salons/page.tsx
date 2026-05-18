@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/landing/site-footer";
-import { PublicSiteHeader } from "@/components/public-site-header";
+import { SiteHeader } from "@/components/site-header";
 import {
   getPublicSalons,
   searchPublicTherapists,
@@ -175,7 +175,7 @@ export default async function SalonsPage({ searchParams }: PageProps) {
 
   return (
     <div className="flex flex-1 flex-col">
-      <PublicSiteHeader />
+      <SiteHeader />
 
       <main className="flex-1">
         <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:py-12">
