@@ -39,9 +39,14 @@ interface TargetTherapistRow {
  *
  * - `is_watched=true`: 少なくとも 1 件の有効な watch_settings を持つ。
  *   差分通知パスに乗り、`first_availability_synced_at` の初期化も必要。
- * - `is_watched=false`: watch_settings は無く、salons.research_enabled=true 由来で
+ *   watch モードでだけ生成される。
+ * - `is_watched=false`: watch_settings を一切持たず、salons.research_enabled=true 由来で
  *   人気指標計測のためだけにスクレイピングする「研究対象」セラピスト。
- *   enqueue_notifications() は watch_settings JOIN なので自動的に通知パスに乗らない。
+ *   通知パスには乗らない。research モードでだけ生成される。
+ *
+ * mode と is_watched の対応は 1:1 で、両方の Lambda が同じセラピストを
+ * 同時に対象にすることは無い (= research 側で watch 側の差分検知を
+ * 奪ってしまう問題が起きない)。
  */
 type TargetTherapist = Therapist & { is_watched: boolean };
 
@@ -104,7 +109,7 @@ async function fetchWatchedTherapistRows(): Promise<TargetTherapistRow[]> {
 
 async function fetchResearchTherapistRows(): Promise<TargetTherapistRow[]> {
   // salons.research_enabled = true なサロン配下のセラピスト全員。
-  // watch_settings の有無に関わらず取得する (重複排除は呼び出し側で行う)。
+  // watch_settings との重複は呼び出し側 (fetchTargetTherapists) で除外する。
   const { data, error } = await supabase
     .from('therapists')
     .select(
@@ -123,13 +128,45 @@ async function fetchResearchTherapistRows(): Promise<TargetTherapistRow[]> {
 }
 
 /**
+ * 有効な watch_settings に紐づくセラピスト ID の集合を返す。
+ *
+ * research モードで「監視対象セラピストを誤って取り込み、毎分回している watch 側の
+ * 差分検知 (`previous_is_available` 遷移 / 新規 INSERT) を 15 分粒度の research が
+ * 先に消費してしまう」事故を防ぐためのフィルタ用。
+ *
+ * `is_active = true` かつ `deleted_at IS NULL` の行が 1 件でもあるセラピストを
+ * 「監視中」とみなす。subscription の状態 (`is_subscription_active`) までは見ない:
+ * 仮に課金が切れていて enqueue_notifications で弾かれるユーザでも、watch 側 Lambda が
+ * availability を毎分更新している事実は変わらないため、research 側が触ると同じ事故が起きる。
+ */
+async function fetchActiveWatchedTherapistIds(): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from('watch_settings')
+    .select('therapist_id')
+    .is('deleted_at', null)
+    .eq('is_active', true);
+  if (error) {
+    throw new Error(`Failed to fetch watched therapist ids: ${error.message}`);
+  }
+  const ids = new Set<string>();
+  for (const row of data ?? []) {
+    const id = (row as { therapist_id: string | null }).therapist_id;
+    if (id) ids.add(id);
+  }
+  return ids;
+}
+
+/**
  * Stage 3 の実行モード。
  *
  * - `watch` (default): `watch_settings` 配下のセラピストのみを対象にする。
  *   通知パス (`enqueue_notifications`) も走らせる、本流の運用モード。
  *
- * - `research`: `salons.research_enabled = true` 配下のセラピストのみを対象にする。
- *   人気指標計測 / 検証用。watch_settings には依存しないため通知パスはスキップする。
+ * - `research`: `salons.research_enabled = true` 配下のセラピストのうち
+ *   **watch_settings に登録されていない** ものだけを対象にする。
+ *   人気指標計測 / 検証用。通知パスはスキップする。
+ *   watch 側と対象がオーバーラップしないため、毎分実行の watch 側差分検知を
+ *   15 分間隔の research が奪ってしまう事故 (false→true 遷移を取りこぼす等) が起きない。
  *   1 ジョブの所要時間が長くなりやすく watch 側のリアルタイム性を阻害するため、
  *   別 Lambda・別 Schedule で動かす前提。
  */
@@ -139,6 +176,7 @@ async function fetchTargetTherapists(mode: AvailabilityMode): Promise<{
   therapists: TargetTherapist[];
   watchedCount: number;
   researchOnlyCount: number;
+  researchExcludedWatchedCount: number;
 }> {
   if (mode === 'watch') {
     const rows = await fetchWatchedTherapistRows();
@@ -153,18 +191,29 @@ async function fetchTargetTherapists(mode: AvailabilityMode): Promise<{
       therapists: Array.from(byId.values()),
       watchedCount: byId.size,
       researchOnlyCount: 0,
+      researchExcludedWatchedCount: 0,
     };
   }
 
   // mode === 'research'
-  // research モードでは watch_settings の有無を問わず、research_enabled なサロン配下を全件回す。
-  // 通知パスを走らせない方針なので、watch_settings 行があるセラピストでも
-  // ここでは is_watched=false として扱い、`markFirstAvailabilitySyncedIfNeeded` も呼ばない。
-  // 同一セラピストの watch 側通知は本流の availability Lambda が別途処理する。
-  const rows = await fetchResearchTherapistRows();
+  // research_enabled サロン配下のセラピストのうち、watch_settings に登録されているものは除外する。
+  // 監視対象セラピストの availability は毎分実行の watch 側 Lambda が責任を持つ:
+  //   - そちらの方が頻度が高いので research で先に更新する意味がない
+  //   - upsert_availability は previous_is_available を毎回上書きするので、
+  //     research が先回りすると watch 側 enqueue_notifications の candidates
+  //     (previous_is_available is false / first_seen_at = updated_at) を奪ってしまう
+  const [rows, watchedIds] = await Promise.all([
+    fetchResearchTherapistRows(),
+    fetchActiveWatchedTherapistIds(),
+  ]);
   const byId = new Map<string, TargetTherapist>();
+  let excluded = 0;
   for (const row of rows) {
     if (byId.has(row.id)) continue;
+    if (watchedIds.has(row.id)) {
+      excluded += 1;
+      continue;
+    }
     const t = toTherapist(row);
     if (!t) continue;
     byId.set(row.id, { ...t, is_watched: false });
@@ -173,6 +222,7 @@ async function fetchTargetTherapists(mode: AvailabilityMode): Promise<{
     therapists: Array.from(byId.values()),
     watchedCount: 0,
     researchOnlyCount: byId.size,
+    researchExcludedWatchedCount: excluded,
   };
 }
 
@@ -325,7 +375,8 @@ function formatHttpMetricsLine(
 export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Promise<void> {
   const mode: AvailabilityMode = opts.mode ?? 'watch';
   const concurrency = Math.max(1, opts.concurrency ?? env.AVAILABILITY_CONCURRENCY);
-  const { therapists, watchedCount, researchOnlyCount } = await fetchTargetTherapists(mode);
+  const { therapists, watchedCount, researchOnlyCount, researchExcludedWatchedCount } =
+    await fetchTargetTherapists(mode);
 
   // サイト別の事前カウントは負荷見積もりに便利なので最初にログる。
   // research 由来の分は研究目的サロンの検証にも使うため別カウントしておく。
@@ -341,6 +392,9 @@ export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Pro
     concurrency,
     watched: watchedCount,
     researchOnly: researchOnlyCount,
+    // research モードで watch_settings 配下と被って除外した件数。
+    // 0 が期待値。継続的に非 0 ならフラグの付け方が watch ユーザと競合しているサイン。
+    researchExcludedWatched: researchExcludedWatchedCount,
     bySite,
   });
 
@@ -394,8 +448,8 @@ export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Pro
         await upsertAvailability(therapist, records);
       }
       // 0 件でも初回同期済みにする（初回だけ枠ゼロのときに永久に Path B が解禁されないように）。
-      // research 由来 (is_watched=false) のセラピストは watch_settings 行を持たない可能性が高く、
-      // 通知パスにも乗らないので更新不要。
+      // research 由来 (is_watched=false) は watch_settings を持たないことが fetchTargetTherapists
+      // で保証されており、watch_settings 側の baseline 更新は不要。
       if (therapist.is_watched) {
         await markFirstAvailabilitySyncedIfNeeded(therapist.id);
       }
@@ -475,9 +529,9 @@ export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Pro
     };
   }
 
-  // research モードは watch_settings に依存しないため、通知 enqueue を呼ぶ意味がない。
-  // (enqueue_notifications は watch_settings を inner join しており research 由来は元々ヒットしないが、
-  //  無駄な RPC を打つことになるので明示的にスキップする。)
+  // research モードは fetchTargetTherapists で watch_settings 配下を除外済み。
+  // 対象セラピストに watch が存在しないため enqueue_notifications を呼んでも
+  // 必ずヒット 0 件になる + 無駄な RPC コストになるので明示的にスキップする。
   let notified = 0;
   if (mode === 'watch' && success > 0) {
     try {
@@ -494,6 +548,7 @@ export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Pro
     therapists: therapists.length,
     watched: watchedCount,
     researchOnly: researchOnlyCount,
+    researchExcludedWatched: researchExcludedWatchedCount,
     success,
     failure,
     softDeleted,
