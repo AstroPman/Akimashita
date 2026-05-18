@@ -14,9 +14,9 @@ alert_emails = ["astroqman@gmail.com"]
 # スモークテストを完了してから "ENABLED" に変更する。
 scraper_schedule_state = "ENABLED"
 scraper_schedules = {
-    therapists   = "cron(0 19 * * ? *)"   # JST 04:00 daily
-    availability = "cron(* * * * ? *)"    #  1分間隔
-    notify       = "cron(* * * * ? *)"    # 1分間隔（availability 直後）
+  therapists   = "cron(0 19 * * ? *)" # JST 04:00 daily
+  availability = "cron(* * * * ? *)"  #  1分間隔
+  notify       = "cron(* * * * ? *)"  # 1分間隔（availability 直後）
 }
 
 scraper_salons_pipeline_schedule = "cron(0 18 * * ? *)" # JST 03:00 daily

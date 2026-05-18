@@ -1,6 +1,6 @@
 import { createLogger } from './lib/logger.js';
 import { runTherapistsJob } from './jobs/therapists.js';
-import { runAvailabilityJob } from './jobs/availability.js';
+import { runAvailabilityJob, type AvailabilityMode } from './jobs/availability.js';
 import { runNotifyJob } from './jobs/notify.js';
 import {
   runExternalSalonsJob,
@@ -19,6 +19,7 @@ interface CliArgs {
   onlyUnsynced: boolean;
   salonsPhase: ExternalSalonsPhase;
   concurrency: number | null;
+  availabilityMode: AvailabilityMode;
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -92,6 +93,18 @@ function parseArgs(argv: string[]): CliArgs {
     concurrency = parsed;
   }
 
+  // --mode は --stage=availability 専用。指定なしなら従来挙動 (watch) を維持する。
+  // research は salons.research_enabled=true 配下のセラピストだけを回し、通知パスはスキップする。
+  const modeArg = argv.find((a) => a.startsWith('--mode='));
+  let availabilityMode: AvailabilityMode = 'watch';
+  if (modeArg) {
+    const v = modeArg.split('=', 2)[1];
+    if (v !== 'watch' && v !== 'research') {
+      throw new Error(`--mode must be one of: watch | research (got "${v}")`);
+    }
+    availabilityMode = v;
+  }
+
   return {
     stage: stageValue,
     loop,
@@ -100,6 +113,7 @@ function parseArgs(argv: string[]): CliArgs {
     onlyUnsynced,
     salonsPhase,
     concurrency,
+    availabilityMode,
   };
 }
 
@@ -130,9 +144,10 @@ async function main(): Promise<void> {
     case 'availability': {
       for (let i = 0; i < args.loop; i++) {
         if (args.loop > 1) {
-          log.info(`availability iteration ${i + 1}/${args.loop}`);
+          log.info(`availability iteration ${i + 1}/${args.loop} (mode=${args.availabilityMode})`);
         }
         await runAvailabilityJob({
+          mode: args.availabilityMode,
           concurrency: args.concurrency ?? undefined,
         });
         if (i < args.loop - 1) {

@@ -25,9 +25,9 @@ variable "scraper_schedules" {
   description = "ステージごとの cron 式（UTC）。空文字 / 未指定のステージは Schedule を作らない。salons は専用変数で別途指定する。"
   type        = map(string)
   default = {
-    therapists   = "cron(0 19 * * ? *)"   # JST 04:00 daily
-    availability = "cron(* * * * ? *)"    #  1 分間隔
-    notify       = "cron(* * * * ? *)"    # 1 分間隔（availability 直後）
+    therapists   = "cron(0 19 * * ? *)" # JST 04:00 daily
+    availability = "cron(* * * * ? *)"  #  1 分間隔
+    notify       = "cron(* * * * ? *)"  # 1 分間隔（availability 直後）
   }
 }
 

@@ -32,7 +32,18 @@ locals {
       # 旧設定 (256MB) では Max Memory Used が 253MB に達し OOM 寸前だった点も解消。
       # GB-秒換算でも所要時間が短くなれば課金は同等以下に収まる。
       memory_mb          = 1024
-      timeout_seconds    = 300
+      timeout_seconds    = 900
+      log_retention_days = 14
+    }
+    # availability_research: salons.research_enabled = true 配下のセラピストだけを
+    # 回す研究モード専用 Lambda。本流の availability とは別 Schedule・別関数で動かし、
+    # watch ユーザの 1 分通知ループを阻害しない設計。
+    # 実測 (caskan 133 人 / grow 137 人) で 1 ジョブ約 3〜6 分かかるため timeout は 900s。
+    # caskan は cheerio パースでメモリ ~450MB まで使う観測がある点も考慮し 1024MB に揃える。
+    availability_research = {
+      handler            = "availability_research.handler"
+      memory_mb          = 1024
+      timeout_seconds    = 900
       log_retention_days = 14
     }
     notify = {
