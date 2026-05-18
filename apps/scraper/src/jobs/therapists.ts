@@ -1,6 +1,7 @@
 import type { Salon, SiteName, TherapistRecord, TherapistScraper } from '@alimashita/shared';
 import { supabase } from '../lib/supabase.js';
 import { createLogger } from '../lib/logger.js';
+import { emitJobMetrics } from '../lib/metrics.js';
 import { isGonePageError } from '../lib/http.js';
 import { caskanTherapistScraper } from '../scrapers/caskan/therapists.js';
 import { growTherapistScraper } from '../scrapers/grow/therapists.js';
@@ -159,6 +160,7 @@ export interface RunTherapistsJobOptions {
 export async function runTherapistsJob(
   options: RunTherapistsJobOptions = {},
 ): Promise<void> {
+  const startedAt = Date.now();
   const onlyUnsynced = options.onlyUnsynced ?? false;
   const salons = await fetchSalons(onlyUnsynced);
   log.info(`Found ${salons.length} salons to sync`, { only_unsynced: onlyUnsynced });
@@ -211,4 +213,8 @@ export async function runTherapistsJob(
   }
 
   log.info(`Stage 2 complete`, { success, failure, softDeleted, total: salons.length });
+  emitJobMetrics('therapists', {
+    durationMs: Date.now() - startedAt,
+    recordsProcessed: success,
+  });
 }

@@ -6,6 +6,7 @@ import type {
 } from '@alimashita/shared';
 import { supabase } from '../lib/supabase.js';
 import { createLogger } from '../lib/logger.js';
+import { emitJobMetrics } from '../lib/metrics.js';
 import { env } from '../lib/env.js';
 import {
   diffHttpMetrics,
@@ -379,5 +380,9 @@ export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Pro
     concurrency,
     bySite: siteReport,
     http: formatHttpMetricsLine(httpDiff),
+  });
+  emitJobMetrics('availability', {
+    durationMs: jobElapsedMs,
+    recordsProcessed: notified,
   });
 }

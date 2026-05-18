@@ -1,4 +1,5 @@
 import { createLogger } from '../lib/logger.js';
+import { emitJobMetrics } from '../lib/metrics.js';
 import { env } from '../lib/env.js';
 import {
   dispatchEmailNotifications,
@@ -29,6 +30,7 @@ class NoopEmailSender implements EmailSender {
 }
 
 export async function runNotifyJob(opts: NotifyJobOptions = {}): Promise<void> {
+  const startedAt = Date.now();
   const dryRun = opts.dryRun ?? false;
   const usersPerRun = opts.usersPerRun ?? env.NOTIFY_USERS_PER_RUN;
 
@@ -52,5 +54,9 @@ export async function runNotifyJob(opts: NotifyJobOptions = {}): Promise<void> {
     skipped_users: result.skippedUsers,
     succeeded_rows: result.succeededRows,
     failed_rows: result.failedRows,
+  });
+  emitJobMetrics('notify', {
+    durationMs: Date.now() - startedAt,
+    recordsProcessed: result.succeededRows,
   });
 }

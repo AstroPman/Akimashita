@@ -7,6 +7,7 @@ import type {
 import { supabase } from '../lib/supabase.js';
 import { env } from '../lib/env.js';
 import { createLogger } from '../lib/logger.js';
+import { emitJobMetrics } from '../lib/metrics.js';
 import { fetchAreaList } from '../scrapers/menesthe/area_list.js';
 import { fetchAreaSalons } from '../scrapers/menesthe/area_salons.js';
 import { fetchSalonDetail } from '../scrapers/menesthe/salon_detail.js';
@@ -55,24 +56,30 @@ interface DbExternalSalon {
 export async function runExternalSalonsJob(
   options: RunExternalSalonsJobOptions = {},
 ): Promise<void> {
+  const startedAt = Date.now();
   const phase = options.phase ?? 'all';
   const limit = options.limit ?? 200;
   const staleAfterDays = options.staleAfterDays ?? 30;
   const budgetMs = options.budgetMs ?? 13 * 60 * 1000;
-  const deadlineAt = Date.now() + budgetMs;
+  const deadlineAt = startedAt + budgetMs;
   const overBudget = () => Date.now() > deadlineAt;
 
   log.info('Starting external_salons job', { phase, limit, stale_after_days: staleAfterDays });
 
+  // 各 phase の成果件数（recordsProcessed）を合算する。phase 単独実行のときは
+  // 対応する phase 分のみが加算されるので、Lambda 1 呼び出し = 1 phase の場合は
+  // その phase の成果件数がそのまま CloudWatch メトリクスに記録される。
+  let recordsProcessed = 0;
+
   if (phase === 'areas' || phase === 'all') {
-    await syncAreas();
+    recordsProcessed += await syncAreas();
   }
 
   if (phase === 'discover' || phase === 'all') {
     if (overBudget()) {
       log.warn('Budget exhausted before discover phase, skipping');
     } else {
-      await discoverSalonsByArea({ deadlineAt });
+      recordsProcessed += await discoverSalonsByArea({ deadlineAt });
     }
   }
 
@@ -80,7 +87,7 @@ export async function runExternalSalonsJob(
     if (overBudget()) {
       log.warn('Budget exhausted before details phase, skipping');
     } else {
-      await syncSalonDetails({ limit, staleAfterDays, deadlineAt });
+      recordsProcessed += await syncSalonDetails({ limit, staleAfterDays, deadlineAt });
     }
   }
 
@@ -88,7 +95,7 @@ export async function runExternalSalonsJob(
     if (overBudget()) {
       log.warn('Budget exhausted before bookings phase, skipping');
     } else {
-      await resolveBookings({ limit, staleAfterDays, deadlineAt });
+      recordsProcessed += await resolveBookings({ limit, staleAfterDays, deadlineAt });
     }
   }
 
@@ -96,7 +103,7 @@ export async function runExternalSalonsJob(
     if (overBudget()) {
       log.warn('Budget exhausted before therapists phase, skipping');
     } else {
-      await syncExternalTherapists({ limit, staleAfterDays, deadlineAt });
+      recordsProcessed += await syncExternalTherapists({ limit, staleAfterDays, deadlineAt });
     }
   }
 
@@ -104,11 +111,15 @@ export async function runExternalSalonsJob(
     if (overBudget()) {
       log.warn('Budget exhausted before link phase, skipping');
     } else {
-      await linkSalonsToExternal();
+      recordsProcessed += await linkSalonsToExternal();
     }
   }
 
   log.info('Finished external_salons job');
+  emitJobMetrics('salons', {
+    durationMs: Date.now() - startedAt,
+    recordsProcessed,
+  });
 }
 
 
@@ -116,11 +127,11 @@ export async function runExternalSalonsJob(
 // Phase 1: areas
 // ============================================================
 
-async function syncAreas(): Promise<void> {
+async function syncAreas(): Promise<number> {
   const areas = await fetchAreaList();
   if (areas.length === 0) {
     log.warn('No areas parsed');
-    return;
+    return 0;
   }
 
   const rows = areas.map((a) => ({
@@ -139,6 +150,7 @@ async function syncAreas(): Promise<void> {
     throw new Error(`Failed to upsert external_areas: ${error.message}`);
   }
   log.info(`Upserted ${rows.length} external_areas`);
+  return rows.length;
 }
 
 
@@ -146,7 +158,7 @@ async function syncAreas(): Promise<void> {
 // Phase 2: discover (エリア一覧から shell record を作る)
 // ============================================================
 
-async function discoverSalonsByArea(ctx: { deadlineAt: number }): Promise<void> {
+async function discoverSalonsByArea(ctx: { deadlineAt: number }): Promise<number> {
   const areas = await fetchAllExternalAreas();
   log.info(`Discovering salons across ${areas.length} areas`);
 
@@ -174,6 +186,7 @@ async function discoverSalonsByArea(ctx: { deadlineAt: number }): Promise<void> 
     }
   }
   log.info('Discover phase done', { total_seen: totalSeen, total_new_or_updated: totalNew });
+  return totalNew;
 }
 
 async function fetchAllExternalAreas(): Promise<DbExternalArea[]> {
@@ -215,7 +228,7 @@ async function syncSalonDetails(ctx: {
   limit: number;
   staleAfterDays: number;
   deadlineAt: number;
-}): Promise<void> {
+}): Promise<number> {
   const candidates = await fetchSalonsForDetailRefresh(ctx.limit, ctx.staleAfterDays);
   log.info(`Detail refresh: ${candidates.length} salons`);
 
@@ -255,6 +268,7 @@ async function syncSalonDetails(ctx: {
     }
   }
   log.info('Details phase done', { success, failure, missing, closed });
+  return success;
 }
 
 async function fetchSalonsForDetailRefresh(limit: number, staleAfterDays: number): Promise<DbExternalSalon[]> {
@@ -400,7 +414,7 @@ async function resolveBookings(ctx: {
   limit: number;
   staleAfterDays: number;
   deadlineAt: number;
-}): Promise<void> {
+}): Promise<number> {
   const targets = await fetchSalonsForBookingRefresh(ctx.limit, ctx.staleAfterDays);
   log.info(`Booking resolve: ${targets.length} salons`);
 
@@ -444,6 +458,7 @@ async function resolveBookings(ctx: {
     soft_deleted: counters.softDeleted,
     concurrency: workerCount,
   });
+  return counters.success;
 }
 
 async function processBookingTarget(
@@ -579,7 +594,7 @@ async function syncExternalTherapists(ctx: {
   limit: number;
   staleAfterDays: number;
   deadlineAt: number;
-}): Promise<void> {
+}): Promise<number> {
   const targets = await fetchSalonsForTherapistsRefresh(ctx.limit, ctx.staleAfterDays);
   log.info(`Therapist sync: ${targets.length} salons`);
 
@@ -625,6 +640,7 @@ async function syncExternalTherapists(ctx: {
     upserted: counters.upserted,
     soft_deleted: counters.softDeleted,
   });
+  return counters.upserted;
 }
 
 async function fetchSalonsForTherapistsRefresh(
@@ -751,7 +767,7 @@ async function markTherapistsSynced(externalSalonId: string): Promise<void> {
 // Phase 5: link (salons.external_salon_id を埋める)
 // ============================================================
 
-async function linkSalonsToExternal(): Promise<void> {
+async function linkSalonsToExternal(): Promise<number> {
   // 実体は SQL 関数 (link_salons_to_external) に集約してある。
   // service_role からのみ実行可能で、(sites.name, salons.shop_id) と
   // external_salon_bookings の組み合わせから新規リンクを張る。
@@ -776,4 +792,5 @@ async function linkSalonsToExternal(): Promise<void> {
     newly_linked_salons: linkedSalons,
     newly_linked_therapists: linkedTherapists,
   });
+  return linkedSalons + linkedTherapists;
 }
