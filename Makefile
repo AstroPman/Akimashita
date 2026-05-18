@@ -62,7 +62,7 @@ AWS_VAR_IMAGE_TAG  := -var=scraper_image_tag=$(SCRAPER_IMAGE_TAG)
 # 揃える。ECR リポジトリは "-scraper" 付きで非対称なので注意。
 SCRAPER_LAMBDA_ALIAS  := live
 SCRAPER_LAMBDA_PREFIX := akimashita-$(ENV)
-SCRAPER_LAMBDA_STAGES := salons therapists availability notify
+SCRAPER_LAMBDA_STAGES := salons therapists availability availability_research notify
 
 # .PHONY -------------------------------------------------------------------
 .PHONY: help \

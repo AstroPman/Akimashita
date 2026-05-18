@@ -20,7 +20,7 @@ import { estamaAvailabilityScraper } from '../scrapers/estama/availability.js';
 
 const log = createLogger('job:availability');
 
-interface WatchTargetRow {
+interface TargetTherapistRow {
   id: string;
   therapist_id: string;
   name: string;
@@ -33,6 +33,17 @@ interface WatchTargetRow {
     sites: { name: SiteName } | { name: SiteName }[] | null;
   }[] | null;
 }
+
+/**
+ * Stage 3 のスクレイピング対象セラピスト。
+ *
+ * - `is_watched=true`: 少なくとも 1 件の有効な watch_settings を持つ。
+ *   差分通知パスに乗り、`first_availability_synced_at` の初期化も必要。
+ * - `is_watched=false`: watch_settings は無く、salons.research_enabled=true 由来で
+ *   人気指標計測のためだけにスクレイピングする「研究対象」セラピスト。
+ *   enqueue_notifications() は watch_settings JOIN なので自動的に通知パスに乗らない。
+ */
+type TargetTherapist = Therapist & { is_watched: boolean };
 
 function pickScraper(siteName: SiteName): AvailabilityScraper {
   switch (siteName) {
@@ -53,8 +64,23 @@ function unwrapNested<T>(value: T | T[] | null): T | null {
   return value;
 }
 
-async function fetchWatchedTherapists(): Promise<Therapist[]> {
-  // watch_settings に登録されているセラピストのみ重複排除して取得する。
+function toTherapist(row: TargetTherapistRow): Therapist | null {
+  const salon = unwrapNested(row.salons);
+  if (!salon) return null;
+  const site = unwrapNested(salon.sites);
+  if (!site) return null;
+  return {
+    id: row.id,
+    salon_id: row.salon_id,
+    salon_shop_id: salon.shop_id,
+    site_name: site.name,
+    therapist_id: row.therapist_id,
+    name: row.name,
+  };
+}
+
+async function fetchWatchedTherapistRows(): Promise<TargetTherapistRow[]> {
+  // watch_settings に登録されているセラピスト。
   // 親 salon が論理削除されているケース (Stage 2 で 404/410 検出など) は
   // セラピスト側の deleted_at 反映が遅れる前に取りこぼさないよう、ここでも除外する。
   const { data, error } = await supabase
@@ -73,30 +99,81 @@ async function fetchWatchedTherapists(): Promise<Therapist[]> {
   if (error) {
     throw new Error(`Failed to fetch watched therapists: ${error.message}`);
   }
+  return (data ?? []) as unknown as TargetTherapistRow[];
+}
 
-  const seen = new Set<string>();
-  const therapists: Therapist[] = [];
+async function fetchResearchTherapistRows(): Promise<TargetTherapistRow[]> {
+  // salons.research_enabled = true なサロン配下のセラピスト全員。
+  // watch_settings の有無に関わらず取得する (重複排除は呼び出し側で行う)。
+  const { data, error } = await supabase
+    .from('therapists')
+    .select(
+      'id, therapist_id, name, salon_id, ' +
+        'salons!inner(shop_id, deleted_at, research_enabled, sites!inner(name))',
+    )
+    .is('deleted_at', null)
+    .is('salons.deleted_at', null)
+    .eq('salons.research_enabled', true)
+    .order('last_synced_at', { ascending: true, nullsFirst: true });
 
-  for (const row of (data ?? []) as unknown as WatchTargetRow[]) {
-    if (seen.has(row.id)) continue;
-    seen.add(row.id);
+  if (error) {
+    throw new Error(`Failed to fetch research therapists: ${error.message}`);
+  }
+  return (data ?? []) as unknown as TargetTherapistRow[];
+}
 
-    const salon = unwrapNested(row.salons);
-    if (!salon) continue;
-    const site = unwrapNested(salon.sites);
-    if (!site) continue;
+/**
+ * Stage 3 の実行モード。
+ *
+ * - `watch` (default): `watch_settings` 配下のセラピストのみを対象にする。
+ *   通知パス (`enqueue_notifications`) も走らせる、本流の運用モード。
+ *
+ * - `research`: `salons.research_enabled = true` 配下のセラピストのみを対象にする。
+ *   人気指標計測 / 検証用。watch_settings には依存しないため通知パスはスキップする。
+ *   1 ジョブの所要時間が長くなりやすく watch 側のリアルタイム性を阻害するため、
+ *   別 Lambda・別 Schedule で動かす前提。
+ */
+export type AvailabilityMode = 'watch' | 'research';
 
-    therapists.push({
-      id: row.id,
-      salon_id: row.salon_id,
-      salon_shop_id: salon.shop_id,
-      site_name: site.name,
-      therapist_id: row.therapist_id,
-      name: row.name,
-    });
+async function fetchTargetTherapists(mode: AvailabilityMode): Promise<{
+  therapists: TargetTherapist[];
+  watchedCount: number;
+  researchOnlyCount: number;
+}> {
+  if (mode === 'watch') {
+    const rows = await fetchWatchedTherapistRows();
+    const byId = new Map<string, TargetTherapist>();
+    for (const row of rows) {
+      if (byId.has(row.id)) continue;
+      const t = toTherapist(row);
+      if (!t) continue;
+      byId.set(row.id, { ...t, is_watched: true });
+    }
+    return {
+      therapists: Array.from(byId.values()),
+      watchedCount: byId.size,
+      researchOnlyCount: 0,
+    };
   }
 
-  return therapists;
+  // mode === 'research'
+  // research モードでは watch_settings の有無を問わず、research_enabled なサロン配下を全件回す。
+  // 通知パスを走らせない方針なので、watch_settings 行があるセラピストでも
+  // ここでは is_watched=false として扱い、`markFirstAvailabilitySyncedIfNeeded` も呼ばない。
+  // 同一セラピストの watch 側通知は本流の availability Lambda が別途処理する。
+  const rows = await fetchResearchTherapistRows();
+  const byId = new Map<string, TargetTherapist>();
+  for (const row of rows) {
+    if (byId.has(row.id)) continue;
+    const t = toTherapist(row);
+    if (!t) continue;
+    byId.set(row.id, { ...t, is_watched: false });
+  }
+  return {
+    therapists: Array.from(byId.values()),
+    watchedCount: 0,
+    researchOnlyCount: byId.size,
+  };
 }
 
 async function upsertAvailability(
@@ -181,10 +258,19 @@ export interface RunAvailabilityOptions {
    * 単一サイトへの負荷は守られる (= サイト数×ホスト並列度 が実効上限)。
    */
   concurrency?: number;
+
+  /**
+   * 実行モード。省略時は `watch` (本流)。
+   * `research` は salons.research_enabled = true 配下のセラピストのみを回し、
+   * 通知パスは走らせない。詳細は AvailabilityMode のコメントを参照。
+   */
+  mode?: AvailabilityMode;
 }
 
 type SiteSummary = {
   therapists: number;
+  watched: number;
+  research: number;
   success: number;
   failure: number;
   slots: number;
@@ -237,16 +323,24 @@ function formatHttpMetricsLine(
 }
 
 export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Promise<void> {
+  const mode: AvailabilityMode = opts.mode ?? 'watch';
   const concurrency = Math.max(1, opts.concurrency ?? env.AVAILABILITY_CONCURRENCY);
-  const therapists = await fetchWatchedTherapists();
+  const { therapists, watchedCount, researchOnlyCount } = await fetchTargetTherapists(mode);
 
   // サイト別の事前カウントは負荷見積もりに便利なので最初にログる。
-  const bySite: Record<string, number> = {};
+  // research 由来の分は研究目的サロンの検証にも使うため別カウントしておく。
+  const bySite: Record<string, { total: number; watched: number; research: number }> = {};
   for (const t of therapists) {
-    bySite[t.site_name] = (bySite[t.site_name] ?? 0) + 1;
+    const s = (bySite[t.site_name] ??= { total: 0, watched: 0, research: 0 });
+    s.total += 1;
+    if (t.is_watched) s.watched += 1;
+    else s.research += 1;
   }
-  log.info(`Found ${therapists.length} watched therapist(s)`, {
+  log.info(`Found ${therapists.length} target therapist(s)`, {
+    mode,
     concurrency,
+    watched: watchedCount,
+    researchOnly: researchOnlyCount,
     bySite,
   });
 
@@ -257,10 +351,21 @@ export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Pro
   function bumpSite(site: string, patch: Partial<SiteSummary>): void {
     let s = siteSummary.get(site);
     if (!s) {
-      s = { therapists: 0, success: 0, failure: 0, slots: 0, elapsedMs: 0, maxElapsedMs: 0 };
+      s = {
+        therapists: 0,
+        watched: 0,
+        research: 0,
+        success: 0,
+        failure: 0,
+        slots: 0,
+        elapsedMs: 0,
+        maxElapsedMs: 0,
+      };
       siteSummary.set(site, s);
     }
     if (patch.therapists !== undefined) s.therapists += patch.therapists;
+    if (patch.watched !== undefined) s.watched += patch.watched;
+    if (patch.research !== undefined) s.research += patch.research;
     if (patch.success !== undefined) s.success += patch.success;
     if (patch.failure !== undefined) s.failure += patch.failure;
     if (patch.slots !== undefined) s.slots += patch.slots;
@@ -278,14 +383,22 @@ export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Pro
   await runWithConcurrency(therapists, concurrency, async (therapist) => {
     const scraper = pickScraper(therapist.site_name);
     const startedAt = Date.now();
-    bumpSite(therapist.site_name, { therapists: 1 });
+    bumpSite(therapist.site_name, {
+      therapists: 1,
+      watched: therapist.is_watched ? 1 : 0,
+      research: therapist.is_watched ? 0 : 1,
+    });
     try {
       const records = await scraper.run(therapist);
       if (records.length > 0) {
         await upsertAvailability(therapist, records);
       }
-      // 0 件でも初回同期済みにする（初回だけ枠ゼロのときに永久に Path B が解禁されないように）
-      await markFirstAvailabilitySyncedIfNeeded(therapist.id);
+      // 0 件でも初回同期済みにする（初回だけ枠ゼロのときに永久に Path B が解禁されないように）。
+      // research 由来 (is_watched=false) のセラピストは watch_settings 行を持たない可能性が高く、
+      // 通知パスにも乗らないので更新不要。
+      if (therapist.is_watched) {
+        await markFirstAvailabilitySyncedIfNeeded(therapist.id);
+      }
       await markTherapistSynced(therapist.id);
       const elapsed = Date.now() - startedAt;
       success += 1;
@@ -341,6 +454,8 @@ export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Pro
   // サイト別の集計をログに出す。avgMs はセラピスト単位の平均同期時間 (HTTP + DB込み)。
   const siteReport: Record<string, {
     therapists: number;
+    watched: number;
+    research: number;
     success: number;
     failure: number;
     slots: number;
@@ -350,6 +465,8 @@ export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Pro
   for (const [site, s] of siteSummary.entries()) {
     siteReport[site] = {
       therapists: s.therapists,
+      watched: s.watched,
+      research: s.research,
       success: s.success,
       failure: s.failure,
       slots: s.slots,
@@ -358,8 +475,11 @@ export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Pro
     };
   }
 
+  // research モードは watch_settings に依存しないため、通知 enqueue を呼ぶ意味がない。
+  // (enqueue_notifications は watch_settings を inner join しており research 由来は元々ヒットしないが、
+  //  無駄な RPC を打つことになるので明示的にスキップする。)
   let notified = 0;
-  if (success > 0) {
+  if (mode === 'watch' && success > 0) {
     try {
       notified = await enqueueNotifications();
     } catch (err) {
@@ -370,7 +490,10 @@ export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Pro
   }
 
   log.info('Stage 3 complete', {
+    mode,
     therapists: therapists.length,
+    watched: watchedCount,
+    researchOnly: researchOnlyCount,
     success,
     failure,
     softDeleted,
@@ -381,8 +504,14 @@ export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Pro
     bySite: siteReport,
     http: formatHttpMetricsLine(httpDiff),
   });
-  emitJobMetrics('availability', {
+  // CloudWatch metric の job 軸をモードごとに分け、ダッシュボードで watch / research の
+  // duration や対象件数を別系列として可視化できるようにする。
+  // recordsProcessed は watch では通知件数、research では同期した枠の総数を使う
+  // (research は通知 0 が正常なため、別の意味のあるカウンタを採用する)。
+  const metricsJob: 'availability' | 'availability_research' =
+    mode === 'research' ? 'availability_research' : 'availability';
+  emitJobMetrics(metricsJob, {
     durationMs: jobElapsedMs,
-    recordsProcessed: notified,
+    recordsProcessed: mode === 'research' ? totalSlots : notified,
   });
 }

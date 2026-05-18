@@ -21,17 +21,23 @@ const NAMESPACE = 'Akimashita/Scraper';
 // 混入させないようにする。
 const ENVIRONMENT = process.env.SCRAPER_ENVIRONMENT ?? 'local';
 
-export type StageName = 'salons' | 'therapists' | 'availability' | 'notify';
+export type StageName =
+  | 'salons'
+  | 'therapists'
+  | 'availability'
+  | 'availability_research'
+  | 'notify';
 
 export interface JobMetrics {
   /** ジョブ全体の所要時間 (ms)。呼び出し側で `Date.now()` の差分を計測する。 */
   durationMs: number;
   /**
    * 処理した件数。Stage 毎に意味づけが変わる。
-   *  - salons:       phase ごとの成果件数（discover=新規/更新, details=success, bookings=success, therapists=upserted, link=salons+therapists）
-   *  - therapists:   同期できたサロン数
-   *  - availability: 通知エンキュー件数（notification_logs に積まれた行数）
-   *  - notify:       実際に送信できた notification_logs 行数
+   *  - salons:                phase ごとの成果件数（discover=新規/更新, details=success, bookings=success, therapists=upserted, link=salons+therapists）
+   *  - therapists:            同期できたサロン数
+   *  - availability:          通知エンキュー件数（notification_logs に積まれた行数）
+   *  - availability_research: research_enabled サロン配下で同期した枠の総数
+   *  - notify:                実際に送信できた notification_logs 行数
    */
   recordsProcessed: number;
 }

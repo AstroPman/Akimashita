@@ -909,6 +909,12 @@ insert into salons (site_id, shop_id, name, url) values
     'https://r.caskan.jp/zerospa'
   ),
   (
+    '00000000-0000-0000-0000-000000000001',
+    'gyokurou',
+    '玉楼 (ぎょくろう)',
+    'https://r.caskan.jp/gyokurou'
+  ),
+  (
     '00000000-0000-0000-0000-000000000002',
     '01K6C65RPBJXKTQ2Y45QWCWVTT',
     'モンロー',
