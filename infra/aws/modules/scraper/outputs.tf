@@ -58,6 +58,24 @@ output "alerts_topic_arn" {
   value       = aws_sns_topic.alerts.arn
 }
 
+output "dashboard_name" {
+  description = "CloudWatch Dashboard 名（enable_dashboard = false の場合は null）"
+  value       = try(aws_cloudwatch_dashboard.scraper[0].dashboard_name, null)
+}
+
+output "dashboard_url" {
+  description = "CloudWatch Dashboard のコンソール URL（enable_dashboard = false の場合は null）"
+  value = try(
+    format(
+      "https://%s.console.aws.amazon.com/cloudwatch/home?region=%s#dashboards:name=%s",
+      data.aws_region.current.region,
+      data.aws_region.current.region,
+      aws_cloudwatch_dashboard.scraper[0].dashboard_name,
+    ),
+    null,
+  )
+}
+
 output "ssm_parameter_names" {
   description = "手動投入が必要な SSM Parameter 名（aws ssm put-parameter --overwrite で値を入れる）"
   value = {

@@ -43,6 +43,12 @@ resource "aws_lambda_function" "stage" {
       EMAIL_FROM   = var.email_from
       APP_BASE_URL = var.app_base_url
 
+      # 環境識別子。lib/metrics.ts (EMF) が CloudWatch dimension に焼き込み、
+      # ダッシュボード Row 4 (Akimashita/Scraper namespace) で
+      # production / staging を区別するために使う。
+      # name_prefix が "akimashita-<env>" 形式である前提でパースして取り出す。
+      SCRAPER_ENVIRONMENT = split("-", var.name_prefix)[1]
+
       # 秘密値（SSM SecureString を data source で復号取得して直接注入）
       SUPABASE_SERVICE_ROLE_KEY = data.aws_ssm_parameter.supabase_service_role_key.value
       RESEND_API_KEY            = data.aws_ssm_parameter.resend_api_key.value

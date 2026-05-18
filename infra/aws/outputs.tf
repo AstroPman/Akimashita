@@ -68,3 +68,8 @@ output "scraper_ssm_parameter_names" {
   description = "手動投入が必要な SSM Parameter 名"
   value       = module.scraper.ssm_parameter_names
 }
+
+output "scraper_dashboard_url" {
+  description = "スクレイパー用 CloudWatch Dashboard の URL（無効化時は null）"
+  value       = module.scraper.dashboard_url
+}

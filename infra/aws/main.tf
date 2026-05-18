@@ -29,4 +29,8 @@ module "scraper" {
   app_base_url = var.app_base_url
 
   alert_emails = var.alert_emails
+
+  # CloudWatch Dashboard を環境ごとに 1 枚作る (Always Free 3 枚以内)。
+  # ダッシュボード URL は scraper_dashboard_url output から確認できる。
+  enable_dashboard = true
 }

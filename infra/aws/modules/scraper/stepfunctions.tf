@@ -1,9 +1,9 @@
 # ============================================================================
 # Step Functions: salons-pipeline
 #
-# salons ステージのサブフェーズ (discover → details → bookings → link) を
-# 直列に実行するためのワークフロー。Lambda 1 本 (salons.handler) を
-# Payload.phase 違いで 4 回呼ぶだけのシンプルな構成。
+# salons ステージのサブフェーズ (discover → details → bookings → therapists → link)
+# を直列に実行するためのワークフロー。Lambda 1 本 (salons.handler) を
+# Payload.phase 違いで 5 回呼ぶだけのシンプルな構成。
 #
 # areas は別系統 (月 1 回・単独 Schedule から Lambda 直接呼び出し) で
 # 動かすため、このパイプラインには含めない。
@@ -24,7 +24,7 @@ locals {
     BackoffRate     = 2.0
   }]
 
-  salons_pipeline_phases = ["discover", "details", "bookings", "link"]
+  salons_pipeline_phases = ["discover", "details", "bookings", "therapists", "link"]
 }
 
 # ----------------------------------------------------------------------------
@@ -99,7 +99,7 @@ resource "aws_sfn_state_machine" "salons_pipeline" {
   role_arn = aws_iam_role.sfn_salons_pipeline.arn
 
   definition = jsonencode({
-    Comment = "Run salons sub-phases (discover -> details -> bookings -> link) in series."
+    Comment = "Run salons sub-phases (discover -> details -> bookings -> therapists -> link) in series."
     StartAt = "discover"
     States = {
       discover = {
@@ -130,6 +130,17 @@ resource "aws_sfn_state_machine" "salons_pipeline" {
         Parameters = {
           FunctionName = local.salons_lambda_arn
           Payload      = { phase = "bookings" }
+        }
+        Retry      = local.salons_pipeline_retry
+        ResultPath = null
+        Next       = "therapists"
+      }
+      therapists = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          FunctionName = local.salons_lambda_arn
+          Payload      = { phase = "therapists" }
         }
         Retry      = local.salons_pipeline_retry
         ResultPath = null

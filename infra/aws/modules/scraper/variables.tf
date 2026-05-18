@@ -85,3 +85,11 @@ variable "alert_emails" {
   type        = list(string)
   default     = []
 }
+
+# === ダッシュボード =========================================================
+
+variable "enable_dashboard" {
+  description = "CloudWatch Dashboard (<name_prefix>-scraper) を作成するかどうか。Always Free 3 枚以内なら追加課金なし。"
+  type        = bool
+  default     = true
+}
