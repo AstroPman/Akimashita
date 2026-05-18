@@ -195,86 +195,102 @@ export default async function SalonDetailPage({ params }: PageProps) {
                 セラピスト情報を準備中です。しばらくしてから再度ご確認ください。
               </p>
             ) : (
-              <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <ul className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
                 {therapists.map((t) => (
                   <li
                     key={t.id}
-                    className="flex flex-col overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm"
+                    className="group relative aspect-[3/4] overflow-hidden rounded-xl border bg-muted text-white shadow-sm"
                   >
                     <Link
                       href={`/salons/${id}/therapists/${t.id}`}
-                      className="group flex flex-1 flex-col outline-none transition-colors hover:bg-accent/30 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      aria-label={`${t.displayName} の詳細を見る`}
+                      className="absolute inset-0 z-0 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
-                      <div className="relative aspect-[3/4] w-full overflow-hidden bg-muted">
-                        {t.primaryImageUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element -- 外部ホスト由来で next/image の許可リストに載せない
-                          <img
-                            src={t.primaryImageUrl}
-                            alt=""
-                            className="size-full object-cover transition-transform group-hover:scale-[1.02]"
-                            loading="lazy"
-                            decoding="async"
-                            referrerPolicy="no-referrer"
+                      {t.primaryImageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- 外部ホスト由来で next/image の許可リストに載せない
+                        <img
+                          src={t.primaryImageUrl}
+                          alt=""
+                          className="size-full object-cover transition-transform group-hover:scale-[1.03]"
+                          loading="lazy"
+                          decoding="async"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div
+                          className="flex size-full items-center justify-center bg-muted text-muted-foreground"
+                          aria-hidden
+                        >
+                          <UserRoundIcon
+                            className="size-16"
+                            strokeWidth={1.25}
                           />
-                        ) : (
-                          <div
-                            className="flex size-full items-center justify-center text-muted-foreground"
-                            aria-hidden
-                          >
-                            <UserRoundIcon
-                              className="size-16"
-                              strokeWidth={1.25}
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex flex-1 flex-col gap-2 p-4">
-                        <div>
-                          <h3 className="text-base font-semibold leading-tight group-hover:underline">
-                            {t.displayName}
-                          </h3>
-                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-                            {t.height ? <span>T{t.height}</span> : null}
-                            {t.cup ? <span>{t.cup}カップ</span> : null}
-                            {t.styleRaw && !t.height && !t.cup ? (
-                              <span>{t.styleRaw}</span>
-                            ) : null}
-                          </div>
                         </div>
-
-                        {t.comment ? (
-                          <p className="line-clamp-3 text-xs text-muted-foreground">
-                            {t.comment}
-                          </p>
-                        ) : null}
-                      </div>
+                      )}
                     </Link>
 
-                    <div className="flex flex-wrap items-center gap-2 border-t border-border/60 px-4 py-3">
-                      <Button asChild size="sm" className="gap-1.5">
+                    <div className="absolute right-2 top-2 z-20 flex items-center gap-1.5">
+                      {t.externalProfileUrl ? (
+                        <Button
+                          asChild
+                          size="icon-sm"
+                          variant="secondary"
+                          className="rounded-full bg-black/55 text-white shadow-sm backdrop-blur-sm hover:bg-black/70 hover:text-white"
+                        >
+                          <a
+                            href={t.externalProfileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`${t.displayName} の公式プロフィール`}
+                          >
+                            <ExternalLinkIcon className="size-3.5" />
+                          </a>
+                        </Button>
+                      ) : null}
+                      <Button
+                        asChild
+                        size="icon-sm"
+                        className="rounded-full shadow-md sm:hidden"
+                      >
+                        <Link
+                          href={`/watches/new?therapist_id=${encodeURIComponent(
+                            t.id,
+                          )}`}
+                          aria-label={`${t.displayName} を空き通知に追加`}
+                        >
+                          <BellPlusIcon className="size-3.5" />
+                        </Link>
+                      </Button>
+                    </div>
+
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col gap-2 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-3 pt-10">
+                      <div className="[text-shadow:0_1px_2px_rgb(0_0_0/0.6)]">
+                        <h3 className="line-clamp-1 text-sm font-semibold leading-tight sm:text-base">
+                          {t.displayName}
+                        </h3>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-white/90 sm:text-xs">
+                          {t.height ? <span>T{t.height}</span> : null}
+                          {t.cup ? <span>{t.cup}カップ</span> : null}
+                          {t.styleRaw && !t.height && !t.cup ? (
+                            <span className="line-clamp-1">{t.styleRaw}</span>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <Button
+                        asChild
+                        size="sm"
+                        className="pointer-events-auto hidden h-8 w-full gap-1.5 px-2 text-xs sm:inline-flex"
+                      >
                         <Link
                           href={`/watches/new?therapist_id=${encodeURIComponent(
                             t.id,
                           )}`}
                         >
-                          <BellPlusIcon className="size-4" />
+                          <BellPlusIcon className="size-3.5" />
                           空き通知に追加
                         </Link>
                       </Button>
-                      {t.externalProfileUrl ? (
-                        <Button asChild size="sm" variant="ghost">
-                          <a
-                            href={t.externalProfileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="gap-1"
-                          >
-                            公式
-                            <ExternalLinkIcon className="size-3.5" />
-                          </a>
-                        </Button>
-                      ) : null}
                     </div>
                   </li>
                 ))}
