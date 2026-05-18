@@ -104,3 +104,33 @@ export interface ExternalSalonBooking {
   shop_id: string;
   booking_url: string;
 }
+
+/**
+ * 外部ポータルでのセラピスト1件分の情報。
+ *
+ * - source_id: ポータル側のセラピストID (例: men-esthe.jp の therapist.php?id=N の N)
+ * - salon_source_id: 親サロンの外部 source_id (= external_salons.source_id)
+ * - status: ポータル側の値 (1=在籍 / 2=退店)
+ * - image_urls: 全画像 (image1-6) の絶対 URL 配列。primary_image_url は image1 相当。
+ * - therapist_url: サロン公式 HP 上の cast 詳細ページ URL。
+ *   多くは予約システム URL ではないが、稀に直接 r.caskan.jp 等を指している場合があり
+ *   後段の link RPC の "A+ パス" で deterministic 紐付けに使う。
+ */
+export interface ExternalTherapistRecord {
+  source_id: string;
+  salon_source_id: string;
+  name: string;
+  display_name: string;
+  kana: string | null;
+  age: number | null;
+  height: number | null;
+  cup: string | null;
+  style_raw: string | null;
+  image_urls: string[];
+  primary_image_url: string | null;
+  therapist_url: string | null;
+  comment: string | null;
+  status: number;
+  source_updated_at: string | null;
+  source_url: string;
+}
