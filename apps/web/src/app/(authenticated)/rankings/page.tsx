@@ -59,7 +59,7 @@ export default async function RankingsPage() {
             瞬殺時間が短いセラピスト
           </h2>
           <p className="text-xs leading-5 text-muted-foreground sm:text-sm">
-            直近{RANKING_DEFAULTS.windowDays}日に「空きが出てから再び埋まるまで」の中央値が短い順 / 上位
+            直近{RANKING_DEFAULTS.windowDays}日に「空きが観測されてから埋まるまで」の中央値が短い順 / 上位
             {RANKING_DEFAULTS.limit}名（サンプル
             {RANKING_DEFAULTS.minSamples}件以上）。
           </p>
