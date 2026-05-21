@@ -20,7 +20,13 @@ locals {
   # ${var.name_prefix}-${each.key} に揃えてある)。ECR と異なり "-scraper" は
   # 入らない。staging / production を 1 ロールでカバーするため
   # 環境部分のみ wildcard にし、stage 名で絞り込む。
-  scraper_lambda_stages = ["salons", "therapists", "availability", "notify"]
+  #
+  # 注意: ステージを追加したら以下 3 箇所すべてを揃えること。
+  #   1. infra/aws/modules/scraper/main.tf の local.stages
+  #   2. Makefile の SCRAPER_LAMBDA_STAGES
+  #   3. ここ (このリスト)  ← 漏れると GitHub Actions の update-function-code が
+  #      AccessDenied になる
+  scraper_lambda_stages = ["salons", "therapists", "availability", "availability_research", "notify"]
 }
 
 data "aws_caller_identity" "current" {}
