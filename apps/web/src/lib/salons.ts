@@ -1,3 +1,4 @@
+import { createAnonClient } from "@/lib/supabase/anon";
 import { createClient } from "@/lib/supabase/server";
 
 export interface PublicSalon {
@@ -273,30 +274,63 @@ export async function getPublicTherapistStats(
   return (data as PublicTherapistStats | null) ?? null;
 }
 
+// ============================================================================
+// sitemap.xml 用ヘルパー
+//
+// sitemap は `cookies()` を使う `createClient()` を介してしまうと dynamic 化
+// されて ISR キャッシュが効かなくなる。下記の sitemap 専用関数は cookies に
+// 触らない `createAnonClient()` を使う。
+// ============================================================================
+
 /**
- * sitemap.xml 用に、公開対象のセラピスト全件 (id, salon_id, updated_at) を列挙する。
+ * sitemap.xml の分割数を決めるための公開セラピスト件数取得。
  *
- * Supabase の RLS では `therapists` 自体は anon select 可だが、退店済み
- * (`deleted_at is not null`) を除外するため `.is(...)` で明示的にフィルタする。
- * 件数は数万を想定 (現状 ~37k)。Supabase の row 上限を回避するためページング。
+ * `count: "exact", head: true` で行を引かずに件数だけ取得し、Supabase の
+ * 行上限を回避する。RLS では therapists の anon select 可だが、退店済み
+ * (`deleted_at is not null`) は外す。
  */
-export async function listPublicTherapistsForSitemap(): Promise<
-  { id: string; salonId: string; updatedAt: string | null }[]
-> {
-  const supabase = await createClient();
+export async function countPublicTherapists(): Promise<number> {
+  const supabase = createAnonClient();
+  const { count, error } = await supabase
+    .from("therapists")
+    .select("id", { count: "exact", head: true })
+    .is("deleted_at", null);
+
+  if (error) {
+    console.error("countPublicTherapists:", error.message);
+    return 0;
+  }
+  return count ?? 0;
+}
+
+/**
+ * sitemap.xml 分割用に、公開対象のセラピストを offset/limit でページ取得する。
+ *
+ * Supabase の単発 `.range()` には実質 1000 件のリミットがあるため、内部で
+ * 1000 件ずつループして `limit` まで埋める。1 サイトマップ 5000 件想定。
+ */
+export async function listPublicTherapistsForSitemapPage(
+  offset: number,
+  limit: number,
+): Promise<{ id: string; salonId: string; updatedAt: string | null }[]> {
+  const supabase = createAnonClient();
   const pageSize = 1000;
   const out: { id: string; salonId: string; updatedAt: string | null }[] = [];
 
-  for (let offset = 0; ; offset += pageSize) {
+  let cursor = offset;
+  const end = offset + limit;
+
+  while (cursor < end) {
+    const batchSize = Math.min(pageSize, end - cursor);
     const { data, error } = await supabase
       .from("therapists")
       .select("id, salon_id, updated_at")
       .is("deleted_at", null)
       .order("id", { ascending: true })
-      .range(offset, offset + pageSize - 1);
+      .range(cursor, cursor + batchSize - 1);
 
     if (error) {
-      console.error("listPublicTherapistsForSitemap:", error.message);
+      console.error("listPublicTherapistsForSitemapPage:", error.message);
       return out;
     }
 
@@ -305,6 +339,36 @@ export async function listPublicTherapistsForSitemap(): Promise<
     for (const r of rows) {
       out.push({ id: r.id, salonId: r.salon_id, updatedAt: r.updated_at });
     }
+    if (rows.length < batchSize) break;
+    cursor += rows.length;
+  }
+  return out;
+}
+
+/**
+ * sitemap.xml 用に、公開サロン id を全件列挙する（cookies 不使用）。
+ *
+ * sitemap で使う情報は id だけなので、`get_public_salons` RPC の戻り値から
+ * id のみを抜き出す軽量版。
+ */
+export async function getPublicSalonsForSitemap(): Promise<{ id: string }[]> {
+  const supabase = createAnonClient();
+  const pageSize = 1000;
+  const out: { id: string }[] = [];
+
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .rpc("get_public_salons")
+      .range(offset, offset + pageSize - 1);
+
+    if (error) {
+      console.error("getPublicSalonsForSitemap (rpc):", error.message);
+      return out;
+    }
+
+    type Row = { id: string };
+    const rows = (data ?? []) as Row[];
+    for (const r of rows) out.push({ id: r.id });
     if (rows.length < pageSize) break;
   }
   return out;

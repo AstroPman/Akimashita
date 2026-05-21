@@ -12,6 +12,8 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/watches", "/account", "/auth", "/api", "/checkout"],
       },
     ],
-    sitemap: `${base}/sitemap.xml`,
+    // Next.js の generateSitemaps は sitemap index (/sitemap.xml) を自動生成しない
+    // 仕様 (vercel/next.js#77304)。代わりに自前の `/sitemap-index.xml` を提供している。
+    sitemap: `${base}/sitemap-index.xml`,
   };
 }
