@@ -4,9 +4,20 @@ import { HowItWorks } from "@/components/landing/how-it-works";
 import { Faq } from "@/components/landing/faq";
 import { SiteFooter } from "@/components/landing/site-footer";
 import { PrimaryCta, SecondaryCta } from "@/components/landing/cta";
+import { ScaleStats } from "@/components/landing/scale-stats";
 import { SiteHeader } from "@/components/site-header";
+import { getPublicSalons } from "@/lib/salons";
 
-export default function Home() {
+export default async function Home() {
+  // 対応規模セクション用に「公開サロン数」「在籍セラピスト合計」を SSR で算出。
+  // 取得に失敗した場合は内部で空配列が返るため、ゼロのときはセクションが
+  // 非表示になる (ScaleStats 側でガード)。
+  const salons = await getPublicSalons();
+  const salonCount = salons.length;
+  const therapistCount = salons.reduce(
+    (acc, s) => acc + (s.therapistCount ?? 0),
+    0,
+  );
   return (
     <div className="flex flex-col flex-1">
       <SiteHeader logoPriority bordered={false} />
@@ -43,19 +54,27 @@ export default function Home() {
                 空き枠を、誰よりも早く。
               </h1>
               <p className="mt-5 max-w-2xl text-sm leading-7 text-neutral-700 sm:text-base">
-                指定したセラピストの予約状況を定期的にチェックし、
+                予約サイトを 1 分間隔で監視し、
                 <br className="hidden sm:block" />
-                空き枠が出た瞬間にメールで通知します。
+                空きが出た瞬間にメールでお知らせします。
                 <br className="hidden sm:block" />
-                無料プランから始めて、必要に応じてアップグレードできます。
+                クレジットカード登録不要、無料プランから始められます。
               </p>
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row">
                 <PrimaryCta />
                 <SecondaryCta />
               </div>
+              <p className="mt-3 text-xs text-neutral-500">
+                クレカ不要・1 分で登録完了
+              </p>
             </div>
           </div>
         </section>
+
+        <ScaleStats
+          salonCount={salonCount}
+          therapistCount={therapistCount}
+        />
 
         <HowItWorks />
 
@@ -112,9 +131,13 @@ export default function Home() {
         <Faq />
 
         <section className="mx-auto w-full max-w-3xl px-4 pb-20 text-center">
-          <div className="mt-6 flex justify-center">
-            <PrimaryCta className="min-w-[280px]" />
+          <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <PrimaryCta className="min-w-[260px]" />
+            <SecondaryCta className="min-w-[260px]" />
           </div>
+          <p className="mt-3 text-xs text-neutral-500">
+            クレカ不要・1 分で登録完了
+          </p>
         </section>
       </main>
 
