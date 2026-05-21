@@ -1,22 +1,30 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { toast } from "sonner";
 import { Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { track } from "@/lib/analytics/track";
 import { signupAction, type SignupState } from "./actions";
 
 const initialState: SignupState = { ok: true };
 
 export function SignupForm({ next }: { next?: string }) {
   const [state, formAction] = useActionState(signupAction, initialState);
+  // signup_complete は確認メール画面 (emailSent=true) に切り替わった最初の
+  // レンダリングで1回だけ発火させたいので、ref で重複防止する。
+  const trackedComplete = useRef(false);
 
   useEffect(() => {
     if (!state.ok && state.message && !state.fieldErrors) {
       toast.error(state.message);
+    }
+    if (!trackedComplete.current && state.ok && state.emailSent) {
+      trackedComplete.current = true;
+      track("signup_complete");
     }
   }, [state]);
 
@@ -32,7 +40,11 @@ export function SignupForm({ next }: { next?: string }) {
   }
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form
+      action={formAction}
+      onSubmit={() => track("signup_submit")}
+      className="space-y-4"
+    >
       {next ? <input type="hidden" name="next" value={next} /> : null}
       <div className="space-y-2">
         <Label htmlFor="email">メールアドレス</Label>

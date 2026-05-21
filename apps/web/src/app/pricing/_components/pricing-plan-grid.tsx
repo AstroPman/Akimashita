@@ -13,6 +13,7 @@ import {
   type PlanTier,
 } from "@/lib/plans";
 import type { PlanPricingMap } from "@/lib/stripe/pricing";
+import { track } from "@/lib/analytics/track";
 import { startCheckoutAction } from "../actions";
 
 const HIGHLIGHT_TIER: PaidTier = "premium";
@@ -34,7 +35,11 @@ export function PricingPlanGrid(props: {
             <button
               key={c}
               type="button"
-              onClick={() => setCycle(c)}
+              onClick={() => {
+                if (cycle === c) return;
+                setCycle(c);
+                track("pricing_cycle_toggled", { cycle: c });
+              }}
               className={`rounded-full px-4 py-1.5 transition-colors ${
                 cycle === c
                   ? "bg-background text-foreground shadow-sm"
@@ -127,7 +132,20 @@ function PaidCard(props: {
 
       <PlanFeatureList config={props.config} />
 
-      <form action={startCheckoutAction} className="mt-6">
+      <form
+        action={startCheckoutAction}
+        onSubmit={() => {
+          track("pricing_cta_click", {
+            tier: props.tier,
+            cycle: props.cycle,
+          });
+          track("checkout_started", {
+            tier: props.tier,
+            cycle: props.cycle,
+          });
+        }}
+        className="mt-6"
+      >
         <input type="hidden" name="tier" value={props.tier} />
         <input type="hidden" name="cycle" value={props.cycle} />
         <Button type="submit" className="w-full" size="lg">

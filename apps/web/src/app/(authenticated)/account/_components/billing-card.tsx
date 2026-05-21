@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { CalendarClockIcon, ExternalLinkIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +17,7 @@ import {
   type BillingCycle,
   type PlanTier,
 } from "@/lib/plans";
+import { track } from "@/lib/analytics/track";
 import { openCustomerPortalAction } from "../actions";
 
 export interface BillingViewProps {
@@ -106,7 +109,10 @@ export function BillingCard(props: BillingViewProps) {
             </Link>
           </Button>
           {props.hasStripeCustomer ? (
-            <form action={openCustomerPortalAction}>
+            <form
+              action={openCustomerPortalAction}
+              onSubmit={() => track("billing_portal_opened")}
+            >
               <Button type="submit" variant="outline" className="gap-1.5">
                 <ExternalLinkIcon className="size-4" />
                 お支払い・解約を管理

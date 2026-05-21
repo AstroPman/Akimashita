@@ -32,6 +32,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { WatchFormSchema, type WatchFormInput } from "@/lib/schema/watch";
+import { track } from "@/lib/analytics/track";
 import { createWatch, updateWatch } from "../actions";
 
 type SalonOption = {
@@ -278,6 +279,12 @@ export function WatchForm({
           toast.error(res.message);
         }
         return;
+      }
+      if (mode === "create" && salonId && therapistId) {
+        track("watch_created", {
+          salon_id: salonId,
+          therapist_id: therapistId,
+        });
       }
       toast.success(mode === "create" ? "監視を作成しました" : "監視を更新しました");
       router.refresh();

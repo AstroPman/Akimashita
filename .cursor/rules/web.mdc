@@ -163,6 +163,24 @@ Next.js 16 / React 19 の API を前提に、**体感の速さと誤操作防止
 - **楽観的 UI**: 監視の **有効 / 無効トグル** など、サーバー応答を待つと気持ち悪い操作は、可能な範囲で **`useOptimistic`** を適用し、即座に UI を更新してからサーバー結果で確定／巻き戻しする。
 - **一貫性**: 楽観的更新したあと Realtime や再取得で一覧が上書きされる場合、**表示のちらつき**が出ないよう順序を設計する。
 
+# プロダクト計測（Analytics）
+
+ユーザの流入・離脱・課金転換をデータで観察するため、**PostHog** をクライアント計測の主軸として導入している（Vercel Analytics は PV 計測として併用）。
+
+- **初期化**: `src/components/analytics/posthog-provider.tsx` で初期化。`NEXT_PUBLIC_POSTHOG_KEY` が未設定なら全 API が **no-op** になり、ローカル・preview 環境でビルドが壊れない。
+- **環境変数**:
+  - `NEXT_PUBLIC_POSTHOG_KEY` … PostHog Project API Key (`phc_...`)
+  - `NEXT_PUBLIC_POSTHOG_HOST` … `https://us.i.posthog.com` / `https://eu.i.posthog.com`
+- **個人情報**: `posthog.identify(user.id)` で **uuid だけを渡す**。`email` などの PII は PostHog に送らない。識別の入れ替えは `onAuthStateChange` で自動。
+- **イベント定義**: `src/lib/analytics/events.ts` の `EventProps` に集中。新しいイベントを足す時はここに型を追記してから `track()` を呼ぶ（型エラーで未定義イベントを弾く）。
+- **発火ルール**:
+  - `$pageview` は Provider が `usePathname` の変化に合わせて自動発火するので、各ページで明示 track する必要は無い。
+  - **「ページ遷移では取れない、意図的なアクション」のみ**を `track()` で送る（例: CTA クリック、フォーム送信、Stripe Checkout 開始）。
+  - Server Action 完了後の計測はクライアント側 (`useEffect` で state 監視 / redirect 先の client component) から発火する。
+- **セッションリプレイ**: 初期フェーズは定性観察を優先するため有効化している。**機密情報を表示する DOM には `data-ph-mask` 属性を付与**してマスクする。
+- **autocapture**: OFF（明示 track のみ）。データを綺麗に保つため全クリック自動取得は使わない。
+- **person profiles**: `identified_only`（識別済みユーザのみ profile 作成、コスト節約）。
+
 # このリポジトリでの注意
 
 - **スクレイパー・バッチの仕様**は `.cursor/rules/scraper.mdc`。Web はあくまでユーザ操作と Supabase 連携が中心で、スクレイピング処理は含めない。

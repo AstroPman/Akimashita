@@ -4,6 +4,7 @@ import { M_PLUS_Rounded_1c } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { PostHogProvider } from "@/components/analytics/posthog-provider";
 
 const mplusRounded = M_PLUS_Rounded_1c({
   variable: "--font-mplus-rounded",
@@ -46,7 +47,7 @@ export default function RootLayout({
       className={`${mplusRounded.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        {children}
+        <PostHogProvider>{children}</PostHogProvider>
         <Toaster richColors closeButton position="top-right" />
         <Analytics />
       </body>
