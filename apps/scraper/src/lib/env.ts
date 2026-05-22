@@ -47,6 +47,10 @@ export const env = {
   // HostQueue が同一ホストを直列化するため、ここを上げてもサイト単位の負荷は守られる。
   // デフォルトの 1 は従来通り完全直列。検証時は --concurrency CLI 引数で上書きできる。
   AVAILABILITY_CONCURRENCY: optionalInt('AVAILABILITY_CONCURRENCY', 1),
+  // Stage 5: official_shifts ジョブのセラピスト同時処理数。
+  // 公式サイトは基本的にサロン単位で別ホストに分かれており、HostQueue が
+  // 同一ホスト並列度を絞ってくれるため、ここを上げてもホスト単位の負荷は守られる。
+  OFFICIAL_SHIFTS_CONCURRENCY: optionalInt('OFFICIAL_SHIFTS_CONCURRENCY', 8),
   // Stage 4: notify 用設定。RESEND_API_KEY / EMAIL_FROM は notify ステージ
   // 実行時のみ必須。ここでは optional として読み込み、利用側で検証する。
   RESEND_API_KEY: optional('RESEND_API_KEY', ''),

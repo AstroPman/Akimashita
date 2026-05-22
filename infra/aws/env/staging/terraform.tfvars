@@ -17,6 +17,9 @@ scraper_schedules = {
   therapists   = "cron(0 19 * * ? *)" # JST 04:00 daily
   availability = "cron(0 * * * ? *)"  #  1 時間間隔
   notify       = "cron(0 * * * ? *)"  #  1 時間間隔（availability 直後）
+  # Stage 5: 公式サイト個別ページから shift_announced を発火する Layer 2。
+  # 監視中セラピストのみが対象なのでホスト負荷は低く、availability と同じ頻度で回す。
+  official_shifts = "cron(0 * * * ? *)" # 1 時間間隔
   # 研究モード (salons.research_enabled = true 配下を回す)。
   # 実測で caskan 複数サロン 133 人 ≒ 3 分 / grow 137 人 ≒ 6 分の規模。
   # まずは 15 分間隔から始め、grow ホスト並列度などのチューニングと合わせて頻度を見直す。

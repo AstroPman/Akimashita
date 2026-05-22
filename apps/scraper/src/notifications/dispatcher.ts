@@ -1,4 +1,4 @@
-import type { SiteName } from '@alimashita/shared';
+import type { NotificationKind, SiteName } from '@alimashita/shared';
 import { supabase } from '../lib/supabase.js';
 import { createLogger } from '../lib/logger.js';
 import type {
@@ -6,7 +6,11 @@ import type {
   EmailMessage,
   EmailSender,
 } from './channels/types.js';
-import { buildNotifyEmail, type NotifySlot } from './templates.js';
+import {
+  buildNotifyEmail,
+  type NotifyShift,
+  type NotifySlot,
+} from './templates.js';
 
 const log = createLogger('notify:dispatcher');
 
@@ -18,6 +22,8 @@ interface PendingRow {
   therapist_id: string;
   date: string;
   start_time: string;
+  shift_end: string | null;
+  kind: NotificationKind;
   channel: 'email' | 'line';
   created_at: string;
   send_after: string;
@@ -52,6 +58,9 @@ interface UserBatch {
   planTier: PlanTier;
   rowIds: string[];
   slots: NotifySlot[];
+  shifts: NotifyShift[];
+  /** rowIds[i] が slot/shift どちらに対応するか。prepareBatch のロック判定で使う。 */
+  rowKinds: NotificationKind[];
 }
 
 /**
@@ -113,11 +122,12 @@ async function fetchPendingRows(): Promise<PendingRow[]> {
   // 一括取得してから Node 側でユーザ単位にグルーピングする。
   // limit は安全弁（極端なバックログ時のメモリ保護）。
   // send_after <= now() でプラン別の遅延を反映する（free=+10min, standard=+5min, premium=now()）。
+  // kind / shift_end は shift_announced の本文レンダリングに必要。
   const nowIso = new Date().toISOString();
   const { data, error } = await supabase
     .from('notification_logs')
     .select(
-      `id, watch_setting_id, therapist_id, date, start_time, channel, created_at, send_after,
+      `id, watch_setting_id, therapist_id, date, start_time, shift_end, kind, channel, created_at, send_after,
        watch_settings!inner(
          user_id, is_active, deleted_at,
          users!inner(id, email, deleted_at, plan_tier)
@@ -145,7 +155,15 @@ async function fetchPendingRows(): Promise<PendingRow[]> {
   return (data ?? []) as unknown as PendingRow[];
 }
 
-function rowToSlot(row: PendingRow): NotifySlot | null {
+interface TherapistCtx {
+  therapistId: string;
+  therapistName: string;
+  salonName: string | null;
+  site: SiteName;
+  shopId: string;
+}
+
+function extractTherapistCtx(row: PendingRow): TherapistCtx | null {
   const therapist = row.therapists;
   const salon = therapist?.salons ?? null;
   const site = salon?.sites ?? null;
@@ -156,8 +174,28 @@ function rowToSlot(row: PendingRow): NotifySlot | null {
     salonName: salon.name ?? null,
     site: site.name,
     shopId: salon.shop_id,
+  };
+}
+
+function rowToSlot(row: PendingRow): NotifySlot | null {
+  const ctx = extractTherapistCtx(row);
+  if (!ctx) return null;
+  return {
+    ...ctx,
     date: row.date,
     startTime: row.start_time,
+  };
+}
+
+function rowToShift(row: PendingRow): NotifyShift | null {
+  const ctx = extractTherapistCtx(row);
+  if (!ctx) return null;
+  if (!row.shift_end) return null;
+  return {
+    ...ctx,
+    date: row.date,
+    shiftStart: row.start_time,
+    shiftEnd: row.shift_end,
   };
 }
 
@@ -168,22 +206,36 @@ function groupByUser(rows: PendingRow[]): UserBatch[] {
     const user = watch?.users ?? null;
     if (!watch || !user || !user.email) continue;
 
-    const slot = rowToSlot(row);
-    if (!slot) continue;
-
-    const existing = map.get(user.id);
-    if (existing) {
-      existing.rowIds.push(row.id);
-      existing.slots.push(slot);
+    let slot: NotifySlot | null = null;
+    let shift: NotifyShift | null = null;
+    if (row.kind === 'slot_opened') {
+      slot = rowToSlot(row);
+      if (!slot) continue;
+    } else if (row.kind === 'shift_announced') {
+      shift = rowToShift(row);
+      if (!shift) continue;
     } else {
-      map.set(user.id, {
+      // 未知 kind は安全側で無視
+      continue;
+    }
+
+    let batch = map.get(user.id);
+    if (!batch) {
+      batch = {
         userId: user.id,
         userEmail: user.email,
         planTier: user.plan_tier,
-        rowIds: [row.id],
-        slots: [slot],
-      });
+        rowIds: [],
+        slots: [],
+        shifts: [],
+        rowKinds: [],
+      };
+      map.set(user.id, batch);
     }
+    batch.rowIds.push(row.id);
+    batch.rowKinds.push(row.kind);
+    if (slot) batch.slots.push(slot);
+    if (shift) batch.shifts.push(shift);
   }
   return Array.from(map.values());
 }
@@ -317,18 +369,35 @@ function prepareBatch(
 ): PreparedBatch | null {
   const lockedRowIds: string[] = [];
   const lockedSlots: NotifySlot[] = [];
+  const lockedShifts: NotifyShift[] = [];
+  // groupByUser でユーザ単位に集めた時点で rowIds と slots/shifts の対応が
+  // 「kind 毎に独立した配列」になっているため、rowKinds で振り分けて再投影する。
+  let slotCursor = 0;
+  let shiftCursor = 0;
   for (let i = 0; i < batch.rowIds.length; i++) {
     const rowId = batch.rowIds[i]!;
-    if (lockedSet.has(rowId)) {
-      lockedRowIds.push(rowId);
-      lockedSlots.push(batch.slots[i]!);
+    const kind = batch.rowKinds[i]!;
+    const locked = lockedSet.has(rowId);
+    if (kind === 'slot_opened') {
+      const slot = batch.slots[slotCursor++]!;
+      if (locked) {
+        lockedRowIds.push(rowId);
+        lockedSlots.push(slot);
+      }
+    } else if (kind === 'shift_announced') {
+      const shift = batch.shifts[shiftCursor++]!;
+      if (locked) {
+        lockedRowIds.push(rowId);
+        lockedShifts.push(shift);
+      }
     }
   }
   if (lockedRowIds.length === 0) return null;
 
-  const { subject, text, html } = buildNotifyEmail(lockedSlots, {
-    tier: batch.planTier,
-  });
+  const { subject, text, html } = buildNotifyEmail(
+    { slots: lockedSlots, shifts: lockedShifts },
+    { tier: batch.planTier },
+  );
   return {
     userId: batch.userId,
     userEmail: batch.userEmail,
@@ -402,13 +471,17 @@ export async function dispatchEmailNotifications(
   // dry-run はロックも送信もせず、送信予定の内訳をログするだけで終わる。
   if (options.dryRun) {
     for (const batch of targets) {
-      const { subject } = buildNotifyEmail(batch.slots, { tier: batch.planTier });
+      const { subject } = buildNotifyEmail(
+        { slots: batch.slots, shifts: batch.shifts },
+        { tier: batch.planTier },
+      );
       log.info('[dry-run] would send', {
         user_id: batch.userId,
         to: batch.userEmail,
         plan_tier: batch.planTier,
         subject,
         slot_count: batch.slots.length,
+        shift_count: batch.shifts.length,
         row_ids: batch.rowIds,
       });
       result.succeededUsers += 1;

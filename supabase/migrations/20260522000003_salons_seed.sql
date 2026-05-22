@@ -1,25 +1,18 @@
 -- ============================================================
--- seed.sql
--- ローカル開発用の初期データ
--- supabase db reset のたびに自動で適用される
--- ============================================================
-
-
--- ============================================================
--- sites
--- ============================================================
-insert into sites (id, name, base_url, search_query) values
-  ('00000000-0000-0000-0000-000000000001', 'caskan',  'https://r.caskan.jp',   'site:r.caskan.jp'),
-  ('00000000-0000-0000-0000-000000000002', 'grow',    'https://grow-appt.com', 'site:grow-appt.com'),
-  ('00000000-0000-0000-0000-000000000003', 'edc',     'https://esthe-datacenter.com',   'site:esthe-datacenter.com'),
-  ('00000000-0000-0000-0000-000000000004', 'estama',  'https://estama.jp',     'site:estama.jp')
-on conflict (id) do nothing;
-
-
--- ============================================================
--- salons
--- ローカル / CI 用に migration 20260522000003 と同等の内容を投入する。
--- apps/scraper/src/scripts/build_salons_seed.ts で自動生成。手動編集禁止。
+-- Migration: 20260522000003_salons_seed.sql
+-- Description:
+--   output/{site}.csv（公式サイト × 予約サイト URL ペア）を salons に冪等同期する。
+--   apps/scraper/src/scripts/build_salons_seed.ts で生成された自動生成 SQL。
+--   手動編集禁止。CSV を更新したら `npm run -w scraper build:salons-seed` を再実行する。
+--
+--   挙動:
+--     - (site_id, shop_id) が既存 → name / url / homepage_url を CSV 値で上書き
+--       (CSV を正とする方針)
+--     - (site_id, shop_id) が新規 → INSERT
+--     - 本番にあるが CSV に無い salons → 触らない（別経路で追加されたものを尊重）
+--
+--   site_id 解決は sites.name 経由。20260522000001_canonicalize_sites.sql で
+--   sites.name に UNIQUE 制約を張った前提なので、name → id は一意に解決される。
 -- ============================================================
 
 insert into salons (site_id, shop_id, name, url, homepage_url)

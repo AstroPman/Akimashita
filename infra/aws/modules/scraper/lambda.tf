@@ -70,6 +70,14 @@ resource "aws_lambda_function" "stage" {
       SCRAPER_HTTP_CONCURRENCY_GROW   = "3" # grow-appt.com 単一ホスト + 監視多数のため
       MIN_DELAY_MS                    = "200"
       MAX_DELAY_MS                    = "500"
+
+      # ============================================================
+      # Stage 5 (official_shifts) パフォーマンスチューニング
+      # ============================================================
+      # 公式サイトはサロン単位で別ホストが多いため並列度を上げてもホスト負荷は
+      # HostQueue で守られる。watch 監視対象セラピストは典型数十名規模のため、
+      # 並列 8 で 1 分以内に収まる想定。
+      OFFICIAL_SHIFTS_CONCURRENCY = "8"
     }
   }
 

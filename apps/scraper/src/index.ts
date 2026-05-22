@@ -2,6 +2,7 @@ import { createLogger } from './lib/logger.js';
 import { runTherapistsJob } from './jobs/therapists.js';
 import { runAvailabilityJob, type AvailabilityMode } from './jobs/availability.js';
 import { runNotifyJob } from './jobs/notify.js';
+import { runOfficialShiftsJob } from './jobs/official_shifts.js';
 import {
   runExternalSalonsJob,
   type ExternalSalonsPhase,
@@ -9,7 +10,7 @@ import {
 
 const log = createLogger('main');
 
-type Stage = 'salons' | 'therapists' | 'availability' | 'notify';
+type Stage = 'salons' | 'therapists' | 'availability' | 'official_shifts' | 'notify';
 
 interface CliArgs {
   stage: Stage;
@@ -26,7 +27,7 @@ function parseArgs(argv: string[]): CliArgs {
   const stageArg = argv.find((a) => a.startsWith('--stage='));
   if (!stageArg) {
     throw new Error(
-      'Missing --stage argument. Use --stage=salons|therapists|availability|notify',
+      'Missing --stage argument. Use --stage=salons|therapists|availability|official_shifts|notify',
     );
   }
   const stageValue = stageArg.split('=', 2)[1];
@@ -34,6 +35,7 @@ function parseArgs(argv: string[]): CliArgs {
     stageValue !== 'salons' &&
     stageValue !== 'therapists' &&
     stageValue !== 'availability' &&
+    stageValue !== 'official_shifts' &&
     stageValue !== 'notify'
   ) {
     throw new Error(`Unknown stage: ${stageValue}`);
@@ -154,6 +156,15 @@ async function main(): Promise<void> {
           await sleep(60_000);
         }
       }
+      break;
+    }
+    case 'official_shifts': {
+      if (args.loop !== 1) {
+        log.warn('--loop is ignored for stage=official_shifts');
+      }
+      await runOfficialShiftsJob({
+        concurrency: args.concurrency ?? undefined,
+      });
       break;
     }
     case 'notify': {
