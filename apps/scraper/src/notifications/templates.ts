@@ -12,6 +12,32 @@ export interface NotifySlot {
   startTime: string; // HH:mm:ss
 }
 
+/**
+ * Layer 2 (公式サイト) 由来の「シフト公開」通知 1 件分。
+ * 跨ぎ深夜は呼び出し側で 2 行に分割保存しているが、`groupShiftsByTherapist` が
+ * 同 (therapist, 営業日) として merge してくれるので渡す側は 1 行ずつでよい。
+ */
+export interface NotifyShift {
+  therapistId: string;
+  therapistName: string;
+  salonName: string | null;
+  site: SiteName;
+  shopId: string;
+  date: string; // YYYY-MM-DD
+  shiftStart: string; // HH:mm:ss
+  shiftEnd: string; // HH:mm:ss
+}
+
+/**
+ * dispatcher → templates に渡すペイロード。
+ * 同一ユーザに対して slot_opened と shift_announced が同時にあり得る
+ * (異なる (therapist, date) で並走するケース)。Rule B の抑止は同一範囲内のみ。
+ */
+export interface NotifyPayload {
+  slots: NotifySlot[];
+  shifts: NotifyShift[];
+}
+
 export interface NotifyEmailContent {
   subject: string;
   text: string;
@@ -186,22 +212,129 @@ function groupByTherapist(slots: NotifySlot[]): SlotsByTherapist[] {
   );
 }
 
+interface ShiftsByTherapist {
+  therapistId: string;
+  therapistName: string;
+  salonName: string | null;
+  site: SiteName;
+  shopId: string;
+  /** date 内に閉じて時刻昇順にソート済みのシフト群（深夜跨ぎは 2 行で来る） */
+  shifts: NotifyShift[];
+}
+
+interface MergedShift {
+  date: string;
+  /** 表示開始時刻 (HH:mm:ss)。 */
+  start: string;
+  /** 表示終了時刻 (HH:mm:ss)。跨ぎ深夜の翌日断片を吸収して最終時刻に置き換えた値。 */
+  end: string;
+}
+
+function groupShiftsByTherapist(shifts: NotifyShift[]): ShiftsByTherapist[] {
+  const map = new Map<string, ShiftsByTherapist>();
+  for (const s of shifts) {
+    const existing = map.get(s.therapistId);
+    if (existing) {
+      existing.shifts.push(s);
+    } else {
+      map.set(s.therapistId, {
+        therapistId: s.therapistId,
+        therapistName: s.therapistName,
+        salonName: s.salonName,
+        site: s.site,
+        shopId: s.shopId,
+        shifts: [s],
+      });
+    }
+  }
+  for (const group of map.values()) {
+    group.shifts.sort((a, b) => {
+      if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+      return a.shiftStart < b.shiftStart ? -1 : 1;
+    });
+  }
+  return Array.from(map.values()).sort((a, b) =>
+    a.therapistName.localeCompare(b.therapistName, 'ja'),
+  );
+}
+
+/**
+ * 跨ぎ深夜シフト (例: (D 22:00-23:59) + (D+1 00:00-04:00)) を
+ * 表示上 1 行 "D 22:00 〜 翌04:00" として merge する。
+ * - 「23:59 で終わる行」と「翌日 00:00 で始まる行」が連続するときだけ結合
+ * - それ以外はそのまま 1 行ずつ
+ */
+function mergeOvernightShifts(shifts: NotifyShift[]): MergedShift[] {
+  const result: MergedShift[] = [];
+  for (let i = 0; i < shifts.length; i++) {
+    const cur = shifts[i]!;
+    const next = shifts[i + 1];
+    if (
+      next &&
+      cur.shiftEnd === '23:59:00' &&
+      next.shiftStart === '00:00:00' &&
+      addOneDayIso(cur.date) === next.date &&
+      cur.therapistId === next.therapistId
+    ) {
+      result.push({ date: cur.date, start: cur.shiftStart, end: next.shiftEnd });
+      i++;
+      continue;
+    }
+    result.push({ date: cur.date, start: cur.shiftStart, end: cur.shiftEnd });
+  }
+  return result;
+}
+
+function addOneDayIso(iso: string): string {
+  const [y, m, d] = iso.split('-').map((s) => Number.parseInt(s, 10));
+  const dt = new Date(Date.UTC(y!, m! - 1, d!));
+  dt.setUTCDate(dt.getUTCDate() + 1);
+  return [
+    dt.getUTCFullYear(),
+    String(dt.getUTCMonth() + 1).padStart(2, '0'),
+    String(dt.getUTCDate()).padStart(2, '0'),
+  ].join('-');
+}
+
 function buildSubject(
   slots: NotifySlot[],
-  groups: SlotsByTherapist[],
-  groupRanges: SlotRange[][],
+  slotGroups: SlotsByTherapist[],
+  slotGroupRanges: SlotRange[][],
+  shifts: NotifyShift[],
+  shiftGroups: ShiftsByTherapist[],
+  shiftGroupMerged: MergedShift[][],
 ): string {
-  // 全セラピストを通して range が 1 つだけのときは、その range を件名に展開する。
-  // 単独枠なら "5月12日(火) 15:00"、連続枠なら "5月12日(火) 15:00〜15:15"。
-  const totalRanges = groupRanges.reduce((sum, rs) => sum + rs.length, 0);
-  if (totalRanges === 1 && groups.length === 1) {
-    const onlyGroup = groups[0]!;
-    const onlyRange = groupRanges[0]![0]!;
-    return `[akimashita] ${onlyGroup.therapistName} の空きが出ました（${formatDate(
-      onlyRange.date,
-    )} ${formatRangeTime(onlyRange)}）`;
+  const hasSlots = slots.length > 0;
+  const hasShifts = shifts.length > 0;
+
+  // 両方ある: 件数のみ
+  if (hasSlots && hasShifts) {
+    return `[akimashita] 空き${slots.length}件・新シフト${shifts.length}件のお知らせ`;
   }
-  return `[akimashita] 空きが出ました（${slots.length}件 / セラピスト${groups.length}名）`;
+
+  // slot_opened のみ
+  if (hasSlots) {
+    const totalRanges = slotGroupRanges.reduce((sum, rs) => sum + rs.length, 0);
+    if (totalRanges === 1 && slotGroups.length === 1) {
+      const onlyGroup = slotGroups[0]!;
+      const onlyRange = slotGroupRanges[0]![0]!;
+      return `[akimashita] ${onlyGroup.therapistName} の空きが出ました（${formatDate(
+        onlyRange.date,
+      )} ${formatRangeTime(onlyRange)}）`;
+    }
+    return `[akimashita] 空きが出ました（${slots.length}件 / セラピスト${slotGroups.length}名）`;
+  }
+
+  // shift_announced のみ
+  const totalMerged = shiftGroupMerged.reduce((sum, ms) => sum + ms.length, 0);
+  if (totalMerged === 1 && shiftGroups.length === 1) {
+    const onlyGroup = shiftGroups[0]!;
+    const only = shiftGroupMerged[0]![0]!;
+    return `[akimashita] ${onlyGroup.therapistName} の新シフトが公開されました（${formatDate(
+      only.date,
+    )} ${formatTime(only.start)}〜${formatTime(only.end)}）`;
+  }
+  return `[akimashita] 新シフトが公開されました（${shifts.length}件 / セラピスト${shiftGroups.length}名）`;
 }
 
 function escapeHtml(s: string): string {
@@ -261,42 +394,80 @@ function buildUpsell(tier: PlanTier, baseUrl: string): UpsellContent | null {
 }
 
 export function buildNotifyEmail(
-  slots: NotifySlot[],
+  payload: NotifyPayload,
   options: BuildNotifyEmailOptions = {},
 ): NotifyEmailContent {
-  if (slots.length === 0) {
-    throw new Error('buildNotifyEmail requires at least one slot');
+  const slots = payload.slots;
+  const shifts = payload.shifts;
+  if (slots.length === 0 && shifts.length === 0) {
+    throw new Error('buildNotifyEmail requires at least one slot or shift');
   }
 
   const tier: PlanTier = options.tier ?? 'premium';
-  const groups = groupByTherapist(slots);
-  const groupRanges = groups.map((g) => groupConsecutiveRanges(g.slots));
-  const subject = buildSubject(slots, groups, groupRanges);
+  const slotGroups = groupByTherapist(slots);
+  const slotGroupRanges = slotGroups.map((g) => groupConsecutiveRanges(g.slots));
+  const shiftGroups = groupShiftsByTherapist(shifts);
+  const shiftGroupMerged = shiftGroups.map((g) => mergeOvernightShifts(g.shifts));
+  const subject = buildSubject(
+    slots,
+    slotGroups,
+    slotGroupRanges,
+    shifts,
+    shiftGroups,
+    shiftGroupMerged,
+  );
   const baseUrl = env.APP_BASE_URL.replace(/\/$/, '');
   const watchesUrl = `${baseUrl}/watches`;
   const upsell = buildUpsell(tier, baseUrl);
 
   const textLines: string[] = [];
-  textLines.push('監視中のセラピストに空きが出ました。');
-  textLines.push('');
-  groups.forEach((group, gi) => {
-    const heading = group.salonName
-      ? `▼ ${group.therapistName}（${group.salonName}）`
-      : `▼ ${group.therapistName}`;
-    textLines.push(heading);
-    for (const range of groupRanges[gi]!) {
-      const url = buildReservationUrl({
-        site: group.site,
-        shopId: group.shopId,
-        therapistId: group.therapistId,
-        date: range.date,
-      });
-      textLines.push(
-        `  - ${formatDate(range.date)} ${formatRangeTime(range)}  ${url}`,
-      );
-    }
+  if (slots.length > 0) {
+    textLines.push('監視中のセラピストに空きが出ました。');
     textLines.push('');
-  });
+    slotGroups.forEach((group, gi) => {
+      const heading = group.salonName
+        ? `▼ ${group.therapistName}（${group.salonName}）`
+        : `▼ ${group.therapistName}`;
+      textLines.push(heading);
+      for (const range of slotGroupRanges[gi]!) {
+        const url = buildReservationUrl({
+          site: group.site,
+          shopId: group.shopId,
+          therapistId: group.therapistId,
+          date: range.date,
+        });
+        textLines.push(
+          `  - ${formatDate(range.date)} ${formatRangeTime(range)}  ${url}`,
+        );
+      }
+      textLines.push('');
+    });
+  }
+  if (shifts.length > 0) {
+    textLines.push('監視中のセラピストに新しいシフトが公開されました。');
+    textLines.push('（詳細な空きスロットは予約サイトに反映され次第お知らせします）');
+    textLines.push('');
+    shiftGroups.forEach((group, gi) => {
+      const heading = group.salonName
+        ? `▼ ${group.therapistName}（${group.salonName}）`
+        : `▼ ${group.therapistName}`;
+      textLines.push(heading);
+      for (const merged of shiftGroupMerged[gi]!) {
+        const url = buildReservationUrl({
+          site: group.site,
+          shopId: group.shopId,
+          therapistId: group.therapistId,
+          date: merged.date,
+        });
+        textLines.push(
+          `  - ${formatDate(merged.date)} ${formatTime(merged.start)}〜${formatTime(
+            merged.end,
+          )}  ${url}`,
+        );
+      }
+      textLines.push('');
+    });
+  }
   if (upsell) {
     for (const line of upsell.textLines) textLines.push(line);
     textLines.push('');
@@ -306,30 +477,60 @@ export function buildNotifyEmail(
   const text = textLines.join('\n');
 
   const htmlParts: string[] = [];
-  htmlParts.push('<p>監視中のセラピストに空きが出ました。</p>');
-  groups.forEach((group, gi) => {
-    const heading = group.salonName
-      ? `${escapeHtml(group.therapistName)}<span style="color:#666">（${escapeHtml(
-          group.salonName,
-        )}）</span>`
-      : escapeHtml(group.therapistName);
-    htmlParts.push(`<h3 style="margin:16px 0 4px">${heading}</h3>`);
-    htmlParts.push('<ul style="margin:0 0 12px 20px;padding:0">');
-    for (const range of groupRanges[gi]!) {
-      const url = buildReservationUrl({
-        site: group.site,
-        shopId: group.shopId,
-        therapistId: group.therapistId,
-        date: range.date,
-      });
-      htmlParts.push(
-        `<li>${escapeHtml(formatDate(range.date))} ${escapeHtml(
-          formatRangeTime(range),
-        )} <a href="${escapeHtml(url)}">予約ページを開く</a></li>`,
-      );
-    }
-    htmlParts.push('</ul>');
-  });
+  if (slots.length > 0) {
+    htmlParts.push('<p>監視中のセラピストに空きが出ました。</p>');
+    slotGroups.forEach((group, gi) => {
+      const heading = group.salonName
+        ? `${escapeHtml(group.therapistName)}<span style="color:#666">（${escapeHtml(
+            group.salonName,
+          )}）</span>`
+        : escapeHtml(group.therapistName);
+      htmlParts.push(`<h3 style="margin:16px 0 4px">${heading}</h3>`);
+      htmlParts.push('<ul style="margin:0 0 12px 20px;padding:0">');
+      for (const range of slotGroupRanges[gi]!) {
+        const url = buildReservationUrl({
+          site: group.site,
+          shopId: group.shopId,
+          therapistId: group.therapistId,
+          date: range.date,
+        });
+        htmlParts.push(
+          `<li>${escapeHtml(formatDate(range.date))} ${escapeHtml(
+            formatRangeTime(range),
+          )} <a href="${escapeHtml(url)}">予約ページを開く</a></li>`,
+        );
+      }
+      htmlParts.push('</ul>');
+    });
+  }
+  if (shifts.length > 0) {
+    htmlParts.push(
+      '<p style="margin-top:20px">監視中のセラピストに新しいシフトが公開されました。<br /><span style="font-size:12px;color:#666">（詳細な空きスロットは予約サイトに反映され次第お知らせします）</span></p>',
+    );
+    shiftGroups.forEach((group, gi) => {
+      const heading = group.salonName
+        ? `${escapeHtml(group.therapistName)}<span style="color:#666">（${escapeHtml(
+            group.salonName,
+          )}）</span>`
+        : escapeHtml(group.therapistName);
+      htmlParts.push(`<h3 style="margin:16px 0 4px">${heading}</h3>`);
+      htmlParts.push('<ul style="margin:0 0 12px 20px;padding:0">');
+      for (const merged of shiftGroupMerged[gi]!) {
+        const url = buildReservationUrl({
+          site: group.site,
+          shopId: group.shopId,
+          therapistId: group.therapistId,
+          date: merged.date,
+        });
+        htmlParts.push(
+          `<li>${escapeHtml(formatDate(merged.date))} ${escapeHtml(
+            `${formatTime(merged.start)}〜${formatTime(merged.end)}`,
+          )} <a href="${escapeHtml(url)}">予約ページを開く</a></li>`,
+        );
+      }
+      htmlParts.push('</ul>');
+    });
+  }
   if (upsell) {
     htmlParts.push(upsell.htmlBlock);
   }

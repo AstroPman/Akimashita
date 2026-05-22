@@ -16,9 +16,11 @@
     "dev:therapists": "tsx src/index.ts --stage=therapists",
     "dev:therapists:new": "tsx src/index.ts --stage=therapists --only-unsynced",
     "dev:availability": "tsx src/index.ts --stage=availability",
+    "dev:official-shifts": "tsx src/index.ts --stage=official_shifts",
     "dev:notify": "tsx src/index.ts --stage=notify",
     "dev:notify:dry": "tsx src/index.ts --stage=notify --dry-run",
     "inspect:grow": "tsx src/scrapers/grow/_inspect.ts",
+    "build:salons-seed": "tsx src/scripts/build_salons_seed.ts",
     "build": "rm -rf dist && node ./build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "echo \"Error: no test specified\" && exit 1"
