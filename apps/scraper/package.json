@@ -24,6 +24,8 @@
     "dev:notify:dry": "tsx src/index.ts --stage=notify --dry-run",
     "inspect:grow": "tsx src/scrapers/grow/_inspect.ts",
     "build:salons-seed": "tsx src/scripts/build_salons_seed.ts",
+    "audit:official-shifts": "tsx src/scripts/audit_official_shifts.ts",
+    "audit:official-shifts:estama": "tsx src/scripts/audit_official_shifts.ts --internal-site=estama --per-host=1 --out=output/official_shifts_coverage_estama.csv",
     "build": "rm -rf dist && node ./build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "echo \"Error: no test specified\" && exit 1"
