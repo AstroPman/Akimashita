@@ -160,8 +160,11 @@ function parseArgs(argv: string[]): CliArgs {
     internalSite = v as SiteName;
   }
 
+  // 注意: URL に `=` (例: query string `?id=210`) が含まれることがあるため、
+  // String.prototype.split('=', 2) は使えない (JS 仕様で後半が捨てられる)。
+  // 最初の `=` 以降をそのまま取る。
   const inspectArg = argv.find((a) => a.startsWith('--inspect='));
-  const inspectUrl = inspectArg ? (inspectArg.split('=', 2)[1] ?? '').trim() || null : null;
+  const inspectUrl = inspectArg ? inspectArg.slice('--inspect='.length).trim() || null : null;
 
   return {
     perHost,
