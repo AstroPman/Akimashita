@@ -14,8 +14,8 @@ alert_emails = ["astroqman@gmail.com"]
 # スモークテストを完了してから "ENABLED" に変更する。
 scraper_schedule_state = "ENABLED"
 scraper_schedules = {
-  therapists   = "cron(0 19 * * ? *)" # JST 04:00 daily
-  availability = "cron(* * * * ? *)"  #  1分間隔
+  therapists   = "cron(0 19 * * ? *)" # JST 04:00 daily (eyoyaku 除外)
+  availability = "cron(* * * * ? *)"  #  1分間隔 (eyoyaku 除外)
   notify       = "cron(* * * * ? *)"  # 1分間隔（availability 直後）
   # Stage 5: 公式サイト個別ページから shift_announced を発火する Layer 2。
   # 監視中セラピストのみが対象なのでホスト負荷は低く、availability と同じ頻度で回す。
@@ -24,6 +24,14 @@ scraper_schedules = {
   # 実測で caskan 複数サロン 133 人 ≒ 3 分 / grow 137 人 ≒ 6 分の規模。
   # まずは 15 分間隔から始め、grow ホスト並列度などのチューニングと合わせて頻度を見直す。
   availability_research = "cron(0,15,30,45 * * * ? *)" # 15 分間隔
+  # eyoyaku (駅ちか系) 専用。WAF が IP/セッション軸で厳しく検知してくるため、
+  # メインの 1 分間隔 / 1 日 1 回 therapists からは exclude_site で外し、
+  # 個別 Schedule で間隔を伸ばす。
+  # - therapists_eyoyaku: ブートストラップ用に毎日 max_per_site=20 で段階巡回
+  #   (131 サロンを ~7 日でローテーション、 1 ジョブ ~5 分)
+  # - availability_eyoyaku: 5 分間隔で watch 中の eyoyaku セラピストのみ巡回
+  therapists_eyoyaku   = "cron(30 19 * * ? *)" # JST 04:30 daily (therapists の 30 分後)
+  availability_eyoyaku = "cron(*/5 * * * ? *)" # 5 分間隔
 }
 
 scraper_salons_pipeline_schedule = "cron(0 18 * * ? *)" # JST 03:00 daily

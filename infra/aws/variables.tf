@@ -22,12 +22,23 @@ variable "scraper_schedule_state" {
 }
 
 variable "scraper_schedules" {
-  description = "ステージごとの cron 式（UTC）。空文字 / 未指定のステージは Schedule を作らない。salons は専用変数で別途指定する。"
+  description = <<-EOT
+    ステージごとの cron 式（UTC）。空文字 / 未指定のステージは Schedule を作らない。
+    salons は専用変数で別途指定する。
+
+    eyoyaku (駅ちか系) は WAF が厳しいため、専用 Schedule を別に持つ:
+      - therapists_eyoyaku: ブートストラップ用に毎日 max_per_site=20 で段階巡回
+      - availability_eyoyaku: メインより緩い 5 分間隔
+    メインの therapists / availability は input.exclude_site=["eyoyaku"] を渡すため、
+    eyoyaku は自動的にメインから外れる (scheduler.tf 参照)。
+  EOT
   type        = map(string)
   default = {
-    therapists   = "cron(0 19 * * ? *)" # JST 04:00 daily
-    availability = "cron(* * * * ? *)"  #  1 分間隔
-    notify       = "cron(* * * * ? *)"  # 1 分間隔（availability 直後）
+    therapists           = "cron(0 19 * * ? *)"  # JST 04:00 daily (eyoyaku 除外)
+    therapists_eyoyaku   = "cron(30 19 * * ? *)" # JST 04:30 daily (eyoyaku 専用, max_per_site=20)
+    availability         = "cron(* * * * ? *)"   # 1 分間隔 (eyoyaku 除外)
+    availability_eyoyaku = "cron(*/5 * * * ? *)" # 5 分間隔 (eyoyaku 専用)
+    notify               = "cron(* * * * ? *)"   # 1 分間隔（availability 直後）
   }
 }
 

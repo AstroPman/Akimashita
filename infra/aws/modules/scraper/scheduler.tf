@@ -6,6 +6,13 @@
 # salons ステージは 2 系統で起動するため、この for_each からは除外する。
 #   - 月 1 回 phase=areas を Lambda 直接呼び出し  → salons_areas
 #   - 定期で SFN を StartExecution            → salons_pipeline
+#
+# therapists / availability も eyoyaku 専用に Schedule を分けているため、
+# for_each からは意図的に除外する (個別 resource として定義)。
+#   - therapists: メインは全サイト対象 (1 日 1 回, exclude_site=[eyoyaku])
+#                eyoyaku 専用は別 cron でブートストラップ用に max_per_site で制御
+#   - availability: メインは 1 分間隔 (exclude_site=[eyoyaku])
+#                  eyoyaku は 5 分間隔の専用 Schedule
 # ============================================================================
 
 # ----------------------------------------------------------------------------
@@ -22,7 +29,11 @@ resource "aws_scheduler_schedule" "stage" {
   for_each = {
     for stage_name, _ in local.stages :
     stage_name => var.schedules[stage_name]
-    if stage_name != "salons" && contains(keys(var.schedules), stage_name) && var.schedules[stage_name] != ""
+    if stage_name != "salons" &&
+    stage_name != "therapists" &&
+    stage_name != "availability" &&
+    contains(keys(var.schedules), stage_name) &&
+    var.schedules[stage_name] != ""
   }
 
   name       = "${var.name_prefix}-${each.key}"
@@ -42,6 +53,138 @@ resource "aws_scheduler_schedule" "stage" {
   target {
     arn      = aws_lambda_alias.stage[each.key].arn
     role_arn = aws_iam_role.scheduler.arn
+  }
+
+  depends_on = [aws_iam_role_policy.scheduler_invoke]
+}
+
+# ----------------------------------------------------------------------------
+# therapists: メイン Schedule (eyoyaku 除外)
+# ----------------------------------------------------------------------------
+# 1 日 1 回、caskan / grow / edc / estama の 4 サイトを巡回する。
+# eyoyaku は別 Schedule (`therapists_eyoyaku`) でブートストラップ + 段階更新するため、
+# input.exclude_site で必ず外す。
+resource "aws_scheduler_schedule" "therapists_main" {
+  count = lookup(var.schedules, "therapists", "") == "" ? 0 : 1
+
+  name       = "${var.name_prefix}-therapists"
+  group_name = aws_scheduler_schedule_group.scraper.name
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  schedule_expression          = var.schedules["therapists"]
+  schedule_expression_timezone = "UTC"
+
+  state = var.schedule_state
+
+  target {
+    arn      = aws_lambda_alias.stage["therapists"].arn
+    role_arn = aws_iam_role.scheduler.arn
+    input    = jsonencode({ exclude_site = ["eyoyaku"] })
+  }
+
+  depends_on = [aws_iam_role_policy.scheduler_invoke]
+}
+
+# ----------------------------------------------------------------------------
+# therapists: eyoyaku 専用 Schedule
+# ----------------------------------------------------------------------------
+# 駅ちか系 WAF は短時間に多店舗を巡回するとブロックされるため、
+# 1 ジョブで処理するサロン数を max_per_site で制限し、毎日少しずつ巡回することで
+# - 初回 131 サロンを数日かけて完走
+# - 既存サロンの差分更新
+# を両立させる。
+#
+# only_unsynced=false にすることで last_synced_at の古い順 (= 飢餓状態のサロンを
+# 先に追いつかせる) に巡回される。max_per_site=20 + delay 平均 10 秒で 1 ジョブ
+# あたり最大 ~5 分。WAF を踏まなければ全 131 サロンが約 7 日でローテーションする。
+#
+# var.schedules["therapists_eyoyaku"] が空文字 / 未指定なら作成しない。
+resource "aws_scheduler_schedule" "therapists_eyoyaku" {
+  count = lookup(var.schedules, "therapists_eyoyaku", "") == "" ? 0 : 1
+
+  name       = "${var.name_prefix}-therapists-eyoyaku"
+  group_name = aws_scheduler_schedule_group.scraper.name
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  schedule_expression          = var.schedules["therapists_eyoyaku"]
+  schedule_expression_timezone = "UTC"
+
+  state = var.schedule_state
+
+  target {
+    arn      = aws_lambda_alias.stage["therapists"].arn
+    role_arn = aws_iam_role.scheduler.arn
+    input = jsonencode({
+      site         = ["eyoyaku"]
+      max_per_site = 20
+    })
+  }
+
+  depends_on = [aws_iam_role_policy.scheduler_invoke]
+}
+
+# ----------------------------------------------------------------------------
+# availability: メイン Schedule (1 分間隔 / eyoyaku 除外)
+# ----------------------------------------------------------------------------
+# caskan / grow / edc / estama の 4 サイトを 1 分ごとに巡回する本流。
+# eyoyaku だけは別 Schedule で 5 分間隔に分離するため exclude_site で外す。
+resource "aws_scheduler_schedule" "availability_main" {
+  count = lookup(var.schedules, "availability", "") == "" ? 0 : 1
+
+  name       = "${var.name_prefix}-availability"
+  group_name = aws_scheduler_schedule_group.scraper.name
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  schedule_expression          = var.schedules["availability"]
+  schedule_expression_timezone = "UTC"
+
+  state = var.schedule_state
+
+  target {
+    arn      = aws_lambda_alias.stage["availability"].arn
+    role_arn = aws_iam_role.scheduler.arn
+    input    = jsonencode({ exclude_site = ["eyoyaku"] })
+  }
+
+  depends_on = [aws_iam_role_policy.scheduler_invoke]
+}
+
+# ----------------------------------------------------------------------------
+# availability: eyoyaku 専用 Schedule (5 分間隔)
+# ----------------------------------------------------------------------------
+# 駅ちか系 WAF を踏まないために間隔を 1 分→5 分に伸ばし、watch されている
+# eyoyaku セラピストのみを巡回する。notify latency は 1 分→5 分まで悪化するが、
+# 完全にブロックされて 0 件になるよりは遥かに優先される設計。
+#
+# var.schedules["availability_eyoyaku"] が空文字 / 未指定なら作成しない。
+resource "aws_scheduler_schedule" "availability_eyoyaku" {
+  count = lookup(var.schedules, "availability_eyoyaku", "") == "" ? 0 : 1
+
+  name       = "${var.name_prefix}-availability-eyoyaku"
+  group_name = aws_scheduler_schedule_group.scraper.name
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  schedule_expression          = var.schedules["availability_eyoyaku"]
+  schedule_expression_timezone = "UTC"
+
+  state = var.schedule_state
+
+  target {
+    arn      = aws_lambda_alias.stage["availability"].arn
+    role_arn = aws_iam_role.scheduler.arn
+    input    = jsonencode({ site = ["eyoyaku"] })
   }
 
   depends_on = [aws_iam_role_policy.scheduler_invoke]

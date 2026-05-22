@@ -11,6 +11,7 @@ const log = createLogger('menesthe:homepage_resolver');
  * - grow:    https://grow-appt.com/reserve/{shop_id}/ または reserve?SID= / reserve/review?SID= 等
  * - edc:     https?://reserve-{shop_id}.esthe-datacenter.com[...]
  * - estama:  https://estama.jp/shop/{shop_id}/
+ * - eyoyaku: https://e-yoyaku.jp/shop/{shop_id}/
  *
  * 注意:
  *   - `g` フラグ + 反復実行のために state-fullness を避けるべく、関数内で都度 new RegExp。
@@ -44,6 +45,11 @@ const PATTERNS: Array<{ site: BookingSiteName; build: () => RegExp; pickShopId: 
   {
     site: 'estama',
     build: () => /https?:\/\/estama\.jp\/shop\/(\d+)\/?(?:[?#][^\s"'<>]*)?/gi,
+    pickShopId: (m) => m[1] ?? '',
+  },
+  {
+    site: 'eyoyaku',
+    build: () => /https?:\/\/e-yoyaku\.jp\/shop\/(\d+)\/?(?:[?#][^\s"'<>]*)?/gi,
     pickShopId: (m) => m[1] ?? '',
   },
 ];

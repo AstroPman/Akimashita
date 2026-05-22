@@ -10,6 +10,7 @@ import { emitJobMetrics } from '../lib/metrics.js';
 import { env } from '../lib/env.js';
 import {
   diffHttpMetrics,
+  isCircuitBreakerError,
   isGonePageError,
   snapshotHttpMetrics,
 } from '../lib/http.js';
@@ -17,6 +18,7 @@ import { caskanAvailabilityScraper } from '../scrapers/caskan/availability.js';
 import { growAvailabilityScraper } from '../scrapers/grow/availability.js';
 import { edcAvailabilityScraper } from '../scrapers/edc/availability.js';
 import { estamaAvailabilityScraper } from '../scrapers/estama/availability.js';
+import { eyoyakuAvailabilityScraper } from '../scrapers/eyoyaku/availability.js';
 
 const log = createLogger('job:availability');
 
@@ -60,6 +62,8 @@ function pickScraper(siteName: SiteName): AvailabilityScraper {
       return edcAvailabilityScraper;
     case 'estama':
       return estamaAvailabilityScraper;
+    case 'eyoyaku':
+      return eyoyakuAvailabilityScraper;
   }
 }
 
@@ -315,6 +319,22 @@ export interface RunAvailabilityOptions {
    * 通知パスは走らせない。詳細は AvailabilityMode のコメントを参照。
    */
   mode?: AvailabilityMode;
+
+  /**
+   * 対象サイトを限定する。複数指定可。
+   *
+   * 利用例: eyoyaku のような Bot 検知が厳しいサイトを別 Schedule で
+   * ゆっくり (5 分間隔など) 巡回するために、メインの 1 分 schedule から分離する。
+   *
+   * 未指定なら全サイト対象。
+   */
+  onlySites?: ReadonlyArray<SiteName>;
+
+  /**
+   * 対象サイトから特定サイトを除外する。複数指定可。
+   * onlySites と併用された場合は onlySites が優先される (excludeSites は無視)。
+   */
+  excludeSites?: ReadonlyArray<SiteName>;
 }
 
 type SiteSummary = {
@@ -375,8 +395,23 @@ function formatHttpMetricsLine(
 export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Promise<void> {
   const mode: AvailabilityMode = opts.mode ?? 'watch';
   const concurrency = Math.max(1, opts.concurrency ?? env.AVAILABILITY_CONCURRENCY);
-  const { therapists, watchedCount, researchOnlyCount, researchExcludedWatchedCount } =
-    await fetchTargetTherapists(mode);
+
+  const onlySites = opts.onlySites && opts.onlySites.length > 0
+    ? new Set<SiteName>(opts.onlySites)
+    : undefined;
+  const excludeSites = !onlySites && opts.excludeSites && opts.excludeSites.length > 0
+    ? new Set<SiteName>(opts.excludeSites)
+    : undefined;
+
+  const fetched = await fetchTargetTherapists(mode);
+  // サイトフィルタはメモリ上で適用。watch / research のクロスフィルタは fetch 側に
+  // 残し、site フィルタはここで一括処理することで両モードで同じロジックを共有する。
+  const therapists = fetched.therapists.filter((t) => {
+    if (onlySites && onlySites.size > 0 && !onlySites.has(t.site_name)) return false;
+    if (excludeSites && excludeSites.has(t.site_name)) return false;
+    return true;
+  });
+  const { watchedCount, researchOnlyCount, researchExcludedWatchedCount } = fetched;
 
   // サイト別の事前カウントは負荷見積もりに便利なので最初にログる。
   // research 由来の分は研究目的サロンの検証にも使うため別カウントしておく。
@@ -395,6 +430,8 @@ export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Pro
     // research モードで watch_settings 配下と被って除外した件数。
     // 0 が期待値。継続的に非 0 ならフラグの付け方が watch ユーザと競合しているサイン。
     researchExcludedWatched: researchExcludedWatchedCount,
+    onlySites: onlySites ? Array.from(onlySites) : undefined,
+    excludeSites: excludeSites ? Array.from(excludeSites) : undefined,
     bySite,
   });
 
@@ -433,8 +470,18 @@ export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Pro
   let failure = 0;
   let softDeleted = 0;
   let totalSlots = 0;
+  let circuitSkipped = 0;
+  // サイト単位で「ブレーカ OPEN」になったら、その worker 全体で当該サイトの
+  // 残ターゲットを以後スキップする (= 並列 worker から共有される)。
+  // 他サイトには波及させない (例: eyoyaku が落ちても caskan/grow は継続)。
+  const trippedSites = new Set<SiteName>();
 
   await runWithConcurrency(therapists, concurrency, async (therapist) => {
+    if (trippedSites.has(therapist.site_name)) {
+      // 既にブレーカ OPEN したサイトの残ターゲット。
+      circuitSkipped += 1;
+      return;
+    }
     const scraper = pickScraper(therapist.site_name);
     const startedAt = Date.now();
     bumpSite(therapist.site_name, {
@@ -470,6 +517,19 @@ export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Pro
       });
     } catch (err) {
       const elapsed = Date.now() - startedAt;
+      if (isCircuitBreakerError(err)) {
+        trippedSites.add(therapist.site_name);
+        failure += 1;
+        bumpSite(therapist.site_name, { failure: 1, elapsedMs: elapsed });
+        log.error('Site-wide circuit breaker tripped; skipping remaining therapists for this site', {
+          site: therapist.site_name,
+          therapist: therapist.name,
+          cooldown_until: err.cooldownUntil.toISOString(),
+          reason: err.reason,
+          ms: elapsed,
+        });
+        return;
+      }
       if (isGonePageError(err)) {
         try {
           await softDeleteMissingTherapist(therapist.id);
@@ -552,6 +612,8 @@ export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Pro
     success,
     failure,
     softDeleted,
+    circuitSkipped,
+    trippedSites: Array.from(trippedSites),
     slots: totalSlots,
     notified,
     elapsedMs: jobElapsedMs,

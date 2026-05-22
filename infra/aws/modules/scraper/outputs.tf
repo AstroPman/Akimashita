@@ -35,7 +35,17 @@ output "lambda_alias_arns" {
 
 output "schedule_arns" {
   description = "ステージ → EventBridge Schedule ARN（schedule 設定があるステージのみ）。salons 系は別 output を参照。"
-  value       = { for k, s in aws_scheduler_schedule.stage : k => s.arn }
+  value = merge(
+    { for k, s in aws_scheduler_schedule.stage : k => s.arn },
+    # therapists / availability は eyoyaku 専用と分けるため個別 resource。
+    # count=0 のときは output に出現しないよう try() でガード。
+    {
+      therapists           = try(aws_scheduler_schedule.therapists_main[0].arn, null)
+      therapists_eyoyaku   = try(aws_scheduler_schedule.therapists_eyoyaku[0].arn, null)
+      availability         = try(aws_scheduler_schedule.availability_main[0].arn, null)
+      availability_eyoyaku = try(aws_scheduler_schedule.availability_eyoyaku[0].arn, null)
+    },
+  )
 }
 
 output "salons_pipeline_state_machine_arn" {

@@ -2,11 +2,12 @@ import type { Salon, SiteName, TherapistRecord, TherapistScraper } from '@alimas
 import { supabase } from '../lib/supabase.js';
 import { createLogger } from '../lib/logger.js';
 import { emitJobMetrics } from '../lib/metrics.js';
-import { isGonePageError } from '../lib/http.js';
+import { isCircuitBreakerError, isGonePageError } from '../lib/http.js';
 import { caskanTherapistScraper } from '../scrapers/caskan/therapists.js';
 import { growTherapistScraper } from '../scrapers/grow/therapists.js';
 import { edcTherapistScraper } from '../scrapers/edc/therapists.js';
 import { estamaTherapistScraper } from '../scrapers/estama/therapists.js';
+import { eyoyakuTherapistScraper } from '../scrapers/eyoyaku/therapists.js';
 
 const log = createLogger('job:therapists');
 
@@ -29,6 +30,8 @@ function pickScraper(siteName: SiteName): TherapistScraper {
       return edcTherapistScraper;
     case 'estama':
       return estamaTherapistScraper;
+    case 'eyoyaku':
+      return eyoyakuTherapistScraper;
   }
 }
 
@@ -38,14 +41,18 @@ function unwrapSiteName(sites: SalonRow['sites']): SiteName | null {
   return sites.name;
 }
 
-async function fetchSalons(onlyUnsynced: boolean): Promise<Salon[]> {
+async function fetchSalons(opts: {
+  onlyUnsynced: boolean;
+  onlySites?: ReadonlySet<SiteName>;
+  excludeSites?: ReadonlySet<SiteName>;
+}): Promise<Salon[]> {
   let query = supabase
     .from('salons')
     .select('id, site_id, shop_id, name, url, sites!inner(name), last_synced_at, deleted_at')
     .is('deleted_at', null)
     .order('last_synced_at', { ascending: true, nullsFirst: true });
 
-  if (onlyUnsynced) {
+  if (opts.onlyUnsynced) {
     query = query.is('last_synced_at', null);
   }
 
@@ -64,6 +71,8 @@ async function fetchSalons(onlyUnsynced: boolean): Promise<Salon[]> {
       log.warn('Skip salon without site name', { id: row.id, shop_id: row.shop_id });
       continue;
     }
+    if (opts.onlySites && opts.onlySites.size > 0 && !opts.onlySites.has(siteName)) continue;
+    if (opts.excludeSites && opts.excludeSites.has(siteName)) continue;
     salons.push({
       id: row.id,
       site_id: row.site_id,
@@ -155,6 +164,33 @@ async function softDeleteMissingSalon(salon: Salon): Promise<void> {
 export interface RunTherapistsJobOptions {
   /** true の場合、last_synced_at IS NULL のサロン（未スクレイピング）のみを対象にする。 */
   onlyUnsynced?: boolean;
+  /**
+   * 対象サイトを限定する。複数指定可。
+   *
+   * 利用例:
+   * - eyoyaku のような Bot 検知が厳しいサイトを別 Lambda Schedule で
+   *   ゆっくり巡回したいときに、メインのジョブから除外する。
+   * - 新規追加サイトの初回ブートストラップを単独で動かす。
+   *
+   * 未指定 (undefined / 空) なら全サイト対象。
+   */
+  onlySites?: ReadonlyArray<SiteName>;
+  /**
+   * 対象サイトから特定サイトを除外する。複数指定可。
+   * onlySites と併用された場合は onlySites が優先される (excludeSites は無視)。
+   */
+  excludeSites?: ReadonlyArray<SiteName>;
+  /**
+   * 1 ジョブで site あたりに処理する最大サロン数。
+   *
+   * 例: eyoyaku の初回 131 サロンを 1 度に全部叩くと WAF を踏むため、
+   * `maxPerSite: 20` のように分割して数日に分けて完走させる。
+   * `last_synced_at` は ascending + nullsFirst 順なので、未同期 → 古い順 に
+   * 自然に巡回される (= 飢餓状態のサロンが優先的に追いつく)。
+   *
+   * 未指定なら制限なし。
+   */
+  maxPerSite?: number;
 }
 
 export async function runTherapistsJob(
@@ -162,15 +198,50 @@ export async function runTherapistsJob(
 ): Promise<void> {
   const startedAt = Date.now();
   const onlyUnsynced = options.onlyUnsynced ?? false;
-  const salons = await fetchSalons(onlyUnsynced);
-  log.info(`Found ${salons.length} salons to sync`, { only_unsynced: onlyUnsynced });
+  const onlySites = options.onlySites && options.onlySites.length > 0
+    ? new Set<SiteName>(options.onlySites)
+    : undefined;
+  const excludeSites = !onlySites && options.excludeSites && options.excludeSites.length > 0
+    ? new Set<SiteName>(options.excludeSites)
+    : undefined;
+  const maxPerSite = options.maxPerSite && options.maxPerSite > 0 ? options.maxPerSite : null;
+
+  const rawSalons = await fetchSalons({ onlyUnsynced, onlySites, excludeSites });
+
+  // maxPerSite を適用 (site ごとに ascending nullsFirst の先頭 N 件)。
+  let salons = rawSalons;
+  if (maxPerSite !== null) {
+    const perSite = new Map<SiteName, number>();
+    salons = rawSalons.filter((s) => {
+      const used = perSite.get(s.site_name) ?? 0;
+      if (used >= maxPerSite) return false;
+      perSite.set(s.site_name, used + 1);
+      return true;
+    });
+  }
+
+  log.info(`Found ${salons.length} salons to sync`, {
+    only_unsynced: onlyUnsynced,
+    only_sites: onlySites ? Array.from(onlySites) : undefined,
+    exclude_sites: excludeSites ? Array.from(excludeSites) : undefined,
+    max_per_site: maxPerSite,
+    total_before_limit: rawSalons.length,
+  });
 
   let success = 0;
   let failure = 0;
-
   let softDeleted = 0;
+  // サイト単位でブレーカが OPEN したらそのサイトの残サロンはスキップ。
+  // 他サイトには波及させない (例: eyoyaku が落ちても caskan は継続)。
+  const tripped = new Set<SiteName>();
 
   for (const salon of salons) {
+    if (tripped.has(salon.site_name)) {
+      // 既にブレーカが OPEN したサイトの残サロン。
+      // 通常パスでも HttpCircuitBreakerError が即 throw されるが、
+      // メトリクス / supabase クライアント呼び出しすら走らせずに済むよう手前で弾く。
+      continue;
+    }
     const scraper = pickScraper(salon.site_name);
     try {
       const records = await scraper.run(salon);
@@ -183,6 +254,16 @@ export async function runTherapistsJob(
         count: records.length,
       });
     } catch (err) {
+      if (isCircuitBreakerError(err)) {
+        tripped.add(salon.site_name);
+        log.error('Site-wide circuit breaker tripped; skipping remaining salons for this site', {
+          site: salon.site_name,
+          cooldown_until: err.cooldownUntil.toISOString(),
+          reason: err.reason,
+        });
+        failure += 1;
+        continue;
+      }
       if (isGonePageError(err)) {
         try {
           await softDeleteMissingSalon(salon);
@@ -212,7 +293,13 @@ export async function runTherapistsJob(
     }
   }
 
-  log.info(`Stage 2 complete`, { success, failure, softDeleted, total: salons.length });
+  log.info(`Stage 2 complete`, {
+    success,
+    failure,
+    softDeleted,
+    total: salons.length,
+    tripped_sites: Array.from(tripped),
+  });
   emitJobMetrics('therapists', {
     durationMs: Date.now() - startedAt,
     recordsProcessed: success,

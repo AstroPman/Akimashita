@@ -29,5 +29,13 @@ export function buildReservationUrl(input: ReservationUrlInput): string {
       // estama は店舗の予約フォームに ?cast_id=&reserve_date= を載せれば
       // セラピスト/日付までは事前選択された状態で遷移できる (時刻はスコープ外)。
       return `https://estama.jp/shop/${encodeURIComponent(shopId)}/reserve/`;
+    case 'eyoyaku':
+      // e-yoyaku.jp はセラピスト個別ページに飛べば 7-8 日分のタイムテーブルが
+      // SSR で並んでおり、ユーザは目的の 15 分枠を直接クリックして予約フォームに進める。
+      // 日付タブは ?selectedDate=N アンカで切り替えるが、N は「先頭からの index」で
+      // 当日からの相対値は使えないため URL では指定しない (画面で当日タブが選択済み)。
+      return `https://e-yoyaku.jp/shop/${encodeURIComponent(shopId)}/girl/${encodeURIComponent(
+        therapistId,
+      )}/`;
   }
 }

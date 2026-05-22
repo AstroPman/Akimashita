@@ -14,8 +14,8 @@ alert_emails = ["astroqman@gmail.com"]
 # スモークテストを完了してから "ENABLED" に変更する。
 scraper_schedule_state = "ENABLED"
 scraper_schedules = {
-  therapists   = "cron(0 19 * * ? *)" # JST 04:00 daily
-  availability = "cron(0 * * * ? *)"  #  1 時間間隔
+  therapists   = "cron(0 19 * * ? *)" # JST 04:00 daily (eyoyaku 除外)
+  availability = "cron(0 * * * ? *)"  #  1 時間間隔 (eyoyaku 除外)
   notify       = "cron(0 * * * ? *)"  #  1 時間間隔（availability 直後）
   # Stage 5: 公式サイト個別ページから shift_announced を発火する Layer 2。
   # 監視中セラピストのみが対象なのでホスト負荷は低く、availability と同じ頻度で回す。
@@ -24,6 +24,10 @@ scraper_schedules = {
   # 実測で caskan 複数サロン 133 人 ≒ 3 分 / grow 137 人 ≒ 6 分の規模。
   # まずは 15 分間隔から始め、grow ホスト並列度などのチューニングと合わせて頻度を見直す。
   availability_research = "cron(0 * * * ? *)" # 15 分間隔
+  # eyoyaku 専用 Schedule (本番と同じ運用)。staging では低頻度に揃える。
+  # ブートストラップは本番優先。staging は動作確認用に存在させるが頻度を低めに設定。
+  therapists_eyoyaku   = "cron(30 19 * * ? *)" # JST 04:30 daily
+  availability_eyoyaku = "cron(0 * * * ? *)"   # 1 時間間隔 (staging では低頻度)
 }
 
 scraper_salons_pipeline_schedule = "cron(0 18 * * ? *)" # JST 03:00 daily

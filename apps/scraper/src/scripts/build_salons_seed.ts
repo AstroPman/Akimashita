@@ -1,22 +1,39 @@
 /**
- * CSV (output/{site}.csv) を salons の冪等 data migration / seed.sql に変換する。
+ * CSV (output/{site}.csv 系) を salons の冪等 INSERT 文に変換し、
+ * `supabase/seed.sql` の salons ブロックを置換する。
  *
- * 入力:
- *   - output/r.caskan.jp.csv
- *   - output/grow-appt.com.csv
- *   - output/esthe-datacenter.com.csv
- *   - output/estama.jp.csv
- *   CSV ヘッダ: url, name, booking_url
+ * 入力 (2 系統):
+ *   1. compact 形式 (3 列, 1 サイト 1 ファイル):
+ *      - output/r.caskan.jp.csv
+ *      - output/grow-appt.com.csv
+ *      - output/esthe-datacenter.com.csv
+ *      - output/estama.jp.csv
+ *      ヘッダ: url, name, booking_url
+ *
+ *   2. candidates 形式 (5 列, men-esthe.jp 経由のクロール結果):
+ *      - output/booking_external_candidates.csv
+ *      ヘッダ: url, name, booking_domain, booking_url, anchor_text
+ *      `filterDomain` でホスト名フィルタを掛けて 1 サイトずつ取り込む。
+ *
+ *   いずれも共通の意味付け:
  *     - url        = サロン公式サイトのトップ URL (= salons.homepage_url)
  *     - name       = サロン名 (= salons.name)
  *     - booking_url = 予約サイトの店舗 URL (= salons.url)
  *
  * 出力:
- *   - supabase/migrations/20260522000003_salons_seed.sql
- *     本番 / staging / local 全環境への INSERT ... ON CONFLICT DO UPDATE
- *   - supabase/seed.sql の salons block を migration と同内容で置換
+ *   - supabase/seed.sql の salons block を置換する (唯一の出力)
  *
- * 冪等性:
+ * 運用方針 (重要):
+ *   - 本スクリプトは migration ファイルを書き出さない。
+ *     `supabase/migrations/20260522000003_salons_seed.sql` は初回 bootstrap として
+ *     既に本番 / staging に適用済みであり、`supabase db push` は適用済み migration の
+ *     変更を再反映しないため、ここで migration を書き換える運用は破綻する。
+ *   - salons の追加・更新は `supabase/seed.sql` に集約し、本番 / staging への反映は
+ *     運用者が Supabase コンソール (SQL Editor) から seed.sql の salons ブロックを
+ *     直接実行する形で行う (`on conflict (site_id, shop_id) do update` により冪等)。
+ *   - ローカル / CI は `npx supabase db reset` で seed.sql が再投入されるため自動で追従する。
+ *
+ * 冪等性 (seed.sql 内の INSERT 単体としても成立):
  *   - (site_id, shop_id) 既存 → name / url / homepage_url を CSV 値で上書き
  *   - (site_id, shop_id) 新規 → INSERT
  *   - CSV に無い既存 salons → 触らない (別経路で追加されたものを尊重)
@@ -35,16 +52,40 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // apps/scraper/src/scripts → workspace root
 const ROOT = resolve(__dirname, '../../../..');
 
-interface CsvSource {
-  path: string;
-  site: SiteName;
-}
+/**
+ * CSV ソース定義。
+ *
+ * - `format` 未指定（または `'compact'`）の場合は 3 列ヘッダ `url,name,booking_url` を期待する。
+ * - `format: 'candidates'` の場合は 5 列ヘッダ `url,name,booking_domain,booking_url,anchor_text`
+ *   を期待し、 `filterDomain` と一致する行のみ採用する。 men-esthe.jp 経由のクロール結果から
+ *   特定の予約システム (例: e-yoyaku.jp) を抜き出す用途。
+ */
+type CsvSource =
+  | {
+      path: string;
+      site: SiteName;
+      format?: 'compact';
+    }
+  | {
+      path: string;
+      site: SiteName;
+      format: 'candidates';
+      filterDomain: string;
+    };
 
 const CSV_SOURCES: CsvSource[] = [
   { path: 'output/r.caskan.jp.csv', site: 'caskan' },
   { path: 'output/grow-appt.com.csv', site: 'grow' },
   { path: 'output/esthe-datacenter.com.csv', site: 'edc' },
   { path: 'output/estama.jp.csv', site: 'estama' },
+  // e-yoyaku.jp 専用の compact CSV は存在しない。men-esthe.jp 由来の候補 CSV から
+  // booking_domain でフィルタして取り込む (134 ユニーク shop_id 程度)。
+  {
+    path: 'output/booking_external_candidates.csv',
+    site: 'eyoyaku',
+    format: 'candidates',
+    filterDomain: 'e-yoyaku.jp',
+  },
 ];
 
 interface CsvRow {
@@ -62,17 +103,33 @@ interface SalonRow {
 }
 
 /**
- * RFC 4180 風の最小 CSV 行パーサ。
- * フィールド内コンマ・ダブルクオート（"" でエスケープ）に対応する。
+ * RFC 4180 風の最小 CSV パーサ。
+ * フィールド内コンマ・ダブルクオート（"" でエスケープ）に加え、
+ * クオート内の改行（CR/LF/CRLF）も同一レコードとして扱う。
+ *
+ * 戻り値は (行 → フィールド配列) の二次元配列。空レコードは除外する。
  */
-function splitCsvLine(line: string): string[] {
-  const result: string[] = [];
+function parseCsvRecords(content: string): string[][] {
+  const records: string[][] = [];
+  let row: string[] = [];
   let cur = '';
   let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
+
+  const pushField = () => {
+    row.push(cur);
+    cur = '';
+  };
+  const pushRow = () => {
+    pushField();
+    // 完全に空のレコード (空行) は捨てる。データ行は最低でも url が入るので空にはならない想定。
+    if (row.length > 1 || row[0] !== '') records.push(row);
+    row = [];
+  };
+
+  for (let i = 0; i < content.length; i++) {
+    const c = content[i]!;
     if (inQuotes) {
-      if (c === '"' && line[i + 1] === '"') {
+      if (c === '"' && content[i + 1] === '"') {
         cur += '"';
         i++;
       } else if (c === '"') {
@@ -80,34 +137,88 @@ function splitCsvLine(line: string): string[] {
       } else {
         cur += c;
       }
+      continue;
+    }
+    if (c === '"') {
+      inQuotes = true;
+    } else if (c === ',') {
+      pushField();
+    } else if (c === '\r' && content[i + 1] === '\n') {
+      pushRow();
+      i++;
+    } else if (c === '\n' || c === '\r') {
+      pushRow();
     } else {
-      if (c === '"') {
-        inQuotes = true;
-      } else if (c === ',') {
-        result.push(cur);
-        cur = '';
-      } else {
-        cur += c;
-      }
+      cur += c;
     }
   }
-  result.push(cur);
-  return result;
+  // 最終レコード (末尾改行なしのケース) を取り込む。
+  if (cur.length > 0 || row.length > 0) pushRow();
+  return records;
 }
 
-function parseCsv(content: string, label: string): CsvRow[] {
-  const lines = content.split(/\r?\n/).filter((l) => l.length > 0);
-  const header = lines.shift();
-  if (header !== 'url,name,booking_url') {
-    throw new Error(`Unexpected CSV header in ${label}: ${header}`);
+/**
+ * compact 形式 (3 列): `url,name,booking_url`。
+ */
+function parseCsvCompact(content: string, label: string): CsvRow[] {
+  const records = parseCsvRecords(content);
+  const header = records.shift();
+  if (!header || header.join(',') !== 'url,name,booking_url') {
+    throw new Error(`Unexpected CSV header in ${label}: ${header?.join(',') ?? '<empty>'}`);
   }
-  return lines.map((line, idx) => {
-    const fields = splitCsvLine(line);
+  return records.map((fields, idx) => {
     if (fields.length !== 3) {
-      throw new Error(`Bad CSV row ${idx + 2} in ${label}: ${line}`);
+      throw new Error(`Bad CSV row ${idx + 2} in ${label}: ${fields.join('|')}`);
     }
     return { url: fields[0]!, name: fields[1]!, booking_url: fields[2]! };
   });
+}
+
+/**
+ * candidates 形式 (5 列): `url,name,booking_domain,booking_url,anchor_text`。
+ * `filterDomain` と完全一致する booking_domain の行のみを採用し、
+ * (url, name, booking_url) の compact 形に正規化して返す。
+ *
+ * - url / name が空の行はスキップ (salons 必須カラム)。
+ * - 同一 booking_url が anchor_text 違いで複数行に出るケースは下流の `dedup` で
+ *   (site, shop_id) ベースに排除されるため、ここでは弾かない。
+ * - anchor_text にクオートで囲まれた改行 (RFC 4180) が混じる行があり、
+ *   `parseCsvRecords` 側がレコード境界を正しく解釈する。
+ */
+function parseCsvCandidates(
+  content: string,
+  label: string,
+  filterDomain: string,
+): CsvRow[] {
+  const records = parseCsvRecords(content);
+  const header = records.shift();
+  if (
+    !header ||
+    header.join(',') !== 'url,name,booking_domain,booking_url,anchor_text'
+  ) {
+    throw new Error(`Unexpected CSV header in ${label}: ${header?.join(',') ?? '<empty>'}`);
+  }
+  const out: CsvRow[] = [];
+  records.forEach((fields, idx) => {
+    if (fields.length !== 5) {
+      throw new Error(`Bad CSV row ${idx + 2} in ${label}: ${fields.join('|')}`);
+    }
+    const [url, name, bookingDomain, bookingUrl] = fields;
+    if (bookingDomain !== filterDomain) return;
+    if (!url || !name || !bookingUrl) {
+      console.warn(`[${label}] Skip row ${idx + 2}: empty url/name/booking_url`);
+      return;
+    }
+    out.push({ url, name, booking_url: bookingUrl });
+  });
+  return out;
+}
+
+function parseCsvForSource(source: CsvSource, content: string): CsvRow[] {
+  if (source.format === 'candidates') {
+    return parseCsvCandidates(content, source.path, source.filterDomain);
+  }
+  return parseCsvCompact(content, source.path);
 }
 
 /**
@@ -186,14 +297,14 @@ function dedup(rows: SalonRow[]): SalonRow[] {
 
 function loadAllRows(): SalonRow[] {
   const all: SalonRow[] = [];
-  for (const { path, site } of CSV_SOURCES) {
-    const absPath = join(ROOT, path);
+  for (const source of CSV_SOURCES) {
+    const absPath = join(ROOT, source.path);
     const content = readFileSync(absPath, 'utf-8');
-    const rows = parseCsv(content, path);
+    const rows = parseCsvForSource(source, content);
     for (const r of rows) {
-      const shop_id = extractShopId(r.booking_url, site);
+      const shop_id = extractShopId(r.booking_url, source.site);
       all.push({
-        site,
+        site: source.site,
         shop_id,
         name: r.name,
         homepage_url: r.url,
@@ -202,31 +313,6 @@ function loadAllRows(): SalonRow[] {
     }
   }
   return all;
-}
-
-function writeMigration(rows: SalonRow[]): string {
-  const header = `-- ============================================================
--- Migration: 20260522000003_salons_seed.sql
--- Description:
---   output/{site}.csv（公式サイト × 予約サイト URL ペア）を salons に冪等同期する。
---   apps/scraper/src/scripts/build_salons_seed.ts で生成された自動生成 SQL。
---   手動編集禁止。CSV を更新したら \`npm run -w scraper build:salons-seed\` を再実行する。
---
---   挙動:
---     - (site_id, shop_id) が既存 → name / url / homepage_url を CSV 値で上書き
---       (CSV を正とする方針)
---     - (site_id, shop_id) が新規 → INSERT
---     - 本番にあるが CSV に無い salons → 触らない（別経路で追加されたものを尊重）
---
---   site_id 解決は sites.name 経由。20260522000001_canonicalize_sites.sql で
---   sites.name に UNIQUE 制約を張った前提なので、name → id は一意に解決される。
--- ============================================================
-
-`;
-  const sql = header + buildSqlBlock(rows);
-  const outPath = join(ROOT, 'supabase/migrations/20260522000003_salons_seed.sql');
-  writeFileSync(outPath, sql);
-  return outPath;
 }
 
 function writeSeed(rows: SalonRow[]): string {
@@ -246,10 +332,20 @@ function writeSeed(rows: SalonRow[]): string {
   }
 
   const prefix = existing.slice(0, blockStart).trimEnd();
+  // 本番 / staging は migration 経由ではなく、運用者が Supabase コンソール (SQL Editor)
+  // でこの salons ブロックを直接実行することで反映する。
+  // ローカル / CI は `npx supabase db reset` で seed.sql が再投入される。
   const salonsHeader = `-- ============================================================
 -- salons
--- ローカル / CI 用に migration 20260522000003 と同等の内容を投入する。
 -- apps/scraper/src/scripts/build_salons_seed.ts で自動生成。手動編集禁止。
+-- 本ブロックは output/*.csv から生成され、本プロジェクトの salons マスタの正となる。
+--
+-- 反映経路:
+--   - ローカル / CI: \`npx supabase db reset\` で seed.sql 全体が投入される
+--   - 本番 / staging: 運用者が Supabase コンソール (SQL Editor) からこの salons ブロックを
+--                     コピペして実行する (on conflict (site_id, shop_id) do update で冪等)。
+--                     \`npx supabase db push\` は適用済み migration の変更を反映しないため、
+--                     salons の追加・更新を migration として書き直す運用は採らない。
 -- ============================================================
 
 `;
@@ -265,7 +361,6 @@ function main(): void {
     (a, b) => a.site.localeCompare(b.site) || a.shop_id.localeCompare(b.shop_id),
   );
 
-  const migrationPath = writeMigration(sorted);
   const seedPath = writeSeed(sorted);
 
   const bySite = new Map<SiteName, number>();
@@ -276,8 +371,12 @@ function main(): void {
   for (const [site, n] of bySite) {
     console.log(`  ${site}: ${n}`);
   }
-  console.log(`  migration: ${migrationPath}`);
-  console.log(`  seed:      ${seedPath}`);
+  console.log(`  seed: ${seedPath}`);
+  console.log(
+    `\nNext: 本番 / staging に反映する場合は ${seedPath} の "-- salons" ブロックを\n` +
+      `      Supabase コンソール (SQL Editor) から実行してください。\n` +
+      `      ローカルは \`npx supabase db reset\` で自動投入されます。`,
+  );
 }
 
 main();

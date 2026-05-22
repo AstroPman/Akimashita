@@ -1,3 +1,4 @@
+import type { SiteName } from '@alimashita/shared';
 import { createLogger } from './lib/logger.js';
 import { runTherapistsJob } from './jobs/therapists.js';
 import { runAvailabilityJob, type AvailabilityMode } from './jobs/availability.js';
@@ -12,6 +13,14 @@ const log = createLogger('main');
 
 type Stage = 'salons' | 'therapists' | 'availability' | 'official_shifts' | 'notify';
 
+const KNOWN_SITES: ReadonlySet<SiteName> = new Set<SiteName>([
+  'caskan',
+  'grow',
+  'edc',
+  'estama',
+  'eyoyaku',
+]);
+
 interface CliArgs {
   stage: Stage;
   loop: number;
@@ -21,6 +30,12 @@ interface CliArgs {
   salonsPhase: ExternalSalonsPhase;
   concurrency: number | null;
   availabilityMode: AvailabilityMode;
+  /** --site=eyoyaku など。複数指定で配列に追加される (--site=a --site=b)。 */
+  onlySites: SiteName[];
+  /** --exclude-site=eyoyaku など。複数指定で配列に追加される。 */
+  excludeSites: SiteName[];
+  /** therapists ステージ専用: --max-per-site=20 でサイトごとに上限 N 件。 */
+  maxPerSite: number | null;
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -107,6 +122,38 @@ function parseArgs(argv: string[]): CliArgs {
     availabilityMode = v;
   }
 
+  // --site / --exclude-site は複数指定可。
+  // therapists / availability ステージで使う運用フィルタ (eyoyaku を別 schedule に分離する等)。
+  function collectSites(flag: string): SiteName[] {
+    const out: SiteName[] = [];
+    for (const a of argv) {
+      if (!a.startsWith(`${flag}=`)) continue;
+      const raw = a.split('=', 2)[1] ?? '';
+      for (const piece of raw.split(',').map((s) => s.trim()).filter(Boolean)) {
+        if (!KNOWN_SITES.has(piece as SiteName)) {
+          throw new Error(
+            `${flag} must be one of ${Array.from(KNOWN_SITES).join(' | ')} (got "${piece}")`,
+          );
+        }
+        out.push(piece as SiteName);
+      }
+    }
+    return out;
+  }
+  const onlySites = collectSites('--site');
+  const excludeSites = collectSites('--exclude-site');
+
+  // --max-per-site: therapists ステージのブートストラップ分割実行用。
+  const maxPerSiteArg = argv.find((a) => a.startsWith('--max-per-site='));
+  let maxPerSite: number | null = null;
+  if (maxPerSiteArg) {
+    const parsed = Number.parseInt(maxPerSiteArg.split('=', 2)[1] ?? '', 10);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      throw new Error('--max-per-site must be a positive integer');
+    }
+    maxPerSite = parsed;
+  }
+
   return {
     stage: stageValue,
     loop,
@@ -116,6 +163,9 @@ function parseArgs(argv: string[]): CliArgs {
     salonsPhase,
     concurrency,
     availabilityMode,
+    onlySites,
+    excludeSites,
+    maxPerSite,
   };
 }
 
@@ -141,7 +191,12 @@ async function main(): Promise<void> {
       if (args.loop !== 1) {
         log.warn('--loop is ignored for stage=therapists');
       }
-      await runTherapistsJob({ onlyUnsynced: args.onlyUnsynced });
+      await runTherapistsJob({
+        onlyUnsynced: args.onlyUnsynced,
+        onlySites: args.onlySites.length > 0 ? args.onlySites : undefined,
+        excludeSites: args.excludeSites.length > 0 ? args.excludeSites : undefined,
+        maxPerSite: args.maxPerSite ?? undefined,
+      });
       break;
     case 'availability': {
       for (let i = 0; i < args.loop; i++) {
@@ -151,6 +206,8 @@ async function main(): Promise<void> {
         await runAvailabilityJob({
           mode: args.availabilityMode,
           concurrency: args.concurrency ?? undefined,
+          onlySites: args.onlySites.length > 0 ? args.onlySites : undefined,
+          excludeSites: args.excludeSites.length > 0 ? args.excludeSites : undefined,
         });
         if (i < args.loop - 1) {
           await sleep(60_000);

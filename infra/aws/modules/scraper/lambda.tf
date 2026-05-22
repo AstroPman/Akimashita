@@ -72,6 +72,21 @@ resource "aws_lambda_function" "stage" {
       MAX_DELAY_MS                    = "500"
 
       # ============================================================
+      # e-yoyaku 専用レート抑制
+      # ============================================================
+      # e-yoyaku.jp は ranking-deli.jp グループ (駅ちか) の WAF が IP / セッション軸で
+      # 厳しく検知してくる。短時間に多店舗を巡回すると 403 連発で長時間ブロックされるため、
+      # 1 リクエストあたり 5-15 秒の間隔 (平均 10 秒) を空ける。
+      # - therapists ステージ: 131 サロンを 1 度に全部叩かないよう、Schedule input で
+      #   max_per_site を指定して数日に分けて完走させる運用 (scheduler.tf 参照)。
+      # - availability ステージ: メインの 1 分 Schedule から exclude_site で除外し、
+      #   eyoyaku 専用に 5 分 Schedule を生やしている。
+      # コード側 (lib/http.ts) では「サロン境界で明示 rotateCookies()」+ circuit breaker
+      # (連続 5 回 403 で 30 分隔離) を併用して保守的に振る舞う。
+      SCRAPER_HTTP_DELAY_MIN_MS_EYOYAKU = "5000"
+      SCRAPER_HTTP_DELAY_MAX_MS_EYOYAKU = "15000"
+
+      # ============================================================
       # Stage 5 (official_shifts) パフォーマンスチューニング
       # ============================================================
       # 公式サイトはサロン単位で別ホストが多いため並列度を上げてもホスト負荷は
