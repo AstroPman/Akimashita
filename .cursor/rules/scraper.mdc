@@ -16,15 +16,22 @@ reference DB (`external_areas` / `external_salons` / `external_salon_bookings`) 
 
 # ステージ設計
 
-スクレイピング処理は4つのステージに分割して独立実行できる。
+スクレイピング処理は 5 つのステージに分割して独立実行できる。
 全量を毎回実行すると膨大になるため、ステージごとに頻度・対象を制御する。
 
 ```
-Stage 1 (salons):       外部ポータルクロール   → external_* + salons リンク     （1日1回 〜 週1回）
-Stage 2 (therapists):   セラピスト同期         → therapists テーブルにupsert    （1日1回）
-Stage 3 (availability): 空き枠クロール         → availability テーブルにupsert  （1分間隔）
-Stage 4 (notify):       通知ジョブ             → notification_logs を消化       （5分間隔）
+Stage 1 (salons):           外部ポータルクロール       → external_* + salons リンク             （1日1回 〜 週1回）
+Stage 2 (therapists):       セラピスト同期             → therapists テーブルにupsert            （1日1回）
+Stage 3 (availability):     空き枠クロール             → availability テーブルにupsert          （1分間隔）
+Stage 5 (official_shifts):  公式サイト個別ページ巡回   → external_therapist_shifts テーブル     （1分間隔）
+Stage 4 (notify):           通知ジョブ                 → notification_logs を消化               （5分間隔）
 ```
+
+通知の Layer 分離:
+
+- **Layer 1 (Stage 3 が authoritative)**: 予約サイト由来の「スロット粒度」の空き状態。`availability` テーブルに upsert され、`enqueue_notifications` から `slot_opened` 通知を発火する。
+- **Layer 2 (Stage 5 が authoritative)**: 公式サロンサイト個別ページ由来の「シフト時間範囲」。`external_therapist_shifts` テーブルに upsert され、`enqueue_shift_notifications` から `shift_announced` 通知を発火する。`availability` には書き込まない。
+- 同 (therapist, date) で 2 つの kind がぶつかる場合、`shift_announced` を先に出したシフト範囲内の `slot_opened` は **Rule B** で抑制される (`enqueue_notifications` 内)。
 
 ## ステージ間の依存関係
 
@@ -33,6 +40,7 @@ Stage 1 → external_salons.homepage_url が見つかると bookings 検出 → 
 Stage 1 → salons が存在しないと Stage 2 が動かない
 Stage 2 → therapists が存在しないと Stage 3 が動かない
 Stage 3 → watch_settings が存在しないと通知ジョブの対象にならない
+Stage 5 → therapists.external_therapist_id が埋まっていないと対象に含まれない
 Stage 4 → notification_logs に未送信レコードがある時だけ動く
 ```
 
@@ -45,6 +53,7 @@ npx ts-node src/index.ts --stage=salons                           # Stage 1 全�
 npx ts-node src/index.ts --stage=salons --phase=details --limit=50 # Stage 1 サブフェーズ
 npx ts-node src/index.ts --stage=therapists                       # Stage 2
 npx ts-node src/index.ts --stage=availability --loop=5            # Stage 3（1分×5回）
+npx ts-node src/index.ts --stage=official_shifts                  # Stage 5
 npx ts-node src/index.ts --stage=notify --dry-run                 # Stage 4
 ```
 
@@ -122,13 +131,32 @@ AWS 上では `areas` のみ単独 Schedule（月 1 回）で動かし、残り 
     自動的に減速する
 
 ### Stage 4: 通知ジョブ (notify)
-- 入力: `notification_logs`（未送信レコード）
-- 処理: チャネル別 (現状: Resend Email) にディスパッチ
+- 入力: `notification_logs`（未送信レコード、`kind` ∈ {`slot_opened`, `shift_announced`}）
+- 処理: チャネル別 (現状: Resend Email) にディスパッチ。同一ユーザーに両 kind が
+  並走する場合は 1 通のメールに 2 セクション（空き枠 / 新シフト）で同居させる。
 - 出力: `notification_logs.sent_at` 更新
-- 頻度: 5分間隔（Stage 3 の通知エンキューを少し遅れて消化）
+- 頻度: 5分間隔（Stage 3 / Stage 5 の通知エンキューを少し遅れて消化）
 - 備考: `--dry-run` で副作用なし実行が可能
 
+### Stage 5: 公式サイト由来シフト範囲取得 (official_shifts)
+- 入力: `watch_settings` で監視中のセラピストかつ `therapists.external_therapist_id` が
+  紐付いており、`external_therapists.therapist_url` (= 公式サイト個別ページ URL) が
+  解決済みのもの。
+- 処理: 公式サイト個別ページを `cheerio` で軽くパースし、SCHEDULE 出勤予定セクションから
+  `(date, shift_start, shift_end)` のシフト範囲を抽出する。パーサはサロン個別実装せず
+  `apps/scraper/src/scrapers/official/shifts.ts` 1 本のジェネリック実装に閉じる。
+  跨ぎ深夜は estama の `normalizeDateTime` 流に翌日へ 2 行に分割する。
+- 出力: `external_therapist_shifts` に `upsert_external_therapist_shifts` RPC で upsert。
+  1 件以上 upsert したら `enqueue_shift_notifications` を 1 度だけ呼んで `shift_announced`
+  をエンキューする。
+- 頻度: 1 分間隔 (availability と同じ)。ホスト負荷は `httpHomepage` HostQueue で守られる。
+- 効率化:
+  - 監視対象セラピストだけが対象なので件数は小さい (典型 < 100)
+  - サロン個別カスタマイズせず汎用パーサ 1 本で運用し、レイアウト非対応サロンは 0 件返しで先に進める
+
 ## 差分検知ロジック
+
+### Layer 1: `slot_opened` (Stage 3, `enqueue_notifications`)
 
 以下のいずれかの条件で通知対象と判定する。
 
@@ -141,6 +169,21 @@ AWS 上では `areas` のみ単独 Schedule（月 1 回）で動かし、残り 
 ```
 
 通知済みチェックは `notification_logs` を参照し、同一枠への重複通知を防ぐ。
+`notification_logs_unique_target` は `(watch_setting_id, therapist_id, date, start_time, kind, channel)` で張られているため、`slot_opened` と `shift_announced` は同一 `start_time` でも別行として共存できる。
+
+### Layer 2: `shift_announced` (Stage 5, `enqueue_shift_notifications`)
+
+```
+candidate: external_therapist_shifts.first_seen_at = last_seen_at （= 今回 upsert で初観測）
+抑止1: 同 (therapist_id, date) に availability 行があれば skip（= Layer 1 に委譲）
+抑止2: 既に同 (watch, therapist, date, kind='shift_announced', channel) の log があれば skip
+抑止3: watch_schedules がある場合 [shift_start, shift_end] と [time_from, time_to] の overlap 必須
+baseline: external_therapist_shifts.first_seen_at > watch_settings.baseline_at
+```
+
+### Rule B: `slot_opened` の抑止 (`enqueue_notifications` 内)
+
+`shift_announced` を出したシフト範囲内のスロット (`shift_start <= start_time <= shift_end`) は重複通知として `slot_opened` のエンキューを抑止する。
 
 # 対象サイト
 
@@ -228,8 +271,11 @@ external_areas ──< external_salons ──< external_salon_bookings >── s
                           │                   ※ external_salon_bookings.(site_name, shop_id)
                           │                     と sites.name, salons.shop_id が同一命名規則で揃う
                           ▼
-              external_therapists ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┘
-                                       (therapists.external_therapist_id を A+/A で埋める)
+              external_therapists ──< external_therapist_shifts  ┄┄┄┄┄┄┄┄┄┄┄┄┄┐
+                       ▲                                                      │
+                       └────────────── (therapists.external_therapist_id) ────┘
+                                       Stage 5 (Layer 2) はこのリンクを介して
+                                       監視対象のセラピストのみ取得・通知する
 ```
 
 ## 外部ポータル参照テーブル群
@@ -247,14 +293,23 @@ external_areas ──< external_salons ──< external_salon_bookings >── s
   : ポータルのセラピストマスタ (例: `name`, `age`, `height`, `cup`, `image_urls[]`,
     `comment`, `therapist_url`, `status`)。`external_salon_id` で external_salons に
     親リンク。`status=2` (退店) または JSON から消失した行は `deleted_at` で論理削除。
+- `external_therapist_shifts (external_therapist_id, date, shift_start, shift_end) unique`
+  : 公式サイト個別ページ (`external_therapists.therapist_url`) から取得したシフト時間範囲。
+    Stage 5 (`official_shifts`) が `upsert_external_therapist_shifts` RPC で upsert する。
+    跨ぎ深夜は 1 日内に閉じる 2 行に分割保存。`first_seen_at` は upsert で行が新規 INSERT
+    されたときだけ `now()` を入れ、UPDATE では保持する。`last_seen_at` は毎回 `now()` に進む。
+    `deleted_at` で論理削除し、再出現時は `first_seen_at` をリセットして新規通知扱いに乗せる。
 
 ## 自社 `salons` / `therapists` との結合
 
 - `salons.external_salon_id uuid` : 自社サロン → 外部ポータルへの逆リンク。`on delete set null`
 - `therapists.external_therapist_id uuid` : 自社セラピスト → 外部ポータルへの逆リンク。`on delete set null`
 - `link_salons_to_external(p_limit int default null) returns int` : `service_role` 専用 RPC。
-  Stage 1.link フェーズが呼び、`(sites.name, salons.shop_id)` ↔ `external_salon_bookings.(site_name, shop_id)`
-  で照合して `salons.external_salon_id` を埋める。複数候補は `external_salons.updated_at desc` で1件採用。
+  Stage 1.link フェーズが呼び、2 経路で `salons.external_salon_id` を埋める。
+  - **経路1（priority 1, 高確度）**: `normalize_url(salons.homepage_url) = normalize_url(external_salons.homepage_url)`。
+    `salons.homepage_url` は手動で揃えたマスタ値、ポータル側 `external_salons.homepage_url` はクロール由来。`normalize_url(text)` は lowercase + 末尾 `/` 除去のみで揺れを吸収する（`http`/`https`、`www.` 有無は厳密側に倒し、誤マッチを避ける）。
+  - **経路2（priority 2）**: `(sites.name, salons.shop_id)` ↔ `external_salon_bookings.(site_name, shop_id)`。経路1で外れた残りを ポータルから抽出した予約システム URL でリンクする。
+  - 同一 salons に複数候補がヒットした場合は priority 昇順 → `external_salons.updated_at desc` で 1 件採用。
 - `link_therapists_to_external() returns int` : `service_role` 専用 RPC。
   Stage 1.link フェーズが `link_salons_to_external` と同時に呼び、2 段階で `therapists.external_therapist_id` を埋める。
   - **A+ パス（deterministic）**: `external_therapists.therapist_url` を `r.caskan.jp/{shop}/cast/{cast_id}` /
@@ -271,9 +326,12 @@ external_areas ──< external_salons ──< external_salon_bookings >── s
 結合フロー:
 
 ```
-external_salon_bookings.(site_name, shop_id)
-   = (sites.name, salons.shop_id)
-        ↓ link_salons_to_external()
+[経路1] normalize_url(salons.homepage_url)
+   = normalize_url(external_salons.homepage_url)     ──┐
+                                                       │ link_salons_to_external()
+[経路2] external_salon_bookings.(site_name, shop_id)   │ (priority: 経路1 > 経路2)
+   = (sites.name, salons.shop_id)                    ──┘
+        ↓
 salons.external_salon_id = external_salons.id
         ↓ external_therapists.external_salon_id 経由
         ↓ link_therapists_to_external()  (A+ URL parse → A name match)
@@ -292,6 +350,7 @@ therapists.external_therapist_id = external_therapists.id
   - estama.jp → fetch（HTML + POST）
   - men-esthe.jp → fetch + Cheerio（静的HTML）
   - 公式サイト一斉巡回 → fetch + 正規表現（`httpHomepage` プリセット）
+  - 公式サイト個別ページのシフト範囲抽出 (Stage 5) → fetch + Cheerio（`httpHomepage` 共有）
 - HTTP: サイトごとに `createHttp({ name, baseUrl, headers, ... })` でプリセット化。
   ホスト単位の直列キュー / ランダム遅延 / 指数バックオフ / CookieJar を内包。
 - DB: Supabase（開発時はローカル、Staging/Production は Supabase Cloud）
@@ -316,21 +375,25 @@ apps/scraper/
 │   │   ├── estama/
 │   │   │   ├── therapists.ts        # Stage 2
 │   │   │   └── availability.ts      # Stage 3
-│   │   └── menesthe/                # 外部ポータル (Stage 1 専用)
-│   │       ├── area_list.ts         # area-list.php
-│   │       ├── area_salons.ts       # area.php?id=N&p=P
-│   │       ├── salon_detail.ts      # salon.php?id=N
-│   │       ├── therapist_list.ts    # therapistlist.php?id=N&more (JSON)
-│   │       └── homepage_resolver.ts # homepage_url → booking URL 抽出
+│   │   ├── menesthe/                # 外部ポータル (Stage 1 専用)
+│   │   │   ├── area_list.ts         # area-list.php
+│   │   │   ├── area_salons.ts       # area.php?id=N&p=P
+│   │   │   ├── salon_detail.ts      # salon.php?id=N
+│   │   │   ├── therapist_list.ts    # therapistlist.php?id=N&more (JSON)
+│   │   │   └── homepage_resolver.ts # homepage_url → booking URL 抽出
+│   │   └── official/                # 公式サイト個別ページ (Stage 5 専用)
+│   │       └── shifts.ts            # 出勤予定パーサ (汎用 1 本)
 │   ├── jobs/
 │   │   ├── external_salons.ts       # Stage 1 (areas/discover/details/bookings/link)
 │   │   ├── therapists.ts            # Stage 2
 │   │   ├── availability.ts          # Stage 3
+│   │   ├── official_shifts.ts       # Stage 5
 │   │   └── notify.ts                # Stage 4
 │   ├── handlers/                    # AWS Lambda エントリ (Stage ごと)
 │   │   ├── salons.ts
 │   │   ├── therapists.ts
 │   │   ├── availability.ts
+│   │   ├── official_shifts.ts
 │   │   └── notify.ts
 │   ├── notifications/               # 通知チャネル抽象 (email_resend 等)
 │   ├── lib/
@@ -415,9 +478,10 @@ npx ts-node src/index.ts --stage=salons --phase=details   --limit=50
 npx ts-node src/index.ts --stage=salons --phase=bookings  --limit=50
 npx ts-node src/index.ts --stage=salons --phase=link
 
-# Stage 2 / 3 / 4
+# Stage 2 / 3 / 5 / 4
 npx ts-node src/index.ts --stage=therapists
 npx ts-node src/index.ts --stage=availability --loop=5
+npx ts-node src/index.ts --stage=official_shifts
 npx ts-node src/index.ts --stage=notify --dry-run
 ```
 
@@ -445,6 +509,11 @@ AVAILABILITY_CONCURRENCY=16            # セラピスト並列度
 SCRAPER_HTTP_CONCURRENCY_CASKAN=3      # r.caskan.jp 同一ホスト並列度（旧クリティカルパス）
 SCRAPER_HTTP_CONCURRENCY_EDC=2         # 同一店舗 (reserve-{shop_id}) 並列度
 SCRAPER_HTTP_CONCURRENCY_GROW=3        # grow-appt.com 単一ホスト + 監視多数のため
+
+# Stage 5 (official_shifts) パフォーマンスチューニング
+# 監視対象セラピストの公式サイト個別ページのみを巡回。サロン単位で別ホストが多いため
+# OFFICIAL_SHIFTS_CONCURRENCY を上げても HostQueue がホスト単位の負荷を守る。
+OFFICIAL_SHIFTS_CONCURRENCY=8
 
 # site 別チューニング（任意。preset.name を大文字化したサフィックスで指定）
 # 形式: SCRAPER_HTTP_CONCURRENCY_<NAME>
