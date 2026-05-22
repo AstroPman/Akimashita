@@ -174,6 +174,26 @@ interface ScheduleToken {
 }
 
 /**
+ * `collectScheduleTokensInternal` がパース判断の根拠として残す内部トレース。
+ * パーサ本体は使わないが、`inspectOfficialShifts` でデバッグ表示に使う。
+ */
+interface CollectTrace {
+  /** heading 走査時に検査した要素 (上位 50 件まで) と SCHEDULE_KEYWORDS マッチ有無。 */
+  headingsScanned: Array<{ tag: string; classAttr: string; text: string; matched: boolean }>;
+  /** 1 段階目で採用された schedule ルート要素 (= 最初にキーワードヒットした heading の親)。 */
+  scheduleRoot: { tag: string; classAttr: string; idAttr: string } | null;
+  /** 1 段階目が空振りで 2 段階目フォールバック (クラス名 schedule 系) を使ったか。 */
+  fallbackUsed: boolean;
+  /** 2 段階目で拾った要素サマリ (上位 20 件まで)。fallbackUsed=true のときに埋まる。 */
+  fallbackMatches: Array<{ tag: string; classAttr: string }>;
+}
+
+interface CollectResult {
+  tokens: ScheduleToken[];
+  trace: CollectTrace;
+}
+
+/**
  * SCHEDULE セクションらしき要素から「シフト記述になりうる短いテキスト断片」を順序通りに集める。
  *
  * 戦略:
@@ -182,9 +202,19 @@ interface ScheduleToken {
  *      `<li>` / `<dt>` / `<dd>` / `<td>` を順序通りに収集
  *   3. 1 で見つからなければ、全文から「明確な weekly schedule リスト」とみなせる箇所を探す
  *      フォールバックを試みる
+ *
+ * 戻り値は tokens に加えて `trace` を含む。trace は `inspectOfficialShifts` のデバッグ表示
+ * 専用で、パーサ本体 (`parseOfficialShifts`) は参照しない。トレース収集による
+ * オーバーヘッドは無視できるサイズに留めている (heading 上位 50, fallback 上位 20)。
  */
-function collectScheduleTokens($: cheerio.CheerioAPI): ScheduleToken[] {
+function collectScheduleTokensInternal($: cheerio.CheerioAPI): CollectResult {
   const tokens: ScheduleToken[] = [];
+  const trace: CollectTrace = {
+    headingsScanned: [],
+    scheduleRoot: null,
+    fallbackUsed: false,
+    fallbackMatches: [],
+  };
   let order = 0;
   const pushToken = (el: unknown): void => {
     const text = $(el as never).text().replace(/\s+/g, ' ').trim();
@@ -199,12 +229,25 @@ function collectScheduleTokens($: cheerio.CheerioAPI): ScheduleToken[] {
   const headings = $('h1, h2, h3, h4, h5, h6, .heading, .article_tittle, .section_title');
   let scheduleRootEl: unknown | null = null;
   headings.each((_, el) => {
-    if (scheduleRootEl) return;
     const text = $(el).text().replace(/\s+/g, ' ').trim();
-    if (SCHEDULE_KEYWORDS.some((k) => text.toUpperCase().includes(k.toUpperCase()))) {
+    const matched = SCHEDULE_KEYWORDS.some((k) =>
+      text.toUpperCase().includes(k.toUpperCase()),
+    );
+    if (trace.headingsScanned.length < 50) {
+      const tagName = ((el as { tagName?: string }).tagName ?? '').toLowerCase();
+      const classAttr = $(el).attr('class') ?? '';
+      trace.headingsScanned.push({ tag: tagName, classAttr, text, matched });
+    }
+    if (scheduleRootEl) return;
+    if (matched) {
       // heading のすぐ後ろにある兄弟か、heading の親をルートとして扱う
       const parent = $(el).parent();
-      scheduleRootEl = (parent.length > 0 ? parent[0] : el) as unknown;
+      const rootNode = (parent.length > 0 ? parent[0] : el) as unknown;
+      scheduleRootEl = rootNode;
+      const rootTag = ((rootNode as { tagName?: string }).tagName ?? '').toLowerCase();
+      const rootClass = $(rootNode as never).attr('class') ?? '';
+      const rootId = $(rootNode as never).attr('id') ?? '';
+      trace.scheduleRoot = { tag: rootTag, classAttr: rootClass, idAttr: rootId };
     }
   });
 
@@ -217,12 +260,22 @@ function collectScheduleTokens($: cheerio.CheerioAPI): ScheduleToken[] {
 
   if (tokens.length === 0) {
     // 2) フォールバック: クラス名に schedule / weekly を含む要素配下を探す
-    $('.prof_weekly, .schedule, .prof_schedule, [class*="schedule"]')
-      .find('li, dt, dd, td')
-      .each((_, el) => pushToken(el));
+    trace.fallbackUsed = true;
+    const fb = $('.prof_weekly, .schedule, .prof_schedule, [class*="schedule"]');
+    fb.each((_, el) => {
+      if (trace.fallbackMatches.length >= 20) return;
+      const tagName = ((el as { tagName?: string }).tagName ?? '').toLowerCase();
+      const classAttr = $(el).attr('class') ?? '';
+      trace.fallbackMatches.push({ tag: tagName, classAttr });
+    });
+    fb.find('li, dt, dd, td').each((_, el) => pushToken(el));
   }
 
-  return tokens;
+  return { tokens, trace };
+}
+
+function collectScheduleTokens($: cheerio.CheerioAPI): ScheduleToken[] {
+  return collectScheduleTokensInternal($).tokens;
 }
 
 /**
@@ -283,6 +336,57 @@ export function parseOfficialShifts(
       : a.date.localeCompare(b.date),
   );
   return records;
+}
+
+/**
+ * `inspectOfficialShifts` の返却型。`audit_official_shifts.ts --inspect=URL` から
+ * 「現パーサが HTML をどう見たか」を可視化するためのデバッグ用情報を含む。
+ */
+export interface OfficialShiftsInspectResult {
+  /** 入力 HTML のバイト数 (UTF-16 length そのままなので参考値)。 */
+  htmlSize: number;
+  /** 走査した heading 候補 (上位 50 件)。matched が true のものが採用候補。 */
+  headingsScanned: Array<{ tag: string; classAttr: string; text: string; matched: boolean }>;
+  /** SCHEDULE_KEYWORDS にヒットした heading の親 (= 1 段階目で採用された root)。 */
+  scheduleRoot: { tag: string; classAttr: string; idAttr: string } | null;
+  /** 1 段階目空振りでフォールバック (クラス名 schedule 系) を使ったか。 */
+  fallbackUsed: boolean;
+  /** 2 段階目で拾った要素サマリ (上位 20 件)。 */
+  fallbackMatches: Array<{ tag: string; classAttr: string }>;
+  /** 抽出された raw tokens (date / time range 候補となるテキスト断片)。先頭 100 件まで。 */
+  tokens: Array<{ text: string; order: number }>;
+  /** トークン総数 (tokens は 100 件で打ち切るのでこちらが実数)。 */
+  tokenCount: number;
+  /** parseOfficialShifts() と同じ最終解釈結果。 */
+  records: OfficialShiftRecord[];
+}
+
+/**
+ * `parseOfficialShifts` と同等の処理を回しつつ、内部状態をトレースして返すデバッグ用 API。
+ *
+ * 使用箇所:
+ *   - apps/scraper/src/scripts/audit_official_shifts.ts の --inspect=URL モード
+ *   - パーサ拡張時の単体スクラッチ確認
+ *
+ * 副作用なし。`parseOfficialShifts` 本体の挙動は変えない。
+ */
+export function inspectOfficialShifts(
+  html: string,
+  options: ParseOptions = {},
+): OfficialShiftsInspectResult {
+  const $ = cheerio.load(html);
+  const { tokens, trace } = collectScheduleTokensInternal($);
+  const records = parseOfficialShifts(html, options);
+  return {
+    htmlSize: html.length,
+    headingsScanned: trace.headingsScanned,
+    scheduleRoot: trace.scheduleRoot,
+    fallbackUsed: trace.fallbackUsed,
+    fallbackMatches: trace.fallbackMatches,
+    tokens: tokens.slice(0, 100).map((t) => ({ text: t.text, order: t.order })),
+    tokenCount: tokens.length,
+    records,
+  };
 }
 
 /**

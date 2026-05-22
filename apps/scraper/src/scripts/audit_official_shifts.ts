@@ -31,6 +31,11 @@
  *                                のサロン配下だけが母集団になる。
  *     --concurrency=N         並列度 (default: OFFICIAL_SHIFTS_CONCURRENCY)
  *     --out=PATH              CSV 出力先 (default: output/official_shifts_coverage.csv)
+ *     --inspect=URL           単一 URL を fetch + parse して内部トレース (headings /
+ *                             scheduleRoot / tokens / records) を stdout に dump し、
+ *                             raw HTML を output/inspect/ に保存する単体調査モード。
+ *                             このモードを使うと母集団取得 / サンプリング / フル audit は
+ *                             すべてスキップされる。
  *
  * ノイズ除外のデフォルト:
  *   `estama.jp` / `e-yoyaku.jp` / `ranking-deli.jp` 系は「予約システム自体の
@@ -44,7 +49,10 @@ import { dirname, resolve } from 'node:path';
 import type { SiteName } from '@alimashita/shared';
 import { supabase } from '../lib/supabase.js';
 import { createLogger } from '../lib/logger.js';
-import { parseOfficialShifts } from '../scrapers/official/shifts.js';
+import {
+  inspectOfficialShifts,
+  parseOfficialShifts,
+} from '../scrapers/official/shifts.js';
 import { httpHomepage, HttpError } from '../lib/http.js';
 
 const log = createLogger('audit:official_shifts');
@@ -98,6 +106,8 @@ interface CliArgs {
   internalSite: SiteName | null;
   concurrency: number;
   outPath: string;
+  /** 単体 URL inspect モード。指定時はフル audit は走らない。 */
+  inspectUrl: string | null;
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -150,6 +160,9 @@ function parseArgs(argv: string[]): CliArgs {
     internalSite = v as SiteName;
   }
 
+  const inspectArg = argv.find((a) => a.startsWith('--inspect='));
+  const inspectUrl = inspectArg ? (inspectArg.split('=', 2)[1] ?? '').trim() || null : null;
+
   return {
     perHost,
     maxHosts,
@@ -159,6 +172,7 @@ function parseArgs(argv: string[]): CliArgs {
     internalSite,
     concurrency,
     outPath,
+    inspectUrl,
   };
 }
 
@@ -651,6 +665,92 @@ function printSummary(summaries: HostSummary[], buckets: HostBucket[]): void {
   }
 }
 
+/**
+ * 単一 URL を fetch して inspectOfficialShifts() の結果と raw HTML を dump する。
+ * パーサ拡張時の手元調査用。DB アクセスもサンプリングも行わない。
+ */
+async function runInspect(url: string): Promise<void> {
+  if (!/^https?:\/\//i.test(url)) {
+    throw new Error(`--inspect URL must start with http(s):// (got "${url}")`);
+  }
+  const host = extractHost(url) ?? 'unknown_host';
+  log.info('Inspect mode', { url, host });
+
+  let html: string;
+  try {
+    html = await httpHomepage.getHtml(url);
+  } catch (err) {
+    if (err instanceof HttpError) {
+      log.error('Fetch failed (HTTP error)', { url, status: err.status });
+    } else {
+      log.error('Fetch failed', {
+        url,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+    process.exitCode = 1;
+    return;
+  }
+
+  // raw HTML を output/inspect/ 配下に保存
+  const safeKey = `${host}__${url
+    .replace(/^https?:\/\/[^/]+\//, '')
+    .replace(/[^A-Za-z0-9._-]+/g, '_')
+    .slice(0, 80) || 'root'}`;
+  const htmlPath = resolve(process.cwd(), `output/inspect/${safeKey}.html`);
+  mkdirSync(dirname(htmlPath), { recursive: true });
+  writeFileSync(htmlPath, html, 'utf8');
+
+  const result = inspectOfficialShifts(html);
+
+  log.info('=== Inspect summary ===', {
+    url,
+    htmlSize: result.htmlSize,
+    headingsScanned: result.headingsScanned.length,
+    headingsMatched: result.headingsScanned.filter((h) => h.matched).length,
+    scheduleRoot: result.scheduleRoot,
+    fallbackUsed: result.fallbackUsed,
+    fallbackMatches: result.fallbackMatches.length,
+    tokenCount: result.tokenCount,
+    recordCount: result.records.length,
+    htmlSaved: htmlPath,
+  });
+
+  // SCHEDULE キーワードにマッチした heading は最優先で全件表示
+  const matched = result.headingsScanned.filter((h) => h.matched);
+  if (matched.length > 0) {
+    log.info('Matched headings (SCHEDULE keyword hit):');
+    for (const h of matched) {
+      const cls = h.classAttr ? ` class="${h.classAttr}"` : '';
+      log.info(`  <${h.tag}${cls}> ${h.text}`);
+    }
+  } else {
+    log.info('No heading matched SCHEDULE_KEYWORDS. Top 20 headings scanned:');
+    for (const h of result.headingsScanned.slice(0, 20)) {
+      const cls = h.classAttr ? ` class="${h.classAttr}"` : '';
+      log.info(`  <${h.tag}${cls}> ${h.text}`);
+    }
+  }
+
+  if (result.fallbackUsed) {
+    log.info('Fallback class matches:');
+    for (const m of result.fallbackMatches) {
+      log.info(`  <${m.tag} class="${m.classAttr}">`);
+    }
+  }
+
+  // トークン (date / time range 候補) を順序通りにダンプ
+  log.info(`Tokens (showing first ${Math.min(result.tokens.length, 60)} of ${result.tokenCount}):`);
+  for (const t of result.tokens.slice(0, 60)) {
+    log.info(`  [${String(t.order).padStart(3, '0')}] ${t.text}`);
+  }
+
+  log.info(`Final records (${result.records.length}):`);
+  for (const r of result.records.slice(0, 20)) {
+    log.info(`  ${r.date}  ${r.shift_start} - ${r.shift_end}`);
+  }
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   log.info('Starting audit', {
@@ -658,6 +758,11 @@ async function main(): Promise<void> {
     onlyHosts: args.onlyHosts ? Array.from(args.onlyHosts) : null,
     excludeHosts: Array.from(args.excludeHosts),
   });
+
+  if (args.inspectUrl) {
+    await runInspect(args.inspectUrl);
+    return;
+  }
 
   let candidates: CandidateRow[];
   if (args.internalSite) {
