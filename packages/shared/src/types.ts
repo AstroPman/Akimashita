@@ -56,6 +56,40 @@ export interface AvailabilityScraper {
   run(therapist: Therapist): Promise<AvailabilityRecord[]>;
 }
 
+/**
+ * 公式サロンサイト個別ページから抽出した「シフト時間範囲」1 行分。
+ * Layer 2 (シフト範囲の存在) の authoritative source として
+ * `external_therapist_shifts` に upsert される。
+ *
+ * - date / shift_start / shift_end は JST 解釈の値。
+ * - 跨ぎ深夜 (22:00〜翌04:00 など) はパーサ側で 2 行に分割し、
+ *   end <= start にならないよう保つ。
+ */
+export interface OfficialShiftRecord {
+  /** YYYY-MM-DD */
+  date: string;
+  /** HH:mm:ss */
+  shift_start: string;
+  /** HH:mm:ss（必ず shift_start より後） */
+  shift_end: string;
+}
+
+/**
+ * 公式サイトからシフト範囲を取得するスクレイパ共通インターフェース。
+ * 入力は `external_therapists.therapist_url`（セラピスト個別ページ URL）。
+ */
+export interface OfficialShiftScraper {
+  run(therapistUrl: string): Promise<OfficialShiftRecord[]>;
+}
+
+/**
+ * 通知タイプ。
+ * - `slot_opened`: 予約サイト上で空きスロットが新規発生／復活したときの通知（Layer 1）。
+ * - `shift_announced`: 公式サイト上で新シフト範囲が公開され、まだ
+ *   `availability` に行が無いときの通知（Layer 2）。
+ */
+export type NotificationKind = 'slot_opened' | 'shift_announced';
+
 
 // ============================================================
 // 外部ポータル(men-esthe.jp 等) 由来の参照データ
