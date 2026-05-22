@@ -46,6 +46,16 @@ locals {
       timeout_seconds    = 900
       log_retention_days = 14
     }
+    # official_shifts: 公式サイト個別ページから「シフト時間範囲」だけを取得し、
+    # 予約サイトに先行して shift_announced 通知を出す Layer 2 ジョブ。
+    # watch_settings 配下のセラピストのみが対象なので件数は小さく (典型 < 100),
+    # cheerio で軽い HTML パースを行うのみのため availability より控えめのメモリで足りる。
+    official_shifts = {
+      handler            = "official_shifts.handler"
+      memory_mb          = 512
+      timeout_seconds    = 600
+      log_retention_days = 14
+    }
     notify = {
       handler            = "notify.handler"
       memory_mb          = 256

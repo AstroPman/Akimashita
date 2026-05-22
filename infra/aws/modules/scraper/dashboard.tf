@@ -18,7 +18,8 @@ locals {
 
   # GB-秒推計に使う「ステージ名 / function 名 / memory (GB)」の組み合わせ。
   # 表示の安定性のため stages を固定順で並べる (local.stages はキー順保証なし)。
-  dashboard_stage_order = ["salons", "therapists", "availability", "notify"]
+  # availability_research は研究用で本流通知パイプラインに無関係なため除外。
+  dashboard_stage_order = ["salons", "therapists", "availability", "official_shifts", "notify"]
 
   dashboard_stage_info = [
     for s in local.dashboard_stage_order : {
@@ -306,7 +307,7 @@ resource "aws_cloudwatch_dashboard" "scraper" {
           width  = 24
           height = 1
           properties = {
-            markdown = "## Lambda per stage (5 分粒度)\n4 ステージを色分けで重ねる。`Resource = function:live` で絞らず全バージョン合算で表示しているが、実運用は live エイリアスのみ呼ばれる。"
+            markdown = "## Lambda per stage (5 分粒度)\n通知パイプラインの全ステージを色分けで重ねる。`Resource = function:live` で絞らず全バージョン合算で表示しているが、実運用は live エイリアスのみ呼ばれる。"
           }
         },
 
@@ -459,7 +460,7 @@ resource "aws_cloudwatch_dashboard" "scraper" {
           width  = 24
           height = 1
           properties = {
-            markdown = "## Application metrics (EMF, namespace `Akimashita/Scraper`)\n各ジョブ完了時に [lib/metrics.ts](https://github.com/) から 1 行 emit。`RecordsProcessed` の意味は stage ごとに異なる (salons: phase ごとの成果合計、therapists: 同期 salon 数、availability: 通知 enqueue 数、notify: 送信成功 row 数)。"
+            markdown = "## Application metrics (EMF, namespace `Akimashita/Scraper`)\n各ジョブ完了時に [lib/metrics.ts](https://github.com/) から 1 行 emit。`RecordsProcessed` の意味は stage ごとに異なる (salons: phase ごとの成果合計、therapists: 同期 salon 数、availability: 通知 enqueue 数、official_shifts: shift_announced enqueue 数、notify: 送信成功 row 数)。"
           }
         },
 
