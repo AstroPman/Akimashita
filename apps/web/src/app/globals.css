@@ -128,4 +128,15 @@
   html {
     @apply font-sans;
   }
+
+  /* WebKit/Chromium が type="search" の input にデフォルトで描画する
+     クリアボタン (×) と虫眼鏡アイコンを抑止する。自前で X ボタンを
+     置いている箇所では二重に表示されてしまうため、アプリ全体で無効化。 */
+  input[type="search"]::-webkit-search-cancel-button,
+  input[type="search"]::-webkit-search-decoration,
+  input[type="search"]::-webkit-search-results-button,
+  input[type="search"]::-webkit-search-results-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+  }
 }
