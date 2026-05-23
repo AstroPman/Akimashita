@@ -9,6 +9,11 @@ import {
 import { fetchTablesOverview } from "@/lib/queries/tables";
 import { fetchNotificationsSummary } from "@/lib/queries/notifications";
 import { fetchScraperFreshness } from "@/lib/queries/scraper";
+import {
+  fetchSalonsCoverage,
+  fetchSalonsStatus,
+  fetchTherapistsCoverage,
+} from "@/lib/queries/coverage";
 import { KpiCard } from "@/components/kpi-card";
 import { TimeSeriesChart } from "@/components/time-series-chart";
 import {
@@ -26,13 +31,30 @@ export const revalidate = 0;
 const PLAN_ORDER: PlanTier[] = ["free", "standard", "premium"];
 
 export default async function HomePage() {
-  const [planBreakdown, daily, overview, notif, freshness] = await Promise.all([
+  const [
+    planBreakdown,
+    daily,
+    overview,
+    notif,
+    freshness,
+    salonsCov,
+    salonStatus,
+    therapistsCov,
+  ] = await Promise.all([
     fetchUserPlanBreakdown(),
     fetchUsersDaily(30),
     fetchTablesOverview(),
     fetchNotificationsSummary(24),
     fetchScraperFreshness(24),
+    fetchSalonsCoverage(),
+    fetchSalonsStatus(),
+    fetchTherapistsCoverage(),
   ]);
+
+  const statusByCategory = new Map(salonStatus.map((r) => [r.category, r.cnt]));
+  const closedSuspect = statusByCategory.get("active_no_therapists") ?? 0;
+  const staleSalons = statusByCategory.get("stale_synced") ?? 0;
+  const closedExternal = statusByCategory.get("closed_external") ?? 0;
 
   const byTier = new Map(planBreakdown.map((b) => [b.plan_tier, b.user_count]));
   const totalUsers = planBreakdown.reduce((sum, b) => sum + b.user_count, 0);
@@ -141,6 +163,43 @@ export default async function HomePage() {
             label="link済 therapists"
             value={formatNumber(overview.therapists_linked)}
             hint={`${therapistsLinkRate} / 全 ${formatNumber(overview.therapists_active)}`}
+          />
+        </div>
+      </SectionLink>
+
+      <SectionLink
+        href="/coverage"
+        title="カバレッジ"
+        subtitle={`閉店疑い ${formatNumber(closedSuspect)} / 同期停滞 ${formatNumber(staleSalons)} / 外部側削除 ${formatNumber(closedExternal)}`}
+      >
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+          <KpiCard
+            label="salons link率"
+            value={formatPercent(
+              salonsCov.salons_linked_external,
+              salonsCov.salons_active,
+            )}
+            hint={`${formatNumber(salonsCov.salons_linked_external)} / ${formatNumber(salonsCov.salons_active)}`}
+          />
+          <KpiCard
+            label="therapists link率"
+            value={formatPercent(
+              therapistsCov.t_linked_external,
+              therapistsCov.therapists_active,
+            )}
+            hint={`${formatNumber(therapistsCov.t_linked_external)} / ${formatNumber(therapistsCov.therapists_active)}`}
+          />
+          <KpiCard
+            label="閉店疑いサロン"
+            value={formatNumber(closedSuspect)}
+            hint="active なのにセラピスト 0"
+            tone={closedSuspect > 0 ? "warning" : "default"}
+          />
+          <KpiCard
+            label="未同期 therapists"
+            value={formatNumber(therapistsCov.t_never_synced)}
+            hint="availability 未取得"
+            tone={therapistsCov.t_never_synced > 0 ? "warning" : "default"}
           />
         </div>
       </SectionLink>

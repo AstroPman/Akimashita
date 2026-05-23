@@ -5,6 +5,7 @@ const NAV_ITEMS = [
   { href: "/", label: "概要" },
   { href: "/users", label: "ユーザ" },
   { href: "/tables", label: "テーブル集計" },
+  { href: "/coverage", label: "カバレッジ" },
   { href: "/notifications", label: "通知" },
   { href: "/availability", label: "予約枠" },
   { href: "/scraper", label: "スクレイパ" },
