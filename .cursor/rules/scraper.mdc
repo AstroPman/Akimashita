@@ -21,11 +21,16 @@ reference DB (`external_areas` / `external_salons` / `external_salon_bookings`) 
 
 ```
 Stage 1 (salons):           外部ポータルクロール       → external_* + salons リンク             （1日1回 〜 週1回）
-Stage 2 (therapists):       セラピスト同期             → therapists テーブルにupsert            （1日1回）
-Stage 3 (availability):     空き枠クロール             → availability テーブルにupsert          （1分間隔）
+Stage 2 (therapists):       セラピスト同期             → therapists テーブルにupsert            （1日1回 / eyoyaku は専用 schedule で段階更新）
+Stage 3 (availability):     空き枠クロール             → availability テーブルにupsert          （1分間隔 / eyoyaku は 5 分間隔の専用 schedule）
 Stage 5 (official_shifts):  公式サイト個別ページ巡回   → external_therapist_shifts テーブル     （1分間隔）
 Stage 4 (notify):           通知ジョブ                 → notification_logs を消化               （5分間隔）
 ```
+
+> e-yoyaku は WAF が IP / セッション軸で攻撃的に検知してくるため、メインの 1 分間隔
+> Schedule からは `input.exclude_site = ["eyoyaku"]` で除外し、別 Schedule
+> (`availability_eyoyaku` = 5 分間隔、`therapists_eyoyaku` = 1 日 1 回 + max_per_site=20)
+> で巡回する。詳細は「e-yoyaku.jp」セクションの「Bot 対策」を参照。
 
 通知の Layer 分離:
 
@@ -237,9 +242,87 @@ API構造:
 - 次週スケジュールは `/post/shop_schedule_ctrl` への POST で取得
 - リクエスト単位で完結するため共有 CookieJar で問題ない
 
+### 5. e-yoyaku.jp (https://e-yoyaku.jp/)
+
+- ranking-deli.jp グループ（駅ちか系）の汎用予約システム「eネット予約」
+- URL: `https://e-yoyaku.jp/shop/{shop_id}/`
+- 全データ（セラピスト一覧 / 7-8 日分 × 15 分刻みスロット）が SSR HTML に埋まる
+- 内部 API なし、Playwright も不要 → fetch + cheerio で完結
+- 初回アクセスで `ranking-deli.jp/member/checklogin/...` への cross-domain redirect が走り、
+  `XSRF-TOKEN` / `e_yoyaku_ekichika_session` / `ekimypage_*` の Cookie が発行される。
+  `createHttp()` の CookieJar + `redirect: 'follow'` でそのまま追従できる
+- スロット状態（`<li class="listItem ...">` のクラス）:
+  - `free` → ネット予約可能 (`is_available = true`)
+  - `tel`  → 電話のみ受付 (時間近接で Web 予約打ち切り) → `is_available = true`
+    （Web で取れる枠ではないが「空きが出た」事実をユーザに伝える価値があるため available 扱い）
+  - `none` → 予約不可（過去 / 予約済 / 出勤外）→ `is_available = false`
+- 日時は `<input name="datetime" value="YYYY-MM-DD HH:MM">` から確定的に取得できる
+- `dl.timeList ul.minutesList > li.listItem` でスコープを絞れば日付タブ側の `listItem` は混入しない
+
+URL構造:
+- セラピスト一覧 (1 ページ目): `https://e-yoyaku.jp/shop/{shop_id}/girl/`
+  - 1 ページ 20 名固定。ページ下部に `<span class="pagerInner">1/7</span>` のような
+    全ページ数表記が出る。
+- セラピスト一覧 (2 ページ目以降): `POST https://e-yoyaku.jp/shop/{shop_id}/girl/ajax/`
+  - body (urlencoded): `flg=2&date=&hour=&minute=&recommend=2&page={N}&coupon_id=&coupon_type=`
+    （フロントの `shop_girl_list.js` の page() ハンドラがデフォルトソートで組み立てる値）
+  - 必須ヘッダ: `X-XSRF-TOKEN` （`XSRF-TOKEN` Cookie を `decodeURIComponent` した値）、
+    `X-Requested-With: XMLHttpRequest`、`Origin: https://e-yoyaku.jp`、
+    `Referer: https://e-yoyaku.jp/shop/{shop_id}/girl/`。
+    XSRF ヘッダが無いと Laravel 側で `419 Page Expired` が返る。
+  - レスポンスは HTML 断片 (`mod-castBody` の中身 + pager 要素)。
+    `getJson` は使えないので `httpEyoyaku.postForm()` で text を取得して cheerio で処理する。
+- セラピスト個別: `https://e-yoyaku.jp/shop/{shop_id}/girl/{cast_id}/`
+  - 1 リクエストで 7-8 日分の全スロットが含まれるため、ページ送り不要
+
+**Bot 対策 (重要)**:
+e-yoyaku.jp は WAF が IP / セッション軸で異常検知してくる。素朴に 100+ サロンを巡回すると
+1-2 分で 403 連発に切り替わり、当該 IP が数時間〜1日ブロックされる。実機ログでは
+「1 分 17 秒・約 7 サロン」で発動した。以下の防御層を重ねている:
+
+- **`httpEyoyaku` (lib/http.ts) は専用設定で初期化**:
+  - `manualRedirect: true` → cross-domain redirect 中の `Set-Cookie` を CookieJar に
+    都度保存し、次ホップで Cookie ヘッダを再構築する。これが無いと fetch 内部の
+    自動 redirect (`redirect: 'follow'`) が `e_yoyaku_ekichika_session` 等の
+    session cookie を中継ドメインを跨いで保持できず、最終 GET で WAF に「session 無し」
+    と判定されて TCP RST → `fetch failed` 連発になる (実機検証済み)。
+    他サイト (caskan/grow/edc/estama) は同一ドメイン内 redirect で済むため不要。
+  - **CookieJar はサロン境界で明示 rotate**: scraper の `run(salon)` 冒頭で
+    `httpEyoyaku.rotateCookies()` を呼び、サロン跨ぎでは「別人として新しいタブで開く」
+    相当に振る舞わせる。`createHttp` の `cookieRotateEvery` (N 回ごと自動) では
+    サロン境界と一致させられず、AJAX ページネーション (1 ページ目で発行された
+    `XSRF-TOKEN` / `e_yoyaku_ekichika_session` を 2 ページ目以降で使う) と両立しないため、
+    `cookieRotateEvery` ではなく `SiteHttp.rotateCookies()` で明示制御する設計に揃えた。
+  - `circuitBreaker: { consecutiveBlockingThreshold: 5, cooldownMs: 30 分 }` →
+    連続 5 回 403 / fetch failed を検知したら、以降の同サイト呼び出しを 30 分間
+    `HttpCircuitBreakerError` で即拒否。134 サロン分のジョブが全滅する事故を防ぐ。
+    ジョブ側 (Stage 2 / Stage 3) は catch して同サイトの残ターゲットをスキップする。
+- **遅延を 5-15 秒に拡大** (平均 10 秒/req):
+  - `.env` / Lambda env で `SCRAPER_HTTP_DELAY_MIN_MS_EYOYAKU=5000` /
+    `SCRAPER_HTTP_DELAY_MAX_MS_EYOYAKU=15000` を注入。
+- **EventBridge Schedule を eyoyaku 専用に分離**:
+  - メインの `therapists` (1 日 1 回) / `availability` (1 分間隔) Schedule には
+    `input.exclude_site = ["eyoyaku"]` を渡し、eyoyaku を必ず除外する。
+  - eyoyaku は別 Schedule で動かす:
+    - `therapists_eyoyaku`: 毎日 `max_per_site: 20` で段階的にブートストラップ。
+      131 サロンを ~7 日でローテーション。1 ジョブ ~5 分。
+    - `availability_eyoyaku`: 5 分間隔で watch 中の eyoyaku セラピストのみ巡回。
+      (notify latency は 1 分→5 分まで悪化するが、ブロック回避を優先)
+- **CLI / Handler のオプション**:
+  - therapists / availability の handler は `input.site` / `input.exclude_site` を受け、
+    `runTherapistsJob` / `runAvailabilityJob` の `onlySites` / `excludeSites` に流す。
+  - CLI は `--site=eyoyaku` / `--exclude-site=eyoyaku` / `--max-per-site=N` を解釈。
+  - 便利 npm scripts: `dev:therapists:eyoyaku` / `dev:availability:eyoyaku` /
+    `dev:availability:main`。
+- **403 / 接続エラー観測時の運用**:
+  - 一度 IP ブロックされたら数時間〜1日空けてから再試行する。コード上の対策を
+    入れても、既にブラックリスト入りした IP では何をしても通らない。
+  - 連続失敗を CircuitBreaker が拾えば、自動的に当該サイトのジョブが中断される
+    ので、他サイトに被害が波及しない設計。
+
 ## ポータル（サロンマスタ供給源）
 
-### 5. men-esthe.jp (https://men-esthe.jp/)
+### 6. men-esthe.jp (https://men-esthe.jp/)
 
 - メンズエステ掲載ポータル。「予約システム」ではなく「サロンマスタ供給源」として扱う
 - HTML は静的なので fetch + Cheerio で十分パース可能 (Playwright 不要)
@@ -348,6 +431,7 @@ therapists.external_therapist_id = external_therapists.id
   - grow-appt.com → fetch（内部APIを直接叩く）
   - esthe-datacenter.com → fetch（HTMLの段階遷移、wizardCode セッション）
   - estama.jp → fetch（HTML + POST）
+  - e-yoyaku.jp → fetch + Cheerio（SSR HTML 1 リクエストで完結）
   - men-esthe.jp → fetch + Cheerio（静的HTML）
   - 公式サイト一斉巡回 → fetch + 正規表現（`httpHomepage` プリセット）
   - 公式サイト個別ページのシフト範囲抽出 (Stage 5) → fetch + Cheerio（`httpHomepage` 共有）
@@ -373,6 +457,9 @@ apps/scraper/
 │   │   │   ├── therapists.ts        # Stage 2
 │   │   │   └── availability.ts      # Stage 3
 │   │   ├── estama/
+│   │   │   ├── therapists.ts        # Stage 2
+│   │   │   └── availability.ts      # Stage 3
+│   │   ├── eyoyaku/
 │   │   │   ├── therapists.ts        # Stage 2
 │   │   │   └── availability.ts      # Stage 3
 │   │   ├── menesthe/                # 外部ポータル (Stage 1 専用)
@@ -415,8 +502,18 @@ interface TherapistScraper {
   run(salon: Salon): Promise<TherapistRecord[]>
 }
 
+interface AvailabilityScrapeResult {
+  records: AvailabilityRecord[]
+  // 今回のスクレイプで「そのセラピストの一日ぶんのスケジュールを観測した」と
+  // 確証できる日付集合 (YYYY-MM-DD)。fetch に成功した日のみ含める。
+  // RPC 側で「観測範囲内なのに records に含まれない既存 is_available=true 行」を
+  // false に倒し、`availability_events` に `closed` を追記する。
+  // estama のように「予約済み枠が × ではなく ─ で隠れる」サイトを正しく扱うために必須。
+  observedDates: string[]
+}
+
 interface AvailabilityScraper {
-  run(therapist: Therapist): Promise<AvailabilityRecord[]>
+  run(therapist: Therapist): Promise<AvailabilityScrapeResult>
 }
 ```
 
@@ -519,7 +616,7 @@ OFFICIAL_SHIFTS_CONCURRENCY=8
 # 形式: SCRAPER_HTTP_CONCURRENCY_<NAME>
 #       SCRAPER_HTTP_DELAY_MIN_MS_<NAME>
 #       SCRAPER_HTTP_DELAY_MAX_MS_<NAME>
-# <NAME> ∈ { CASKAN, GROW, EDC, ESTAMA, MENESTHE, HOMEPAGE }
+# <NAME> ∈ { CASKAN, GROW, EDC, ESTAMA, EYOYAKU, MENESTHE, HOMEPAGE }
 
 # Stage 4 (notify) 用
 RESEND_API_KEY=...
