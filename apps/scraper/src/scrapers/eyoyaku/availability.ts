@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import type {
   AvailabilityRecord,
+  AvailabilityScrapeResult,
   AvailabilityScraper,
   Therapist,
 } from '@alimashita/shared';
@@ -55,7 +56,7 @@ function classifySlot(classAttr: string | undefined): 'free' | 'tel' | 'none' | 
 }
 
 class EyoyakuAvailabilityScraper implements AvailabilityScraper {
-  async run(therapist: Therapist): Promise<AvailabilityRecord[]> {
+  async run(therapist: Therapist): Promise<AvailabilityScrapeResult> {
     const shopId = therapist.salon_shop_id;
     const castId = therapist.therapist_id;
     const castUrl = `${BASE_URL}/shop/${encodeURIComponent(shopId)}/girl/${encodeURIComponent(castId)}/`;
@@ -68,6 +69,7 @@ class EyoyakuAvailabilityScraper implements AvailabilityScraper {
     // (estama のように「次週は POST で取り直し」が不要)。 dl.timeList 配下の
     // ul.minutesList > li.listItem だけを対象にして、日付タブ側の listItem を弾く。
     const records = new Map<string, AvailabilityRecord>();
+    const observed = new Set<string>();
     let freeCount = 0;
     let telCount = 0;
     let noneCount = 0;
@@ -103,6 +105,11 @@ class EyoyakuAvailabilityScraper implements AvailabilityScraper {
         records.set(key, record);
       }
 
+      // free/tel/none いずれであっても「その日のスケジュールを観測した」事実は確定。
+      // none-only (= 全枠埋まり) な日でも observedDates に入れる必要があるので
+      // ここで都度 add する。
+      observed.add(parsed.date);
+
       if (state === 'free') freeCount += 1;
       else if (state === 'tel') telCount += 1;
       else noneCount += 1;
@@ -121,8 +128,9 @@ class EyoyakuAvailabilityScraper implements AvailabilityScraper {
       tel: telCount,
       none: noneCount,
       skipped,
+      observedDays: observed.size,
     });
-    return result;
+    return { records: result, observedDates: [...observed].sort() };
   }
 }
 

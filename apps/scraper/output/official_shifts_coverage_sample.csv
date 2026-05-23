@@ -1,0 +1,21 @@
+host,external_salon_id,salon_name,external_therapist_id,therapist_url,fetch_status,http_status,parsed_count,sample_records,error
+aromana-sakae.com,9ef06c4a-3cc6-44c1-a435-eadb99f9ad7c,アロマーナ,00591442-4c89-4980-b1a3-7da0d8c159ce,https://aromana-sakae.com/profile.php?sid=472,ok,200,0,[],
+aromaremis.esthe-hp.com,7ca64270-4cdd-4cc9-84d3-6f5e16ec10f7,アンティーク,003c51fe-7dc7-4f77-bad7-a437b25d9801,https://aromaremis.esthe-hp.com/item_10032106.html,http_error,404,0,,HTTP 404 https://aromaremis.esthe-hp.com/item_10032106.html
+atarispa.com,c9828d4e-f1e9-4401-bd7e-c023d41d657c,当たりスパ,004f06fc-c27d-492b-8e41-1559f0e8577d,https://atarispa.com/therapist/detail.php?id=1024,ok,200,0,[],
+beauty-and-beast.net,ad616bba-6906-4fd5-9d7e-de8ad3c9c3a7,ビューティーアンドビースト,00415571-1727-4f82-b52f-4e281f76bc28,https://beauty-and-beast.net/profile/88db490d94ad02d3f01a192cf099ba7028b29b4c.html,http_error,404,0,,HTTP 404 https://beauty-and-beast.net/profile/88db490d94ad02d3f01a192cf099ba7028b29b4c.html
+bunny-room.com,d2f1446a-0d36-43ab-82e3-6e6058b81818,うさぎのお部屋,0104efb2-aded-4057-bdcc-d622a8a25f97,https://bunny-room.com/profile.php?sid=414,ok,200,0,[],
+esthe-lynx-ikebukuro.com,df2b130f-5c2d-469a-a2c1-97934b4976d7,リンクス,008da4ae-33a4-453d-8c02-6b0924d53428,https://esthe-lynx-ikebukuro.com/therapist/?id=962,http_error,404,0,,HTTP 404 https://esthe-lynx-ikebukuro.com/therapist/?id=962
+genkaya.net,96beed23-cced-4a1d-aafc-43451f83299b,原価屋,001df064-2e8a-49cb-9ab3-90edac5495ee,https://genkaya.net/profile?lid=975,ok,200,0,[],
+jelly.nagoya,6a369f56-770b-4dec-9729-e96d7b35a0d3,JELLY～nagoya・spa～,007f7f82-990c-4217-bb4e-29f66e02c47a,https://jelly.nagoya/staff/details/c7608427-e896-4e10-aa1a-2e4db7c26ef1,ok,200,0,[],
+luxury-gp.com,32ad971c-8aed-40ad-8dda-0155dfc34d2a,上野ラグジュアリー,01b1df0e-0d3a-4384-9496-3173a2fc6353,https://luxury-gp.com/cast/cast-11520/,http_error,404,0,,HTTP 404 https://luxury-gp.com/cast/cast-11520/
+mrs-viaura-okayama.com,cdaa397e-9210-4ae6-bfb3-1d45126c2df7,ミセス美オーラ 岡山,01216a23-21c4-46f0-8379-86299fc3df27,https://mrs-viaura-okayama.com/model_profile362.html,ok,200,0,[],
+mrs-viaura.com,85dc7634-fb5e-43ae-80f3-d849b6ca4848,ミセス美オーラ 大阪,001f13a3-0bae-4761-babc-f776dcb76ab0,https://mrs-viaura.com/model_profile999.html,ok,200,0,[],
+namexspa.com,c52bea3e-eb3e-40c8-a404-3078d8747e8d,ナメックスパ 旧レッドリボン中野,00c8d9c6-8f9f-435e-a375-166bb5c3cf88,https://namexspa.com/therapist/61226,ok,200,0,[],
+ore-no-ie.com,98b32339-4282-4d29-b566-4f99ca3e4b1e,俺の家,0031813c-c037-487a-aaf1-ed9f7738c73c,https://ore-no-ie.com/profile.php?sid=237,ok,200,0,[],
+resexy.info,8585f9c1-564d-4575-b525-4e112aedee05,RESEXY (リゼクシー) 栄,00527a3e-7310-4419-b1db-5e9748e53d52,https://resexy.info/profile.php?sid=1795,ok,200,0,[],
+salon-de-esthe.net,0afc0dbd-7cb0-4088-8c4d-fca7f3b1d699,シャノワール,0229483e-6e23-467e-8ff8-7df35a3724f5,https://salon-de-esthe.net/item_10029649.html,http_error,404,0,,HTTP 404 https://salon-de-esthe.net/item_10029649.html
+tamanegiman.com,fbc3d9f4-887c-430e-9530-7c40784ba2f8,タマネギ 大阪,00191e30-4dd3-446c-b7bd-6aa706e609ee,https://tamanegiman.com/model_profile1517.html,ok,200,0,[],
+tiger01-nagoya.com,39166e0c-0752-469f-8728-7d9420821aee,タイガーアイ 旧タイガー,0159515f-1351-4e63-9a31-b9d90cc6f5eb,https://tiger01-nagoya.com/profile.php?sid=1003,ok,200,0,[],
+wife-line.com,50756cdd-df86-4b8c-8058-2361f6d8dd30,和いふらいん 大阪,01f2835c-aa39-4843-8b41-b215e84c1cc6,https://wife-line.com/model_profile546.html,ok,200,0,[],
+www.a5spa.com,046b42f2-6938-4be1-874d-945c15208839,エーゴスパ,00b05f26-a4e3-459e-b520-1f19013f34d5,https://www.a5spa.com/prof/prof278/,http_error,404,0,,HTTP 404 https://www.a5spa.com/prof/prof278/
+www.ms-eden.com,4f53f495-6a24-4bfd-994b-d16a8c0cb8c6,エデン 静岡,00e99e3a-a452-437a-adf9-68942bf9f9e0,http://www.ms-eden.com/profile/_uid/3485/,ok,200,0,[],

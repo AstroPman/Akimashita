@@ -1,0 +1,11 @@
+host,external_salon_id,salon_name,external_therapist_id,therapist_url,fetch_status,http_status,parsed_count,sample_records,error
+cor-caroli.net,62c3277f-7d4a-4418-b352-2fcb830bfaad,コル･カロリ,30291e90-d0e5-4e0c-b741-3ef1fbc0297d,https://cor-caroli.net/cast/cast-5433/,ok,200,0,[],
+estheno-kibun.com,e0074c85-00b9-4385-b0dd-eee037f62e61,エステの気分,a8ae89da-4e44-4c13-b36c-00daec909f33,https://estheno-kibun.com/cast/cast-2443/,ok,200,0,[],
+mens-esthe-aroma.site,b8b750a6-a6dc-4e67-bed7-7c86709b11cd,小悪魔スパトウキョウ,0a8a8e99-2915-4cfb-8551-7330c519f00d,https://mens-esthe-aroma.site/therapist.html?id=1737,ok,200,0,[],
+seven-luck-spa.com,53e8a21f-089d-4a7d-847f-ebf541c2e634,セブンラックスパ,ecbb23cc-7150-46d8-b69a-89954cc931bc,https://seven-luck-spa.com/profile?id=210,ok,200,0,[],
+st-koshigaya.com,de09ee5e-1d01-4914-91ab-1dc3ae37fc58,ショータイム 越谷店,71627df0-92a9-40d5-91dd-9812fdf8281e,https://st-koshigaya.com/lady_detail.php?lady_num=117596,http_error,404,0,,HTTP 404 https://st-koshigaya.com/lady_detail.php?lady_num=117596
+unison-spa.com,e3bf1644-a2c7-48f5-806d-f5153c60c37a,ユニゾンスパ,a7817e42-eb3f-4a74-8907-fad6dd630584,https://unison-spa.com/therapist/56648,ok,200,0,[],
+www.estheking.jp,bec80454-2061-4621-a78c-035e1f3d714a,エステの王様,65df6629-e0ac-4814-ba01-cd708814bf42,https://www.estheking.jp/profile/_uid/3756/,ok,200,0,[],
+www.kiwamino-esthe.com,98538a49-4829-4557-89b3-69558ac6ca80,極みのワイフ,17be5f9c-1f08-4984-9b9b-b87bc68eedcd,https://www.kiwamino-esthe.com/profile/170,ok,200,0,[],
+www.wife-collection.com,8569b78c-59a2-4e74-95f0-bf4d4913e9ce,ワイフコレクション,c01e7622-6bed-4cb0-8d2d-377397a3c135,https://www.wife-collection.com/profile/996,ok,200,0,[],
+yokohama-mens-salon.com,b10e96f1-a550-415d-8bde-fc8d879022b7,クロエ 横浜,890bc4d7-9c55-4f01-bdd0-97b9ec734efc,https://yokohama-mens-salon.com/profile.html?sid=467,ok,200,0,[],

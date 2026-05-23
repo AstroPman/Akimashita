@@ -1,5 +1,10 @@
 import * as cheerio from 'cheerio';
-import type { AvailabilityRecord, AvailabilityScraper, Therapist } from '@alimashita/shared';
+import type {
+  AvailabilityRecord,
+  AvailabilityScrapeResult,
+  AvailabilityScraper,
+  Therapist,
+} from '@alimashita/shared';
 import { httpCaskan } from '../../lib/http.js';
 import { createLogger } from '../../lib/logger.js';
 
@@ -9,11 +14,11 @@ const log = createLogger('caskan:availability');
 const MAX_LOOKAHEAD_DAYS = Number.parseInt(process.env.MAX_LOOKAHEAD_DAYS ?? '14', 10);
 
 class CaskanAvailabilityScraper implements AvailabilityScraper {
-  async run(therapist: Therapist): Promise<AvailabilityRecord[]> {
+  async run(therapist: Therapist): Promise<AvailabilityScrapeResult> {
     const dates = await this.fetchShiftDates(therapist);
     if (dates.length === 0) {
       log.info('No shift dates', { therapist: therapist.name });
-      return [];
+      return { records: [], observedDates: [] };
     }
 
     const today = todayIsoDate();
@@ -29,21 +34,28 @@ class CaskanAvailabilityScraper implements AvailabilityScraper {
     // 14 日分を並列発火する。HostQueue が r.caskan.jp を直列化するため
     // 既定 (hostConcurrency=1) では実質直列のままで負荷は増えないが、
     // SCRAPER_HTTP_CONCURRENCY_CASKAN を上げると 1 セラピストあたりの所要時間が縮む。
+    //
+    // 戻り値の observedDates には「fetch に成功した日付だけ」を含める。
+    // 失敗した日 (HTTP エラー等) は claim せず、既存 DB 行の誤クローズを防ぐ。
     const settled = await Promise.all(
       targetDates.map(async (date) => {
         try {
-          return await this.fetchDaySlots(therapist, date);
+          const records = await this.fetchDaySlots(therapist, date);
+          return { date, ok: true as const, records };
         } catch (err) {
           log.warn('Failed to fetch slots for date', {
             therapist: therapist.name,
             date,
             error: errMessage(err),
           });
-          return [] as AvailabilityRecord[];
+          return { date, ok: false as const, records: [] as AvailabilityRecord[] };
         }
       }),
     );
-    return settled.flat();
+
+    const records = settled.flatMap((s) => s.records);
+    const observedDates = settled.filter((s) => s.ok).map((s) => s.date);
+    return { records, observedDates };
   }
 
   private async fetchShiftDates(therapist: Therapist): Promise<string[]> {

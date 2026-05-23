@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import type {
   AvailabilityRecord,
+  AvailabilityScrapeResult,
   AvailabilityScraper,
   Therapist,
 } from '@alimashita/shared';
@@ -79,20 +80,45 @@ function parseTimeText(raw: string): { hour: number; minute: number } | null {
   return { hour, minute };
 }
 
+interface ParsedSchedule {
+  records: AvailabilityRecord[];
+  /**
+   * テーブル列ヘッダから観測できた 7 日分の日付 (YYYY-MM-DD)。
+   * 「出勤外 (close)」「予約済み (─)」の列も含めて、表に出現している = scraper が
+   * 「その日のスケジュールを見終えた」と claim できる日付集合。
+   *
+   * スケジュールテーブル自体が描画されていない場合は空。
+   */
+  dates: string[];
+}
+
 /**
- * スケジュールテーブルをパースして AvailabilityRecord 配列を返す。
+ * スケジュールテーブルをパースして AvailabilityRecord 配列と観測日集合を返す。
  *
  * - ○ セルは `<a data-path="...?reserve_date=YYYY-MM-DD&reserve_time=HH:MM">` を持つので、
  *   そこから確定的に日付・時刻を取り出す。
  * - × セルは出勤中の埋まり (`is_available=false`)。日付は列ヘッダから推定する。
  * - ─ セルは出勤外なのでレコード化しない (EDC と同じ「行を作らない」ポリシー)。
+ *   ただし observedDates には含めるので、過去に ○ で書き込まれた行が ─ に変わった
+ *   場合に upsert_availability RPC 側で false にクローズできる。
  *
  * baseDate はテーブル先頭列の日付 (YYYY-MM-DD)。estama は常に「今日 (= 今週)」から
  * 7 日分のテーブルを返すため、外側から baseDate=今日 or 今日+7 を指定する。
  */
-function parseSchedule(html: string, baseDate: string): AvailabilityRecord[] {
+function parseSchedule(html: string, baseDate: string): ParsedSchedule {
   const $ = cheerio.load(html);
   const records = new Map<string, AvailabilityRecord>();
+
+  // テーブル列ヘッダから 7 日分の日付を列挙する。
+  // estama の thead は常に「空 + 7 日分の th_sce」が並ぶ構造で、出勤外日も
+  // close クラス付きで残る (== HTML が描画されているなら 7 日完全に observe している)。
+  const dates: string[] = [];
+  const headerCells = $('.sce_tb thead th.th_sce');
+  if (headerCells.length > 0) {
+    headerCells.each((idx, _th) => {
+      dates.push(addDaysIso(baseDate, idx));
+    });
+  }
 
   $('.sce_tb tbody tr').each((_, tr) => {
     const $tr = $(tr);
@@ -143,11 +169,11 @@ function parseSchedule(html: string, baseDate: string): AvailabilityRecord[] {
     });
   });
 
-  return [...records.values()];
+  return { records: [...records.values()], dates };
 }
 
 class EstamaAvailabilityScraper implements AvailabilityScraper {
-  async run(therapist: Therapist): Promise<AvailabilityRecord[]> {
+  async run(therapist: Therapist): Promise<AvailabilityScrapeResult> {
     const castUrl = `${BASE_URL}/shop/${encodeURIComponent(
       therapist.salon_shop_id,
     )}/cast/${encodeURIComponent(therapist.therapist_id)}/`;
@@ -160,10 +186,13 @@ class EstamaAvailabilityScraper implements AvailabilityScraper {
     }
 
     const records = new Map<string, AvailabilityRecord>();
+    const observedDates = new Set<string>();
+
     const firstWeek = parseSchedule(topHtml, todayIso());
-    for (const r of firstWeek) {
+    for (const r of firstWeek.records) {
       records.set(`${r.date}T${r.start_time}`, r);
     }
+    for (const d of firstWeek.dates) observedDates.add(d);
 
     // 14 日 (DAYS_PER_PAGE 超え) を要求された場合は次週を POST で取得。
     // estama は 1 リクエストあたり 7 日固定なので 1 ジャンプで +7 日カバー。
@@ -190,9 +219,10 @@ class EstamaAvailabilityScraper implements AvailabilityScraper {
         if (resp.status === 'success' && typeof resp.html === 'string') {
           const baseDate = addDaysIso(todayIso(), DAYS_PER_PAGE);
           const secondWeek = parseSchedule(resp.html, baseDate);
-          for (const r of secondWeek) {
+          for (const r of secondWeek.records) {
             records.set(`${r.date}T${r.start_time}`, r);
           }
+          for (const d of secondWeek.dates) observedDates.add(d);
         } else {
           log.warn('shop_schedule_ctrl returned non-success', {
             therapist: therapist.name,
@@ -200,6 +230,8 @@ class EstamaAvailabilityScraper implements AvailabilityScraper {
           });
         }
       } catch (err) {
+        // 2 週目だけ取得失敗したケース: observedDates は 1 週目のみ。
+        // 既存 DB の 2 週目相当の行は触らないことで、誤クローズを防ぐ。
         log.warn('Failed to fetch second week, continuing with first week only', {
           therapist: therapist.name,
           error: err instanceof Error ? err.message : String(err),
@@ -211,8 +243,11 @@ class EstamaAvailabilityScraper implements AvailabilityScraper {
     result.sort((a, b) =>
       a.date === b.date ? a.start_time.localeCompare(b.start_time) : a.date.localeCompare(b.date),
     );
-    log.info(`Parsed ${result.length} slots`, { therapist: therapist.name });
-    return result;
+    log.info(`Parsed ${result.length} slots`, {
+      therapist: therapist.name,
+      observedDays: observedDates.size,
+    });
+    return { records: result, observedDates: [...observedDates].sort() };
   }
 }
 

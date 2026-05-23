@@ -1,5 +1,10 @@
 import * as cheerio from 'cheerio';
-import type { AvailabilityRecord, AvailabilityScraper, Therapist } from '@alimashita/shared';
+import type {
+  AvailabilityRecord,
+  AvailabilityScrapeResult,
+  AvailabilityScraper,
+  Therapist,
+} from '@alimashita/shared';
 import { createHttp } from '../../lib/http.js';
 import { createLogger } from '../../lib/logger.js';
 
@@ -68,13 +73,19 @@ function pickShortestCourseId(html: string): string | null {
   return candidates[0]!.id;
 }
 
-function parseSchedule(html: string): AvailabilityRecord[] {
+interface ParsedSchedule {
+  records: AvailabilityRecord[];
+  /** テーブルが表現していた 7 日分の日付 (= observed range)。パース失敗時は空。 */
+  dates: string[];
+}
+
+function parseSchedule(html: string): ParsedSchedule {
   const $ = cheerio.load(html);
 
   const outPutDate = $('.outPutDate').first().text().trim();
   const m = outPutDate.match(/(\d{4})年(\d{2})月(\d{2})日/);
   if (!m) {
-    return [];
+    return { records: [], dates: [] };
   }
   const startIso = `${m[1]}-${m[2]}-${m[3]}`;
 
@@ -139,14 +150,14 @@ function parseSchedule(html: string): AvailabilityRecord[] {
     });
   });
 
-  return [...records.values()];
+  return { records: [...records.values()], dates };
 }
 
 class EdcAvailabilityScraper implements AvailabilityScraper {
   // 店舗ごとに最短コース ID をキャッシュ (店舗内では安定する想定)。
   private readonly courseCache = new Map<string, string>();
 
-  async run(therapist: Therapist): Promise<AvailabilityRecord[]> {
+  async run(therapist: Therapist): Promise<AvailabilityScrapeResult> {
     const baseUrl = buildBaseUrl(therapist.salon_shop_id);
     const reserveUrl = `${baseUrl}/reserve/`;
 
@@ -211,10 +222,13 @@ class EdcAvailabilityScraper implements AvailabilityScraper {
     });
 
     const records = new Map<string, AvailabilityRecord>();
+    const observedDates = new Set<string>();
+
     const firstWeek = parseSchedule(step3Html);
-    for (const r of firstWeek) {
+    for (const r of firstWeek.records) {
       records.set(`${r.date}T${r.start_time}`, r);
     }
+    for (const d of firstWeek.dates) observedDates.add(d);
 
     // 7 日 (DAYS_PER_PAGE) を超える期間を要求された場合は warpStep=3 でジャンプし
     // 2 週目を取得する。EDC のテーブルは 7 日固定なので 1 ジャンプで +7 日カバー。
@@ -243,10 +257,13 @@ class EdcAvailabilityScraper implements AvailabilityScraper {
           body: jumpBody,
         });
         const secondWeek = parseSchedule(nextHtml);
-        for (const r of secondWeek) {
+        for (const r of secondWeek.records) {
           records.set(`${r.date}T${r.start_time}`, r);
         }
+        for (const d of secondWeek.dates) observedDates.add(d);
       } catch (err) {
+        // 2 週目だけ失敗したケース: observedDates には 1 週目だけが残る。
+        // 既存 DB 行のうち 2 週目相当のものは触らずに済み、誤クローズを防ぐ。
         log.warn('Failed to fetch second week, continuing with first week only', {
           therapist: therapist.name,
           error: err instanceof Error ? err.message : String(err),
@@ -258,8 +275,11 @@ class EdcAvailabilityScraper implements AvailabilityScraper {
     result.sort((a, b) =>
       a.date === b.date ? a.start_time.localeCompare(b.start_time) : a.date.localeCompare(b.date),
     );
-    log.info(`Parsed ${result.length} slots`, { therapist: therapist.name });
-    return result;
+    log.info(`Parsed ${result.length} slots`, {
+      therapist: therapist.name,
+      observedDays: observedDates.size,
+    });
+    return { records: result, observedDates: [...observedDates].sort() };
   }
 }
 

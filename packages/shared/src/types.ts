@@ -44,6 +44,33 @@ export interface AvailabilityRecord {
   is_available: boolean;
 }
 
+/**
+ * Stage 3 スクレイパが 1 セラピストぶんを観測した結果。
+ *
+ * - `records`: 今回 HTML/API から拾えたスロット (○/× の両方を含む)。
+ *   これがそのまま `availability` テーブルに upsert される。
+ *
+ * - `observedDates`: 今回のスクレイプで「このセラピストの一日ぶんの
+ *   スケジュールを HTML/API から見終えた」と確証できる日付の集合
+ *   (YYYY-MM-DD)。
+ *
+ *   この範囲内に既に DB 行があって、`records` に同じ (date, start_time)
+ *   が含まれない場合、`upsert_availability` RPC は「HTML から消えた =
+ *   予約済み or 出勤外に変わった」とみなして `is_available=true → false`
+ *   に倒し、`availability_events` に `closed` イベントを追記する。
+ *
+ *   ここに含めるのは「fetch に成功した日」のみ。HTTP エラーで取れな
+ *   かった日や、scraper の制約で見えていない日付は **含めない**
+ *   (含めると既存の真陽性データを誤って閉じてしまう)。
+ *
+ *   estama のようにサロン側の設定で × セルを出さずに ─ で隠す挙動を
+ *   する予約システムでも、ここを正しく渡せば差分検知が機能する。
+ */
+export interface AvailabilityScrapeResult {
+  records: AvailabilityRecord[];
+  observedDates: string[];
+}
+
 export interface SalonScraper {
   run(): Promise<Salon[]>;
 }
@@ -53,7 +80,7 @@ export interface TherapistScraper {
 }
 
 export interface AvailabilityScraper {
-  run(therapist: Therapist): Promise<AvailabilityRecord[]>;
+  run(therapist: Therapist): Promise<AvailabilityScrapeResult>;
 }
 
 /**

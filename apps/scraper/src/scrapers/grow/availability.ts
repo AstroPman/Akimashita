@@ -1,5 +1,6 @@
 import type {
   AvailabilityRecord,
+  AvailabilityScrapeResult,
   AvailabilityScraper,
   Therapist,
 } from '@alimashita/shared';
@@ -46,14 +47,14 @@ interface StatusResponse {
 class GrowAvailabilityScraper implements AvailabilityScraper {
   private readonly menuCache = new Map<string, number>();
 
-  async run(therapist: Therapist): Promise<AvailabilityRecord[]> {
+  async run(therapist: Therapist): Promise<AvailabilityScrapeResult> {
     const sid = therapist.salon_shop_id;
     const staffNo = therapist.therapist_id;
 
     const menuNo = await this.getRepresentativeMenuNo(sid, staffNo);
     if (menuNo === null) {
       log.warn('No menu found, skipping', { therapist: therapist.name });
-      return [];
+      return { records: [], observedDates: [] };
     }
 
     const seldate = todayGrowDate();
@@ -129,7 +130,14 @@ class GrowAvailabilityScraper implements AvailabilityScraper {
     records.sort((a, b) =>
       a.date === b.date ? a.start_time.localeCompare(b.start_time) : a.date.localeCompare(b.date),
     );
-    return records;
+
+    // grow の status API は `seldate` から `displaydaynum` 日分のスケジュールを
+    // 一括返答する。グループ 0 のレスポンス取得まで成功している (= ここに到達した)
+    // 時点で、その日付範囲は完全に observe されたとみなしてよい。
+    // 一部グループのみ失敗するケースは現状観測されていないため、保守的に
+    // observedDates は seldate から DISPLAY_DAY_NUM 日とする。
+    const observedDates = enumerateGrowDates(seldate, DISPLAY_DAY_NUM);
+    return { records, observedDates };
   }
 
   private buildStatusUrl(params: {
@@ -222,6 +230,33 @@ function todayGrowDate(): string {
     String(d.getMonth() + 1).padStart(2, '0'),
     String(d.getDate()).padStart(2, '0'),
   ].join('/');
+}
+
+/**
+ * `YYYY/MM/DD` 形式の seldate を起点に `days` 日ぶん `YYYY-MM-DD` を生成する。
+ *
+ * `availability.date` は ISO `YYYY-MM-DD` で記録されるため observedDates も
+ * ISO 形式で揃える。Date オブジェクトの月跨ぎ補正に任せるが、UTC ベースで
+ * 計算してタイムゾーン依存をなくす (`availability` の date 解釈に合わせる)。
+ */
+function enumerateGrowDates(seldate: string, days: number): string[] {
+  const m = seldate.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+  if (!m) return [];
+  const year = Number.parseInt(m[1]!, 10);
+  const month = Number.parseInt(m[2]!, 10);
+  const day = Number.parseInt(m[3]!, 10);
+  const out: string[] = [];
+  for (let i = 0; i < days; i++) {
+    const dt = new Date(Date.UTC(year, month - 1, day));
+    dt.setUTCDate(dt.getUTCDate() + i);
+    const iso = [
+      dt.getUTCFullYear(),
+      String(dt.getUTCMonth() + 1).padStart(2, '0'),
+      String(dt.getUTCDate()).padStart(2, '0'),
+    ].join('-');
+    out.push(iso);
+  }
+  return out;
 }
 
 export const growAvailabilityScraper: AvailabilityScraper = new GrowAvailabilityScraper();
