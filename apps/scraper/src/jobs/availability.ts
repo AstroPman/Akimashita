@@ -185,33 +185,19 @@ async function upsertAvailability(
   records: AvailabilityRecord[],
   observedDates: string[],
 ): Promise<void> {
-  // 何も観測できず、書き込む records も無いケースだけ skip。
-  // records=0 & observedDates>0 のときは「その範囲を完全に観測したが空き枠は無かった」を
-  // 表すので、RPC を呼んで既存 true 行を false にクローズしてもらう必要がある。
-  if (records.length === 0 && observedDates.length === 0) return;
-
+  // 旧実装は「records=0 && observedDates=0」のとき RPC 呼び出しごと skip していたが、
+  // 20260524000002_upsert_availability_marks_synced.sql 以降は RPC 内部で
+  // therapists.last_synced_at を併せて更新するため、必ず呼ぶ必要がある。
+  // 入力が空でも RPC は no-op + last_synced_at 更新のみで安全に動く。
   const { error } = await supabase.rpc('upsert_availability', {
     p_therapist_id: therapist.id,
     p_rows: records,
     // 空配列は migration 側で「観測範囲なし」と同一視するが、明示的に null を渡せば
-    // 旧挙動 (upsert のみ) に戻せる。観測 0 件のときに送信しない設計は上の早期 return に集約。
+    // 旧挙動 (upsert のみ / 消失検知なし) に戻せる。
     p_observed_dates: observedDates.length > 0 ? observedDates : null,
   });
   if (error) {
     throw new Error(`upsert_availability RPC failed: ${error.message}`);
-  }
-}
-
-async function markTherapistSynced(therapistId: string): Promise<void> {
-  const { error } = await supabase
-    .from('therapists')
-    .update({ last_synced_at: new Date().toISOString() })
-    .eq('id', therapistId);
-  if (error) {
-    log.warn('Failed to update therapists.last_synced_at', {
-      therapist_id: therapistId,
-      error: error.message,
-    });
   }
 }
 
@@ -450,19 +436,20 @@ export async function runAvailabilityJob(opts: RunAvailabilityOptions = {}): Pro
     try {
       const result = await scraper.run(therapist);
       const { records, observedDates } = result;
-      // observedDates が非空であれば、records=0 でも RPC を呼ぶ:
-      // 「観測したが空き枠は無かった」= 範囲内の既存 true 行は false にクローズすべきため。
-      // estama のサロンで全枠が ─ になったケースを正しく扱うための分岐。
-      if (records.length > 0 || observedDates.length > 0) {
-        await upsertAvailability(therapist, records, observedDates);
-      }
+      // upsert_availability は「records=0 && observedDates=0」のときも呼ぶ。
+      // RPC 内部で:
+      //   1. records ベースの upsert (records=0 なら no-op)
+      //   2. observedDates ベースの「消失検知 → closed」(observedDates=0 なら no-op)
+      //      estama 等で全枠が ─ になったときに既存 true 行を false にクローズするため。
+      //   3. therapists.last_synced_at の更新 (旧 markTherapistSynced を吸収)
+      // を同一トランザクションでこなす。
+      await upsertAvailability(therapist, records, observedDates);
       // 0 件でも初回同期済みにする（初回だけ枠ゼロのときに永久に Path B が解禁されないように）。
       // research 由来 (is_watched=false) は watch_settings を持たないことが fetchTargetTherapists
       // で保証されており、watch_settings 側の baseline 更新は不要。
       if (therapist.is_watched) {
         await markFirstAvailabilitySyncedIfNeeded(therapist.id);
       }
-      await markTherapistSynced(therapist.id);
       const elapsed = Date.now() - startedAt;
       success += 1;
       totalSlots += records.length;
