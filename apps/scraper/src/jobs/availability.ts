@@ -22,18 +22,22 @@ import { eyoyakuAvailabilityScraper } from '../scrapers/eyoyaku/availability.js'
 
 const log = createLogger('job:availability');
 
+/**
+ * `get_watch_availability_targets` / `get_research_availability_targets` RPC の
+ * 戻り行。Therapist 型と完全互換になるようサーバ側で整形済み。
+ *
+ * 旧実装は PostgREST 埋め込み JOIN (therapists?select=...,salons!inner(...,sites!inner(...)),
+ * watch_settings!inner(...)) で取っていたが、`work_mem` を超えるディスクソートが
+ * 発生し Disk IO Budget を圧迫していた。RPC 側で起点を `watch_settings` 側に
+ * 反転して planner に短い経路を選ばせる。
+ */
 interface TargetTherapistRow {
   id: string;
   therapist_id: string;
   name: string;
   salon_id: string;
-  salons: {
-    shop_id: string;
-    sites: { name: SiteName } | { name: SiteName }[] | null;
-  } | {
-    shop_id: string;
-    sites: { name: SiteName } | { name: SiteName }[] | null;
-  }[] | null;
+  salon_shop_id: string;
+  site_name: SiteName;
 }
 
 /**
@@ -67,44 +71,22 @@ function pickScraper(siteName: SiteName): AvailabilityScraper {
   }
 }
 
-function unwrapNested<T>(value: T | T[] | null): T | null {
-  if (!value) return null;
-  if (Array.isArray(value)) return value[0] ?? null;
-  return value;
-}
-
-function toTherapist(row: TargetTherapistRow): Therapist | null {
-  const salon = unwrapNested(row.salons);
-  if (!salon) return null;
-  const site = unwrapNested(salon.sites);
-  if (!site) return null;
+function toTherapist(row: TargetTherapistRow): Therapist {
   return {
     id: row.id,
     salon_id: row.salon_id,
-    salon_shop_id: salon.shop_id,
-    site_name: site.name,
+    salon_shop_id: row.salon_shop_id,
+    site_name: row.site_name,
     therapist_id: row.therapist_id,
     name: row.name,
   };
 }
 
 async function fetchWatchedTherapistRows(): Promise<TargetTherapistRow[]> {
-  // watch_settings に登録されているセラピスト。
-  // 親 salon が論理削除されているケース (Stage 2 で 404/410 検出など) は
-  // セラピスト側の deleted_at 反映が遅れる前に取りこぼさないよう、ここでも除外する。
-  const { data, error } = await supabase
-    .from('therapists')
-    .select(
-      'id, therapist_id, name, salon_id, ' +
-        'salons!inner(shop_id, deleted_at, sites!inner(name)), ' +
-        'watch_settings!inner(id, is_active, deleted_at)',
-    )
-    .is('deleted_at', null)
-    .is('salons.deleted_at', null)
-    .is('watch_settings.deleted_at', null)
-    .eq('watch_settings.is_active', true)
-    .order('last_synced_at', { ascending: true, nullsFirst: true });
-
+  // 起点を `watch_settings` 側に反転した RPC を呼ぶ。
+  // 親 salon が論理削除されているケース (Stage 2 で 404/410 検出など) も
+  // RPC 内の JOIN で除外済み。
+  const { data, error } = await supabase.rpc('get_watch_availability_targets');
   if (error) {
     throw new Error(`Failed to fetch watched therapists: ${error.message}`);
   }
@@ -112,19 +94,9 @@ async function fetchWatchedTherapistRows(): Promise<TargetTherapistRow[]> {
 }
 
 async function fetchResearchTherapistRows(): Promise<TargetTherapistRow[]> {
-  // salons.research_enabled = true なサロン配下のセラピスト全員。
-  // watch_settings との重複は呼び出し側 (fetchTargetTherapists) で除外する。
-  const { data, error } = await supabase
-    .from('therapists')
-    .select(
-      'id, therapist_id, name, salon_id, ' +
-        'salons!inner(shop_id, deleted_at, research_enabled, sites!inner(name))',
-    )
-    .is('deleted_at', null)
-    .is('salons.deleted_at', null)
-    .eq('salons.research_enabled', true)
-    .order('last_synced_at', { ascending: true, nullsFirst: true });
-
+  // salons.research_enabled = true なサロン配下のセラピストのうち、
+  // watch_settings に有効行を持つセラピストは RPC 内で NOT EXISTS 除外済み。
+  const { data, error } = await supabase.rpc('get_research_availability_targets');
   if (error) {
     throw new Error(`Failed to fetch research therapists: ${error.message}`);
   }
@@ -132,32 +104,20 @@ async function fetchResearchTherapistRows(): Promise<TargetTherapistRow[]> {
 }
 
 /**
- * 有効な watch_settings に紐づくセラピスト ID の集合を返す。
+ * research モードで「watch 配下と被って除外した」件数を返す。
  *
- * research モードで「監視対象セラピストを誤って取り込み、毎分回している watch 側の
- * 差分検知 (`previous_is_available` 遷移 / 新規 INSERT) を 15 分粒度の research が
- * 先に消費してしまう」事故を防ぐためのフィルタ用。
- *
- * `is_active = true` かつ `deleted_at IS NULL` の行が 1 件でもあるセラピストを
- * 「監視中」とみなす。subscription の状態 (`is_subscription_active`) までは見ない:
- * 仮に課金が切れていて enqueue_notifications で弾かれるユーザでも、watch 側 Lambda が
- * availability を毎分更新している事実は変わらないため、research 側が触ると同じ事故が起きる。
+ * 0 が期待値。継続的に非 0 ならフラグの付け方が watch ユーザと競合しているサイン。
+ * RPC 側で集約済みのスカラを返すだけなので、旧実装のように watch_settings 全件 SELECT
+ * + メモリ集合演算する必要はない。
  */
-async function fetchActiveWatchedTherapistIds(): Promise<Set<string>> {
-  const { data, error } = await supabase
-    .from('watch_settings')
-    .select('therapist_id')
-    .is('deleted_at', null)
-    .eq('is_active', true);
+async function fetchResearchExcludedWatchedCount(): Promise<number> {
+  const { data, error } = await supabase.rpc('count_research_excluded_watched');
   if (error) {
-    throw new Error(`Failed to fetch watched therapist ids: ${error.message}`);
+    throw new Error(`Failed to fetch research excluded count: ${error.message}`);
   }
-  const ids = new Set<string>();
-  for (const row of data ?? []) {
-    const id = (row as { therapist_id: string | null }).therapist_id;
-    if (id) ids.add(id);
-  }
-  return ids;
+  if (typeof data === 'number') return data;
+  if (Array.isArray(data) && typeof data[0] === 'number') return data[0];
+  return 0;
 }
 
 /**
@@ -184,48 +144,38 @@ async function fetchTargetTherapists(mode: AvailabilityMode): Promise<{
 }> {
   if (mode === 'watch') {
     const rows = await fetchWatchedTherapistRows();
-    const byId = new Map<string, TargetTherapist>();
-    for (const row of rows) {
-      if (byId.has(row.id)) continue;
-      const t = toTherapist(row);
-      if (!t) continue;
-      byId.set(row.id, { ...t, is_watched: true });
-    }
+    const therapists = rows.map<TargetTherapist>((row) => ({
+      ...toTherapist(row),
+      is_watched: true,
+    }));
     return {
-      therapists: Array.from(byId.values()),
-      watchedCount: byId.size,
+      therapists,
+      watchedCount: therapists.length,
       researchOnlyCount: 0,
       researchExcludedWatchedCount: 0,
     };
   }
 
   // mode === 'research'
-  // research_enabled サロン配下のセラピストのうち、watch_settings に登録されているものは除外する。
+  // research_enabled サロン配下のセラピストのうち、watch_settings に登録されているものは
+  // RPC 側で除外済み (= NOT EXISTS で弾いたあとの行のみが返る)。
   // 監視対象セラピストの availability は毎分実行の watch 側 Lambda が責任を持つ:
   //   - そちらの方が頻度が高いので research で先に更新する意味がない
   //   - upsert_availability は previous_is_available を毎回上書きするので、
   //     research が先回りすると watch 側 enqueue_notifications の candidates
   //     (previous_is_available is false / first_seen_at = updated_at) を奪ってしまう
-  const [rows, watchedIds] = await Promise.all([
+  const [rows, excluded] = await Promise.all([
     fetchResearchTherapistRows(),
-    fetchActiveWatchedTherapistIds(),
+    fetchResearchExcludedWatchedCount(),
   ]);
-  const byId = new Map<string, TargetTherapist>();
-  let excluded = 0;
-  for (const row of rows) {
-    if (byId.has(row.id)) continue;
-    if (watchedIds.has(row.id)) {
-      excluded += 1;
-      continue;
-    }
-    const t = toTherapist(row);
-    if (!t) continue;
-    byId.set(row.id, { ...t, is_watched: false });
-  }
+  const therapists = rows.map<TargetTherapist>((row) => ({
+    ...toTherapist(row),
+    is_watched: false,
+  }));
   return {
-    therapists: Array.from(byId.values()),
+    therapists,
     watchedCount: 0,
-    researchOnlyCount: byId.size,
+    researchOnlyCount: therapists.length,
     researchExcludedWatchedCount: excluded,
   };
 }

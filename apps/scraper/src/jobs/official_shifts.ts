@@ -22,30 +22,6 @@ interface TargetRow {
   therapist_name: string;
 }
 
-interface QueryRow {
-  id: string;
-  name: string;
-  external_therapist_id: string | null;
-  external_therapists:
-    | {
-        id: string;
-        therapist_url: string | null;
-        deleted_at: string | null;
-      }
-    | {
-        id: string;
-        therapist_url: string | null;
-        deleted_at: string | null;
-      }[]
-    | null;
-}
-
-function unwrapNested<T>(value: T | T[] | null | undefined): T | null {
-  if (!value) return null;
-  if (Array.isArray(value)) return value[0] ?? null;
-  return value;
-}
-
 /**
  * Stage 5 のスクレイピング対象。
  *
@@ -55,42 +31,19 @@ function unwrapNested<T>(value: T | T[] | null | undefined): T | null {
  *
  * therapists.last_synced_at で公平に古い順に並べるが、Stage 3 と違って
  * シフト発見が「最新性勝負」ではないため必須条件ではない。
+ *
+ * 旧実装は PostgREST の埋め込み JOIN (therapists?select=...,external_therapists!inner(...),
+ * watch_settings!inner(...)) を使っていたが、`work_mem` を超えるディスクソートで
+ * Disk IO Budget を圧迫していたため、起点を `watch_settings` 側に反転した RPC に置き換えた。
  */
 async function fetchTargets(): Promise<TargetRow[]> {
-  const { data, error } = await supabase
-    .from('therapists')
-    .select(
-      'id, name, external_therapist_id, ' +
-        'external_therapists!inner(id, therapist_url, deleted_at), ' +
-        'watch_settings!inner(id, is_active, deleted_at)',
-    )
-    .is('deleted_at', null)
-    .not('external_therapist_id', 'is', null)
-    .is('external_therapists.deleted_at', null)
-    .not('external_therapists.therapist_url', 'is', null)
-    .is('watch_settings.deleted_at', null)
-    .eq('watch_settings.is_active', true);
+  const { data, error } = await supabase.rpc('get_official_shifts_targets');
 
   if (error) {
     throw new Error(`Failed to fetch official_shifts targets: ${error.message}`);
   }
 
-  const seen = new Set<string>();
-  const rows: TargetRow[] = [];
-  for (const raw of (data ?? []) as unknown as QueryRow[]) {
-    if (seen.has(raw.id)) continue;
-    const ext = unwrapNested(raw.external_therapists);
-    if (!ext || !ext.therapist_url) continue;
-    if (!raw.external_therapist_id) continue;
-    seen.add(raw.id);
-    rows.push({
-      internal_therapist_id: raw.id,
-      external_therapist_id: raw.external_therapist_id,
-      therapist_url: ext.therapist_url,
-      therapist_name: raw.name,
-    });
-  }
-  return rows;
+  return (data ?? []) as unknown as TargetRow[];
 }
 
 async function upsertShifts(
