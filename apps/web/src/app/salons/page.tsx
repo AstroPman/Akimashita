@@ -4,15 +4,13 @@ import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/landing/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import {
-  getPublicSalons,
+  getPublicAreas,
+  getPublicStats,
+  searchPublicSalons,
   searchPublicTherapists,
   PUBLIC_THERAPIST_SEARCH_DEFAULT_LIMIT,
-  type PublicSalon,
 } from "@/lib/salons";
-import {
-  PublicSearchForm,
-  type AreaGroup,
-} from "./_components/public-search-form";
+import { PublicSearchForm } from "./_components/public-search-form";
 import { SalonResultList } from "./_components/salon-result-list";
 import { TherapistResultList } from "./_components/therapist-result-list";
 
@@ -39,36 +37,6 @@ function parsePage(raw: string | undefined): number {
   const n = Number.parseInt(raw ?? "1", 10);
   if (!Number.isFinite(n) || n < 1) return 1;
   return Math.min(n, 1000);
-}
-
-function buildAreaGroups(salons: PublicSalon[]): AreaGroup[] {
-  const map = new Map<string, Set<string>>();
-  for (const s of salons) {
-    if (!s.prefecture) continue;
-    for (const a of s.areas ?? []) {
-      if (!map.has(s.prefecture)) map.set(s.prefecture, new Set());
-      map.get(s.prefecture)!.add(a);
-    }
-  }
-  return [...map.entries()]
-    .sort(([a], [b]) => a.localeCompare(b, "ja"))
-    .map(([prefecture, areas]) => ({
-      prefecture,
-      areas: [...areas].sort((a, b) => a.localeCompare(b, "ja")),
-    }));
-}
-
-function filterSalons(
-  salons: PublicSalon[],
-  filters: { salon: string; area: string },
-): PublicSalon[] {
-  const salonQ = filters.salon.toLowerCase();
-  const area = filters.area;
-  return salons.filter((s) => {
-    if (area && !s.areas.includes(area)) return false;
-    if (salonQ && !s.name.toLowerCase().includes(salonQ)) return false;
-    return true;
-  });
 }
 
 function buildCanonicalUrl(params: SalonsSearchParams): string {
@@ -138,16 +106,26 @@ export default async function SalonsPage({ searchParams }: PageProps) {
   const area = normalizeQuery(sp.area);
   const page = parsePage(sp.page);
 
-  const salons = await getPublicSalons();
-  const areaGroups = buildAreaGroups(salons);
-
   const isTherapistMode = therapistQ.length > 0;
 
   const limit = PUBLIC_THERAPIST_SEARCH_DEFAULT_LIMIT;
   const offset = (page - 1) * limit;
 
-  const [filteredSalons, therapistResult] = await Promise.all([
-    Promise.resolve(filterSalons(salons, { salon: salonQ, area })),
+  // 用途別に分割した RPC を並列で叩く:
+  // - getPublicAreas: エリアセレクタ用の (prefecture, area) ユニーク一覧
+  // - getPublicStats: 「全 N 件中 K 件が該当」表示の分母（サロンモードのみ参照）
+  // - searchPublicSalons / searchPublicTherapists: モードに応じた検索結果 + total_count
+  const [areaGroups, stats, salonResult, therapistResult] = await Promise.all([
+    getPublicAreas(),
+    isTherapistMode
+      ? Promise.resolve(null)
+      : getPublicStats(),
+    isTherapistMode
+      ? Promise.resolve(null)
+      : searchPublicSalons({
+          salon: salonQ || null,
+          area: area || null,
+        }),
     isTherapistMode
       ? searchPublicTherapists({
           salon: salonQ || null,
@@ -159,7 +137,8 @@ export default async function SalonsPage({ searchParams }: PageProps) {
       : Promise.resolve(null),
   ]);
 
-  const totalSalonCount = salons.length;
+  const filteredSalons = salonResult?.items ?? [];
+  const totalSalonCount = stats?.salonCount ?? 0;
   const buildHref = (overrides: Partial<SalonsSearchParams>) => {
     const next = new URLSearchParams();
     const v = { ...sp, ...overrides };

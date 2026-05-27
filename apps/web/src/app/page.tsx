@@ -6,18 +6,13 @@ import { SiteFooter } from "@/components/landing/site-footer";
 import { PrimaryCta, SecondaryCta } from "@/components/landing/cta";
 import { ScaleStats } from "@/components/landing/scale-stats";
 import { SiteHeader } from "@/components/site-header";
-import { getPublicSalons } from "@/lib/salons";
+import { getPublicStats } from "@/lib/salons";
 
 export default async function Home() {
   // 対応規模セクション用に「公開サロン数」「在籍セラピスト合計」を SSR で算出。
-  // 取得に失敗した場合は内部で空配列が返るため、ゼロのときはセクションが
+  // 取得に失敗した場合は内部でゼロが返るため、ゼロのときはセクションが
   // 非表示になる (ScaleStats 側でガード)。
-  const salons = await getPublicSalons();
-  const salonCount = salons.length;
-  const therapistCount = salons.reduce(
-    (acc, s) => acc + (s.therapistCount ?? 0),
-    0,
-  );
+  const { salonCount, therapistCount } = await getPublicStats();
   return (
     <div className="flex flex-col flex-1">
       <SiteHeader logoPriority bordered={false} />

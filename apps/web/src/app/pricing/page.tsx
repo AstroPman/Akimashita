@@ -3,7 +3,7 @@ import Link from "next/link";
 import { SupportedSalonsTeaser } from "@/components/landing/supported-salons";
 import { SiteFooter } from "@/components/landing/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { getPublicSalons } from "@/lib/salons";
+import { getPublicStats } from "@/lib/salons";
 import { getPlanPricing } from "@/lib/stripe/pricing";
 import {
   BILLING_CYCLES,
@@ -31,8 +31,8 @@ export default async function PricingPage({
 }: {
   searchParams: Promise<{ reason?: string; cycle?: string }>;
 }) {
-  const [publicSalons, pricing, { reason, cycle: cycleParam }] = await Promise.all([
-    getPublicSalons(),
+  const [publicStats, pricing, { reason, cycle: cycleParam }] = await Promise.all([
+    getPublicStats(),
     getPlanPricing(),
     searchParams,
   ]);
@@ -64,7 +64,7 @@ export default async function PricingPage({
           ) : null}
 
           <div className="mt-10">
-            <SupportedSalonsTeaser count={publicSalons.length} />
+            <SupportedSalonsTeaser count={publicStats.salonCount} />
           </div>
 
           <PricingPlanGrid

@@ -20,6 +20,19 @@ interface PublicSalonRow {
   areas: string[] | null;
 }
 
+/**
+ * 公開サロン一覧の全件取得。
+ *
+ * 通常の公開ページからは呼ばない（`getPublicStats` / `searchPublicSalons` /
+ * `getPublicAreas` / `getPublicSalon` に分割済み）。フォールバック用と、
+ * 全件 id 列挙を必要としないバッチ処理から呼ばれる残置 API。
+ * sitemap.xml は `getPublicSalonsForSitemap` を使うこと（cookies 非依存で
+ * ISR キャッシュが効く版）。
+ *
+ * 1 リクエストあたり全 salons + therapists の GROUP BY 集計が走るため、
+ * 1000 件規模で実測 500ms 程度かかる。新規呼び出しは避け、既存の
+ * 利用箇所も用途別 RPC への移行を続けること。
+ */
 export async function getPublicSalons(): Promise<PublicSalon[]> {
   const supabase = await createClient();
   const pageSize = 1000;
@@ -52,11 +65,170 @@ export async function getPublicSalons(): Promise<PublicSalon[]> {
   }));
 }
 
+/**
+ * 1 サロンを id で単体取得する。
+ *
+ * 専用 RPC `get_public_salon(uuid)` を呼ぶ pkey lookup ベース。
+ * 旧実装は `get_public_salons()` を全件引いてクライアント側で `find` していたが、
+ * salons が 1000 件規模になると 500ms 級の無駄になるので分離した。
+ */
 export async function getPublicSalon(id: string): Promise<PublicSalon | null> {
-  // get_public_salons() は全件返す軽量 RPC なので、1 件だけ欲しい場合でもこれを引いて
-  // クライアント側でフィルタする。サロン数が増えてきたら専用 RPC に切り出す。
-  const all = await getPublicSalons();
-  return all.find((s) => s.id === id) ?? null;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .rpc("get_public_salon", { p_id: id })
+    .maybeSingle();
+
+  if (error) {
+    console.error("getPublicSalon (rpc):", error.message);
+    return null;
+  }
+  if (!data) return null;
+  const row = data as PublicSalonRow;
+  return {
+    id: row.id,
+    name: row.name,
+    therapistCount: row.therapist_count ?? 0,
+    prefecture: row.prefecture ?? null,
+    areas: row.areas ?? [],
+  };
+}
+
+/**
+ * 公開ページの集計用。
+ *
+ * - salonCount: 論理削除されていない salons の総数（ScaleStats / SupportedSalonsTeaser 用）
+ * - therapistCount: 論理削除されていない therapists の総数（ScaleStats 用）
+ *
+ * `get_public_stats()` は数値のみを返す軽量 RPC。失敗時はゼロを返し、
+ * 呼び出し側で「ゼロのときはセクション非表示」のフォールバックを利かせる前提。
+ */
+export interface PublicStats {
+  salonCount: number;
+  therapistCount: number;
+}
+
+export async function getPublicStats(): Promise<PublicStats> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_public_stats").maybeSingle();
+
+  if (error) {
+    console.error("getPublicStats (rpc):", error.message);
+    return { salonCount: 0, therapistCount: 0 };
+  }
+  if (!data) {
+    return { salonCount: 0, therapistCount: 0 };
+  }
+  const row = data as { salon_count: number | null; therapist_count: number | null };
+  return {
+    salonCount: row.salon_count ?? 0,
+    therapistCount: row.therapist_count ?? 0,
+  };
+}
+
+/**
+ * /salons のエリアセレクタ用。
+ *
+ * 公開対象 salons に紐付く `(prefecture, area)` のユニーク一覧を都道府県ごとに
+ * グルーピングして返す。`PublicSearchForm` の `AreaGroup[]` 型と同じ形。
+ */
+export interface PublicAreaGroup {
+  prefecture: string;
+  areas: string[];
+}
+
+export async function getPublicAreas(): Promise<PublicAreaGroup[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_public_areas");
+  if (error) {
+    console.error("getPublicAreas (rpc):", error.message);
+    return [];
+  }
+  const rows = (data ?? []) as { prefecture: string; area: string }[];
+
+  // RPC 側は (prefecture, area) のフラットな順序付きリストを返すので
+  // クライアント側で prefecture ごとにバケットする。
+  const map = new Map<string, string[]>();
+  for (const r of rows) {
+    if (!r.prefecture || !r.area) continue;
+    const list = map.get(r.prefecture);
+    if (list) list.push(r.area);
+    else map.set(r.prefecture, [r.area]);
+  }
+  return [...map.entries()].map(([prefecture, areas]) => ({ prefecture, areas }));
+}
+
+/**
+ * /salons のサロン軸検索結果。
+ *
+ * `search_public_salons` RPC を呼び、フィルタ済みの公開サロン + ページネーション
+ * 用 `totalCount` を返す。一覧画面のページング UI と「N 件中 K 件が該当」表示に
+ * 使う。
+ */
+export interface SearchPublicSalonsParams {
+  salon?: string | null;
+  area?: string | null;
+  limit?: number;
+  offset?: number;
+}
+
+export interface PublicSalonsSearchResult {
+  items: PublicSalon[];
+  totalCount: number;
+}
+
+interface PublicSalonsSearchRow {
+  id: string;
+  name: string;
+  therapist_count: number | null;
+  prefecture: string | null;
+  areas: string[] | null;
+  total_count: number | string | null;
+}
+
+/**
+ * サロン軸検索のデフォルト件数。検索画面では現状ページング UI を持たず
+ * 「該当全件」を一覧表示しているため、実質全件を返せる上限値とする。
+ * 公開対象 salons の総数が 2000 を大幅に超えるようになったら呼び出し
+ * 側でページング UI を入れた上で値を見直すこと。
+ */
+export const PUBLIC_SALON_SEARCH_DEFAULT_LIMIT = 2000;
+
+export async function searchPublicSalons(
+  params: SearchPublicSalonsParams,
+): Promise<PublicSalonsSearchResult> {
+  const supabase = await createClient();
+  const limit = Math.max(
+    1,
+    Math.min(params.limit ?? PUBLIC_SALON_SEARCH_DEFAULT_LIMIT, 2000),
+  );
+  const offset = Math.max(0, params.offset ?? 0);
+
+  const { data, error } = await supabase.rpc("search_public_salons", {
+    p_salon_query: params.salon?.trim() || null,
+    p_area: params.area?.trim() || null,
+    p_limit: limit,
+    p_offset: offset,
+  });
+
+  if (error) {
+    console.error("searchPublicSalons (rpc):", error.message);
+    return { items: [], totalCount: 0 };
+  }
+  const rows = (data ?? []) as PublicSalonsSearchRow[];
+  const items: PublicSalon[] = rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    therapistCount: r.therapist_count ?? 0,
+    prefecture: r.prefecture ?? null,
+    areas: r.areas ?? [],
+  }));
+
+  // total_count は全行で同じ値が入っている (window 関数のため)。
+  // ヒット 0 件のときは行自体がないので 0 にフォールバック。
+  const totalCount =
+    rows.length === 0 ? 0 : Number(rows[0].total_count ?? 0);
+
+  return { items, totalCount: Number.isFinite(totalCount) ? totalCount : 0 };
 }
 
 /**
