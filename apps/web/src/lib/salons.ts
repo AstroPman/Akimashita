@@ -136,6 +136,52 @@ export interface PublicAreaGroup {
   areas: string[];
 }
 
+/**
+ * エリアセレクタ上の都道府県（および地方名ラベル）の表示順序。
+ *
+ * ユーザが探す頻度が高いと思われる順で、SQL の `ORDER BY prefecture`
+ * （Unicode コードポイント順）を上書きする。優先順は以下の通り:
+ *
+ *   1. 東京都 → 神奈川県 → 千葉県 → 埼玉県（首都圏 1 都 3 県）
+ *   2. 関西地方（外部ポータルが「関西地方」と一括ラベルで返してくる）
+ *   3. それ以外は北から順（地方名ラベルもおおよそ北からの位置で挿入）
+ *
+ * 外部ポータルの `prefecture` は「東京都」のような行政区分名以外に、
+ * 「中部地方」「北信越」「九州」のような地方名ラベルが混入しているため、
+ * 実データに現れる値を網羅的に並べている。新しいラベルが増えた場合は
+ * 末尾 (`Number.MAX_SAFE_INTEGER`) に落ちるので体感的な順序は崩れない。
+ */
+const PREFECTURE_DISPLAY_ORDER: readonly string[] = [
+  "東京都",
+  "神奈川県",
+  "千葉県",
+  "埼玉県",
+  "関西地方",
+  "北海道",
+  "東北地方",
+  "茨城県",
+  "栃木県",
+  "群馬県",
+  "北信越",
+  "北陸",
+  "中部地方",
+  "中国・四国",
+  "九州",
+  "沖縄",
+];
+
+const PREFECTURE_ORDER_MAP: ReadonlyMap<string, number> = new Map(
+  PREFECTURE_DISPLAY_ORDER.map((name, index) => [name, index]),
+);
+
+function comparePrefectures(a: string, b: string): number {
+  const ai = PREFECTURE_ORDER_MAP.get(a) ?? Number.MAX_SAFE_INTEGER;
+  const bi = PREFECTURE_ORDER_MAP.get(b) ?? Number.MAX_SAFE_INTEGER;
+  if (ai !== bi) return ai - bi;
+  // 順位表に無い (＝末尾フォールバック) 同士は文字列順で安定化する。
+  return a.localeCompare(b, "ja");
+}
+
 export async function getPublicAreas(): Promise<PublicAreaGroup[]> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("get_public_areas");
@@ -147,6 +193,7 @@ export async function getPublicAreas(): Promise<PublicAreaGroup[]> {
 
   // RPC 側は (prefecture, area) のフラットな順序付きリストを返すので
   // クライアント側で prefecture ごとにバケットする。
+  // 各 prefecture 内の area は RPC の area asc 順をそのまま維持する。
   const map = new Map<string, string[]>();
   for (const r of rows) {
     if (!r.prefecture || !r.area) continue;
@@ -154,7 +201,9 @@ export async function getPublicAreas(): Promise<PublicAreaGroup[]> {
     if (list) list.push(r.area);
     else map.set(r.prefecture, [r.area]);
   }
-  return [...map.entries()].map(([prefecture, areas]) => ({ prefecture, areas }));
+  return [...map.entries()]
+    .map(([prefecture, areas]) => ({ prefecture, areas }))
+    .sort((a, b) => comparePrefectures(a.prefecture, b.prefecture));
 }
 
 /**
