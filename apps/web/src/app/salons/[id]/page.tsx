@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/landing/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { getPublicSalon, getPublicSalonTherapists } from "@/lib/salons";
+import { getCurrentUser } from "@/lib/supabase/auth";
 import { SalonTherapistGrid } from "./_components/salon-therapist-grid";
 
 interface PageProps {
@@ -51,9 +52,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function SalonDetailPage({ params }: PageProps) {
   const { id } = await params;
 
-  const [salon, therapists] = await Promise.all([
+  const [salon, therapists, user] = await Promise.all([
     getPublicSalon(id),
     getPublicSalonTherapists(id),
+    getCurrentUser(),
   ]);
 
   if (!salon) {
@@ -190,7 +192,11 @@ export default async function SalonDetailPage({ params }: PageProps) {
                 セラピスト情報を準備中です。しばらくしてから再度ご確認ください。
               </p>
             ) : (
-              <SalonTherapistGrid salonId={id} therapists={therapists} />
+              <SalonTherapistGrid
+                salonId={id}
+                therapists={therapists}
+                isAuthenticated={Boolean(user)}
+              />
             )}
           </div>
         </section>

@@ -26,6 +26,7 @@ import { getCurrentUser } from "@/lib/supabase/auth";
 import { getUserPlanTier } from "@/lib/seats";
 import { isPaidTier } from "@/lib/plans";
 import { KillSecondsGateCard } from "../../../_components/kill-seconds-gate-card";
+import { WatchAddButton } from "../../../_components/watch-add-button";
 
 interface PageProps {
   params: Promise<{ id: string; therapist_id: string }>;
@@ -145,10 +146,6 @@ export default async function PublicTherapistDetailPage({
   if (therapist.age) stylePieces.push(`${therapist.age}歳`);
   const styleLabel =
     stylePieces.length > 0 ? stylePieces.join(" / ") : therapist.styleRaw;
-
-  const watchAddHref = `/watches/new?therapist_id=${encodeURIComponent(
-    therapist_id,
-  )}`;
 
   const canonicalUrl = buildCanonical(id, therapist_id);
 
@@ -324,12 +321,16 @@ export default async function PublicTherapistDetailPage({
                 ) : null}
 
                 <div className="flex flex-wrap items-center gap-2 pt-3">
-                  <Button asChild size="sm" className="gap-1.5">
-                    <Link href={watchAddHref}>
-                      <BellPlusIcon className="size-4" />
-                      空き通知に追加
-                    </Link>
-                  </Button>
+                  <WatchAddButton
+                    therapistId={therapist_id}
+                    therapistName={therapist.displayName}
+                    isAuthenticated={paidStatus.authenticated}
+                    size="sm"
+                    className="gap-1.5"
+                  >
+                    <BellPlusIcon className="size-4" />
+                    空き通知に追加
+                  </WatchAddButton>
                   {therapist.profileUrl ? (
                     <Button asChild size="sm" variant="outline">
                       <a
@@ -410,12 +411,16 @@ export default async function PublicTherapistDetailPage({
                       分間隔で監視します。最初の空き通知が登録されると、出勤予定や瞬殺時間などの集計が始まります。
                     </p>
                     <div className="pt-2">
-                      <Button asChild size="sm" className="gap-1.5">
-                        <Link href={watchAddHref}>
-                          <BellPlusIcon className="size-4" />
-                          空き通知に追加して集計を開始
-                        </Link>
-                      </Button>
+                      <WatchAddButton
+                        therapistId={therapist_id}
+                        therapistName={therapist.displayName}
+                        isAuthenticated={paidStatus.authenticated}
+                        size="sm"
+                        className="gap-1.5"
+                      >
+                        <BellPlusIcon className="size-4" />
+                        空き通知に追加して集計を開始
+                      </WatchAddButton>
                     </div>
                   </div>
                 </div>
@@ -471,12 +476,15 @@ export default async function PublicTherapistDetailPage({
       </main>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm supports-[backdrop-filter]:bg-background/80 sm:hidden">
-        <Button asChild className="w-full gap-1.5">
-          <Link href={watchAddHref}>
-            <BellPlusIcon className="size-4" />
-            空き通知に追加
-          </Link>
-        </Button>
+        <WatchAddButton
+          therapistId={therapist_id}
+          therapistName={therapist.displayName}
+          isAuthenticated={paidStatus.authenticated}
+          className="w-full gap-1.5"
+        >
+          <BellPlusIcon className="size-4" />
+          空き通知に追加
+        </WatchAddButton>
       </div>
 
       <SiteFooter />

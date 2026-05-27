@@ -12,10 +12,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { PublicSalonTherapist } from "@/lib/salons";
+import { WatchAddButton } from "../../_components/watch-add-button";
 
 type Props = {
   salonId: string;
   therapists: PublicSalonTherapist[];
+  /** ログイン済みかどうか。未ログイン時は CTA でモーダルを開く。 */
+  isAuthenticated: boolean;
 };
 
 /** 検索欄を出すかどうかの閾値。これ未満ならスクロールでも十分探せる想定。 */
@@ -35,7 +38,11 @@ function normalize(s: string): string {
     );
 }
 
-export function SalonTherapistGrid({ salonId, therapists }: Props) {
+export function SalonTherapistGrid({
+  salonId,
+  therapists,
+  isAuthenticated,
+}: Props) {
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
 
@@ -167,20 +174,16 @@ export function SalonTherapistGrid({ salonId, therapists }: Props) {
                     </a>
                   </Button>
                 ) : null}
-                <Button
-                  asChild
+                <WatchAddButton
+                  therapistId={t.id}
+                  therapistName={t.displayName}
+                  isAuthenticated={isAuthenticated}
                   size="icon-sm"
                   className="rounded-full shadow-md sm:hidden"
+                  ariaLabel={`${t.displayName} を空き通知に追加`}
                 >
-                  <Link
-                    href={`/watches/new?therapist_id=${encodeURIComponent(
-                      t.id,
-                    )}`}
-                    aria-label={`${t.displayName} を空き通知に追加`}
-                  >
-                    <BellPlusIcon className="size-3.5" />
-                  </Link>
-                </Button>
+                  <BellPlusIcon className="size-3.5" />
+                </WatchAddButton>
               </div>
 
               <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col gap-2 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-3 pt-10">
@@ -197,20 +200,16 @@ export function SalonTherapistGrid({ salonId, therapists }: Props) {
                   </div>
                 </div>
 
-                <Button
-                  asChild
+                <WatchAddButton
+                  therapistId={t.id}
+                  therapistName={t.displayName}
+                  isAuthenticated={isAuthenticated}
                   size="sm"
                   className="pointer-events-auto hidden h-8 w-full gap-1.5 px-2 text-xs sm:inline-flex"
                 >
-                  <Link
-                    href={`/watches/new?therapist_id=${encodeURIComponent(
-                      t.id,
-                    )}`}
-                  >
-                    <BellPlusIcon className="size-3.5" />
-                    空き通知に追加
-                  </Link>
-                </Button>
+                  <BellPlusIcon className="size-3.5" />
+                  空き通知に追加
+                </WatchAddButton>
               </div>
             </li>
           ))}
