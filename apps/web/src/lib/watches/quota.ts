@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/auth";
 import { getUserPlanTier } from "@/lib/seats";
 import { isUnlimited, watchLimitFor } from "./limits";
 import type { PlanTier } from "@/lib/plans";
@@ -25,12 +26,10 @@ export interface WatchQuota {
  * ここでは where 句を明示しない。
  */
 export async function getWatchQuota(): Promise<WatchQuota> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   const tier: PlanTier = user ? await getUserPlanTier(user.id) : "free";
   const max = watchLimitFor(tier);
+  const supabase = await createClient();
   const { count, error } = await supabase
     .from("watch_settings")
     .select("id", { count: "exact", head: true })

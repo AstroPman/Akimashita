@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentUser } from "@/lib/supabase/auth";
 import { formatJstDateTime } from "@/lib/date";
 import { isBillingCycle, isPlanTier } from "@/lib/plans";
 import { UpdateEmailForm } from "./_components/update-email-form";
@@ -21,16 +22,14 @@ export const metadata: Metadata = {
 };
 
 export default async function AccountPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   // (authenticated) layout でガード済みだが型を絞る。
   if (!user) {
     return null;
   }
 
+  const supabase = await createClient();
   const { data: profile } = await supabase
     .from("users")
     .select("email, line_user_id, created_at")

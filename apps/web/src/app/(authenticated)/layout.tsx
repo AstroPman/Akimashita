@@ -1,17 +1,14 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/auth";
 
 export default async function AuthenticatedLayout({
   children,
 }: {
   children: ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect("/login");

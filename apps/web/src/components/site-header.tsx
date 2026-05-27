@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/auth";
 import { fetchUnreadNotificationCount } from "@/lib/notifications";
 
 type Props = {
@@ -37,10 +37,7 @@ export async function SiteHeader({
   logoPriority = false,
   bordered = true,
 }: Props) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const unreadCount = user ? await fetchUnreadNotificationCount() : 0;
 

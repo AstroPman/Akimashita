@@ -1,6 +1,6 @@
 import "server-only";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/auth";
 import { getUserPlanTier } from "@/lib/seats";
 import { isAtLeastTier, type PlanTier } from "@/lib/plans";
 
@@ -12,10 +12,7 @@ export async function requirePlanTierAtLeast(
   required: PlanTier,
   reason: string,
 ): Promise<PlanTier> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) {
     redirect("/login");
   }

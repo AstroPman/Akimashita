@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/auth";
 import { getStripe } from "@/lib/stripe/server";
 import { syncSubscriptionFromStripe } from "@/lib/stripe/sync";
 import {
@@ -27,10 +27,7 @@ export default async function CheckoutSuccessPage({
 }) {
   const { session_id } = await searchParams;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) {
     redirect("/login");
   }

@@ -22,7 +22,7 @@ import {
   getPublicTherapistStats,
   type PublicTherapistStats,
 } from "@/lib/salons";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/auth";
 import { getUserPlanTier } from "@/lib/seats";
 import { isPaidTier } from "@/lib/plans";
 import { KillSecondsGateCard } from "../../../_components/kill-seconds-gate-card";
@@ -103,10 +103,7 @@ async function getCurrentUserPaidStatus(): Promise<{
   authenticated: boolean;
   paid: boolean;
 }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return { authenticated: false, paid: false };
   const tier = await getUserPlanTier(user.id);
   return { authenticated: true, paid: isPaidTier(tier) };
