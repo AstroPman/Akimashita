@@ -14,6 +14,7 @@ import { UpdateEmailForm } from "./_components/update-email-form";
 import { ResetPasswordButton } from "./_components/reset-password-button";
 import { DeleteAccountDialog } from "./_components/delete-account-dialog";
 import { BillingCard } from "./_components/billing-card";
+import { SignOutButton } from "./_components/sign-out-button";
 
 export const metadata: Metadata = {
   title: "アカウント設定",
@@ -117,6 +118,18 @@ export default async function AccountPage() {
         </CardHeader>
         <CardContent>
           <ResetPasswordButton />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>ログアウト</CardTitle>
+          <CardDescription>
+            このブラウザでのセッションを終了します。再度利用するにはログインが必要です。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SignOutButton />
         </CardContent>
       </Card>
 

@@ -2,7 +2,6 @@ import Link from "next/link";
 import {
   BarChart3Icon,
   BellIcon,
-  LogOutIcon,
   SearchIcon,
   UserIcon,
 } from "lucide-react";
@@ -27,7 +26,10 @@ type Props = {
  * Supabase のセッションを参照し、ログイン状態に応じて表示するメニューを切り替える。
  *
  * - 未ログイン: 検索 / 料金 / ログイン
- * - ログイン中: 検索 / ランキング / 通知（未読バッジ）/ マイページ / ログアウト
+ * - ログイン中: 検索 / ランキング / 通知（未読バッジ）/ マイページ
+ *
+ * ログアウトは頻度が低いため `/account` ページからのみ操作可能とし、
+ * ヘッダーには置かない（特にモバイル幅でブランド名の改行を避ける狙い）。
  *
  * 公開ページ・認証必須ページのどちらからも使い、ヘッダ表示を 1 箇所に集約する。
  */
@@ -112,17 +114,6 @@ export async function SiteHeader({
                   </span>
                 </Link>
               </Button>
-              <form action="/auth/signout" method="post">
-                <Button
-                  type="submit"
-                  variant="ghost"
-                  size="sm"
-                  className="min-h-12 gap-1.5 px-3"
-                >
-                  <LogOutIcon className="size-4" aria-hidden />
-                  <span className="hidden text-xs sm:inline">ログアウト</span>
-                </Button>
-              </form>
             </>
           ) : (
             <>
