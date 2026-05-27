@@ -12,7 +12,7 @@ const FOOTER_LINKS = [
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-neutral-200/80 bg-white/90 backdrop-blur-sm">
+    <footer className="border-t bg-background/90 backdrop-blur-sm">
       <div className="mx-auto w-full max-w-6xl px-4 py-12">
         <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
           <Link href="/" className="flex items-center" aria-label="アキマシタ">
@@ -39,7 +39,7 @@ export function SiteFooter() {
             </Link>
           </nav>
         </div>
-        <div className="mt-10 border-t border-neutral-200/70 pt-8">
+        <div className="mt-10 border-t pt-8">
           <NotificationTimingDisclaimer className="mx-auto max-w-3xl text-center sm:text-left" />
           <p className="mt-6 text-center text-xs text-muted-foreground sm:text-left">
             &copy; {new Date().getFullYear()} アキマシタ

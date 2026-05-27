@@ -28,7 +28,7 @@ export default async function Home() {
               sizes="100vw"
               className="object-cover object-center"
             />
-            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-white" />
+            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-background" />
           </div>
 
           <div className="mx-auto w-full max-w-5xl px-4 pb-20 pt-10 sm:pb-28 sm:pt-14">
@@ -43,12 +43,12 @@ export default async function Home() {
                 className="h-auto w-60 sm:w-80"
               />
 
-              <h1 className="mt-2 text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl md:text-5xl">
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl">
                 お気に入りのセラピストの
                 <br />
                 空き枠を、誰よりも早く。
               </h1>
-              <p className="mt-5 max-w-2xl text-sm leading-7 text-neutral-700 sm:text-base">
+              <p className="mt-5 max-w-2xl text-sm leading-7 text-foreground/80 sm:text-base">
                 予約サイトを 1 分間隔で監視し、
                 <br className="hidden sm:block" />
                 空きが出た瞬間にメールでお知らせします。
@@ -59,7 +59,7 @@ export default async function Home() {
                 <PrimaryCta />
                 <SecondaryCta />
               </div>
-              <p className="mt-3 text-xs text-neutral-500">
+              <p className="mt-3 text-xs text-muted-foreground">
                 クレカ不要・1 分で登録完了
               </p>
             </div>
@@ -130,7 +130,7 @@ export default async function Home() {
             <PrimaryCta className="min-w-[260px]" />
             <SecondaryCta className="min-w-[260px]" />
           </div>
-          <p className="mt-3 text-xs text-neutral-500">
+          <p className="mt-3 text-xs text-muted-foreground">
             クレカ不要・1 分で登録完了
           </p>
         </section>

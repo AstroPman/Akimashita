@@ -24,8 +24,8 @@ export function ScaleStats({ salonCount, therapistCount }: ScaleStatsProps) {
       <h2 id="landing-scale-heading" className="sr-only">
         対応規模
       </h2>
-      <div className="rounded-2xl border bg-white/70 px-6 py-7 shadow-sm backdrop-blur sm:px-10 sm:py-8">
-        <p className="text-center text-xs font-medium uppercase tracking-widest text-neutral-500">
+      <div className="rounded-2xl border bg-card/70 px-6 py-7 shadow-sm backdrop-blur sm:px-10 sm:py-8">
+        <p className="text-center text-xs font-medium uppercase tracking-widest text-muted-foreground">
           全国の主要メンズエステに対応
         </p>
         <div className="mt-4 grid grid-cols-2 gap-3 text-center sm:gap-8">
@@ -61,12 +61,14 @@ function Stat({
 }) {
   return (
     <div>
-      <p className="text-xs text-neutral-500 sm:text-sm">{label}</p>
+      <p className="text-xs text-muted-foreground sm:text-sm">{label}</p>
       <p className="mt-1 flex items-baseline justify-center gap-1">
-        <span className="text-3xl font-bold tracking-tight tabular-nums text-neutral-900 sm:text-4xl">
+        <span className="text-3xl font-bold tracking-tight tabular-nums text-foreground sm:text-4xl">
           {value}
         </span>
-        <span className="text-sm text-neutral-500 sm:text-base">{suffix}</span>
+        <span className="text-sm text-muted-foreground sm:text-base">
+          {suffix}
+        </span>
       </p>
     </div>
   );

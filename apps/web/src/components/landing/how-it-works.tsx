@@ -32,11 +32,13 @@ const STEPS = [
   },
 ] as const;
 
+// ステップ番号バッジの背景色。chart-* トークンは hue を等間隔にずらした
+// ブランドパレットなので、ステップを視覚的に区別しつつ全体の配色も保てる。
 const BADGE_BG: Record<1 | 2 | 3 | 4, string> = {
-  1: "bg-sky-400",
-  2: "bg-pink-400",
-  3: "bg-violet-400",
-  4: "bg-blue-400",
+  1: "bg-chart-1",
+  2: "bg-chart-4",
+  3: "bg-chart-3",
+  4: "bg-chart-2",
 };
 
 export function HowItWorks() {
@@ -54,7 +56,7 @@ export function HowItWorks() {
       <ol className="relative mt-12 flex list-none flex-col gap-12 sm:gap-16">
         <div
           aria-hidden
-          className="pointer-events-none absolute left-1/2 top-6 bottom-6 hidden w-px -translate-x-1/2 border-l-2 border-dashed border-neutral-200 sm:block"
+          className="pointer-events-none absolute left-1/2 top-6 bottom-6 hidden w-px -translate-x-1/2 border-l-2 border-dashed border-border sm:block"
         />
 
         {STEPS.map((s, i) => {
@@ -83,7 +85,7 @@ export function HowItWorks() {
               <div className="order-1 flex justify-center sm:order-none sm:col-start-2 sm:row-start-1">
                 <span
                   className={cn(
-                    "relative z-10 flex size-12 items-center justify-center rounded-full text-lg font-bold text-white shadow-lg shadow-black/10 ring-4 ring-white sm:size-14 sm:text-xl",
+                    "relative z-10 flex size-12 items-center justify-center rounded-full text-lg font-bold text-primary-foreground shadow-lg shadow-foreground/10 ring-4 ring-background sm:size-14 sm:text-xl",
                     BADGE_BG[s.n as 1 | 2 | 3 | 4],
                   )}
                 >

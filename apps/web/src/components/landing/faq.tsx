@@ -72,18 +72,18 @@ export function Faq() {
         {FAQS.map((f) => (
           <details
             key={f.q}
-            className="group/faq overflow-hidden rounded-2xl border border-neutral-200/90 bg-neutral-50/90 shadow-sm backdrop-blur-sm"
+            className="group/faq overflow-hidden rounded-2xl border bg-muted/40 shadow-sm backdrop-blur-sm"
           >
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-left text-sm font-semibold text-neutral-800 marker:hidden [&::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-left text-sm font-semibold text-foreground marker:hidden [&::-webkit-details-marker]:hidden">
               <span className="pr-2">{f.q}</span>
               <span
                 aria-hidden
-                className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-lg font-light text-neutral-500 shadow-sm transition-transform duration-200 group-open/faq:rotate-45"
+                className="flex size-8 shrink-0 items-center justify-center rounded-full bg-background text-lg font-light text-muted-foreground shadow-sm transition-transform duration-200 group-open/faq:rotate-45"
               >
                 +
               </span>
             </summary>
-            <div className="border-t border-neutral-200/80 bg-white/90 px-5 pb-4 pt-3 text-sm leading-relaxed text-muted-foreground">
+            <div className="border-t bg-background/80 px-5 pb-4 pt-3 text-sm leading-relaxed text-muted-foreground">
               {f.a}
             </div>
           </details>
