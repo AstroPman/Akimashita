@@ -1,14 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
+  Building2Icon,
+  CheckCircle2Icon,
   CheckIcon,
   ChevronsUpDownIcon,
+  ExternalLinkIcon,
   Loader2Icon,
+  MapPinIcon,
   PlusIcon,
+  SlidersHorizontalIcon,
   TrashIcon,
+  UserIcon,
   UserRoundIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -297,249 +304,339 @@ export function WatchForm({
         <div>
           <h2 className="text-base font-semibold">セラピスト</h2>
           <p className="text-xs text-muted-foreground">
-            サロンを選んでからセラピストを指定します。
+            エリア・サロンで絞り込み、登録するセラピストを選びます。
           </p>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="area">エリア（任意）</Label>
-          <Popover open={areaOpen} onOpenChange={setAreaOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                id="area"
-                type="button"
-                variant="outline"
-                role="combobox"
-                aria-expanded={areaOpen}
-                disabled={areaOptions.length === 0}
-                className={cn(
-                  "w-full justify-between font-normal sm:w-1/2",
-                  !selectedArea && "text-muted-foreground",
-                )}
-              >
-                {selectedArea
-                  ? selectedAreaPrefecture
-                    ? `${selectedAreaPrefecture} / ${selectedArea}`
-                    : selectedArea
-                  : "すべてのエリア"}
-                <ChevronsUpDownIcon className="size-4 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-              <Command>
-                <CommandInput placeholder="エリア名で検索..." />
-                <CommandList>
-                  <CommandEmpty>該当するエリアがありません</CommandEmpty>
-                  <CommandGroup>
-                    <CommandItem
-                      value="__all__"
-                      onSelect={() => {
-                        setSelectedArea(null);
-                        setAreaOpen(false);
-                      }}
-                    >
-                      <CheckIcon
-                        className={cn(
-                          "mr-2 size-4",
-                          selectedArea === null ? "opacity-100" : "opacity-0",
-                        )}
-                      />
-                      すべてのエリア
-                    </CommandItem>
-                  </CommandGroup>
-                  {areaOptions.map((group) => (
-                    <CommandGroup
-                      key={group.prefecture}
-                      heading={group.prefecture}
-                    >
-                      {group.areas.map((area) => (
-                        <CommandItem
-                          key={`${group.prefecture}|${area}`}
-                          value={`${group.prefecture} ${area}`}
-                          onSelect={() => {
-                            setSelectedArea(area);
-                            setAreaOpen(false);
-                          }}
-                        >
-                          <CheckIcon
-                            className={cn(
-                              "mr-2 size-4",
-                              selectedArea === area ? "opacity-100" : "opacity-0",
-                            )}
-                          />
-                          {area}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  ))}
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="salon">サロン</Label>
-            <Popover open={salonOpen} onOpenChange={setSalonOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  id="salon"
-                  type="button"
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={salonOpen}
-                  className={cn(
-                    "w-full justify-between font-normal",
-                    !selectedSalon && "text-muted-foreground",
-                  )}
-                >
-                  {selectedSalon ? selectedSalon.name : "サロンを選択"}
-                  <ChevronsUpDownIcon className="size-4 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-                <Command>
-                  <CommandInput placeholder="名前で検索..." />
-                  <CommandList>
-                    <CommandEmpty>
-                      {selectedArea
-                        ? "該当するサロンがありません（エリアを変えてみてください）"
-                        : "該当するサロンがありません"}
-                    </CommandEmpty>
-                    <CommandGroup>
-                      {visibleSalons.map((s) => (
-                        <CommandItem
-                          key={s.id}
-                          value={s.name}
-                          onSelect={() => {
-                            handleSalonChange(s.id);
-                            setSalonOpen(false);
-                          }}
-                        >
-                          <CheckIcon
-                            className={cn(
-                              "mr-2 size-4",
-                              salonId === s.id ? "opacity-100" : "opacity-0",
-                            )}
-                          />
-                          {s.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+        <div
+          className={cn(
+            "-mx-4 border-y bg-card sm:mx-0 sm:rounded-2xl sm:border",
+            "bg-gradient-to-br from-card via-card to-muted/40",
+            "sm:shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-16px_rgba(0,0,0,0.12)]",
+          )}
+        >
+          <div className="flex items-center gap-2 border-b px-4 py-3 sm:px-5">
+            <div className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <SlidersHorizontalIcon className="size-4" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold tracking-tight">
+                条件で絞り込む
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                エリア・サロン名から監視するセラピストを選択します
+              </p>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>セラピスト</Label>
-            <Popover
-              open={therapistOpen}
-              onOpenChange={(open) => {
-                if (!salonId) return;
-                setTherapistOpen(open);
-              }}
-            >
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={therapistOpen}
-                  disabled={!salonId}
-                  className={cn(
-                    "w-full justify-between font-normal",
-                    !selectedTherapist && "text-muted-foreground",
-                  )}
+          <div className="space-y-4 p-4 sm:p-5">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="area"
+                  className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
                 >
-                  {selectedTherapist
-                    ? (selectedTherapist.display_name ?? selectedTherapist.name)
-                    : salonId
-                      ? "セラピストを選択"
-                      : "先にサロンを選択"}
-                  <ChevronsUpDownIcon className="size-4 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-                <Command>
-                  <CommandInput placeholder="名前で検索..." />
-                  <CommandList>
-                    {therapistsLoading ? (
-                      <div className="flex items-center justify-center py-6 text-xs text-muted-foreground">
-                        <Loader2Icon className="mr-2 size-3 animate-spin" />
-                        読み込み中
-                      </div>
-                    ) : (
-                      <>
-                        <CommandEmpty>該当するセラピストがいません</CommandEmpty>
+                  <MapPinIcon className="size-3.5" />
+                  エリア
+                </Label>
+                <Popover open={areaOpen} onOpenChange={setAreaOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="area"
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={areaOpen}
+                      disabled={areaOptions.length === 0}
+                      className={cn(
+                        "h-12 w-full justify-between rounded-xl border-input bg-background px-3.5 font-normal transition-all",
+                        "hover:border-ring/40 hover:bg-background",
+                        "aria-expanded:border-ring aria-expanded:ring-3 aria-expanded:ring-ring/20",
+                        !selectedArea && "text-muted-foreground",
+                        selectedArea &&
+                          "border-foreground/20 bg-muted/40 font-medium text-foreground",
+                      )}
+                    >
+                      <span className="truncate text-left">
+                        {selectedArea
+                          ? selectedAreaPrefecture
+                            ? `${selectedAreaPrefecture} / ${selectedArea}`
+                            : selectedArea
+                          : "すべてのエリア"}
+                      </span>
+                      <ChevronsUpDownIcon className="size-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-[var(--radix-popover-trigger-width)] p-0"
+                    align="start"
+                  >
+                    <Command>
+                      <CommandInput placeholder="エリア名で検索..." />
+                      <CommandList>
+                        <CommandEmpty>該当するエリアがありません</CommandEmpty>
                         <CommandGroup>
-                          {therapists.map((t) => {
-                            const subParts: string[] = [];
-                            if (t.age) subParts.push(`${t.age}歳`);
-                            if (t.style_raw) subParts.push(t.style_raw);
-                            const sub = subParts.join(" / ");
-                            const label = t.display_name ?? t.name;
-                            return (
+                          <CommandItem
+                            value="__all__"
+                            onSelect={() => {
+                              setSelectedArea(null);
+                              setAreaOpen(false);
+                            }}
+                          >
+                            <CheckIcon
+                              className={cn(
+                                "mr-2 size-4",
+                                selectedArea === null
+                                  ? "opacity-100"
+                                  : "opacity-0",
+                              )}
+                            />
+                            すべてのエリア
+                          </CommandItem>
+                        </CommandGroup>
+                        {areaOptions.map((group) => (
+                          <CommandGroup
+                            key={group.prefecture}
+                            heading={group.prefecture}
+                          >
+                            {group.areas.map((area) => (
                               <CommandItem
-                                key={t.id}
-                                // 検索対象に display_name と (年齢括弧剥離後の) name を両方含める
-                                value={`${label} ${t.name}`}
+                                key={`${group.prefecture}|${area}`}
+                                value={`${group.prefecture} ${area}`}
                                 onSelect={() => {
-                                  setTherapistId(t.id);
-                                  setTherapistOpen(false);
+                                  setSelectedArea(area);
+                                  setAreaOpen(false);
                                 }}
                               >
                                 <CheckIcon
                                   className={cn(
-                                    "mr-2 size-4 shrink-0",
-                                    therapistId === t.id ? "opacity-100" : "opacity-0",
+                                    "mr-2 size-4",
+                                    selectedArea === area
+                                      ? "opacity-100"
+                                      : "opacity-0",
                                   )}
                                 />
-                                <div className="size-8 shrink-0 overflow-hidden rounded-md bg-muted">
-                                  {t.primary_image_url ? (
-                                    // eslint-disable-next-line @next/next/no-img-element -- 外部ホスト由来で next/image の許可リストに載せない
-                                    <img
-                                      src={t.primary_image_url}
-                                      alt=""
-                                      className="size-full object-cover"
-                                      loading="lazy"
-                                      decoding="async"
-                                      referrerPolicy="no-referrer"
-                                    />
-                                  ) : (
-                                    <div
-                                      className="flex size-full items-center justify-center text-muted-foreground"
-                                      aria-hidden
-                                    >
-                                      <UserRoundIcon
-                                        className="size-4"
-                                        strokeWidth={1.5}
-                                      />
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="ml-2 flex min-w-0 flex-col">
-                                  <span className="truncate text-sm">{label}</span>
-                                  {sub ? (
-                                    <span className="truncate text-xs text-muted-foreground">
-                                      {sub}
-                                    </span>
-                                  ) : null}
-                                </div>
+                                {area}
                               </CommandItem>
-                            );
-                          })}
+                            ))}
+                          </CommandGroup>
+                        ))}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="salon"
+                  className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
+                >
+                  <Building2Icon className="size-3.5" />
+                  サロン
+                </Label>
+                <Popover open={salonOpen} onOpenChange={setSalonOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="salon"
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={salonOpen}
+                      className={cn(
+                        "h-12 w-full justify-between rounded-xl border-input bg-background px-3.5 font-normal transition-all",
+                        "hover:border-ring/40 hover:bg-background",
+                        "aria-expanded:border-ring aria-expanded:ring-3 aria-expanded:ring-ring/20",
+                        !selectedSalon && "text-muted-foreground",
+                        selectedSalon &&
+                          "border-foreground/20 bg-muted/40 font-medium text-foreground",
+                      )}
+                    >
+                      <span className="truncate text-left">
+                        {selectedSalon ? selectedSalon.name : "サロンを選択"}
+                      </span>
+                      <ChevronsUpDownIcon className="size-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-[var(--radix-popover-trigger-width)] p-0"
+                    align="start"
+                  >
+                    <Command>
+                      <CommandInput placeholder="名前で検索..." />
+                      <CommandList>
+                        <CommandEmpty>
+                          {selectedArea
+                            ? "該当するサロンがありません（エリアを変えてみてください）"
+                            : "該当するサロンがありません"}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {visibleSalons.map((s) => (
+                            <CommandItem
+                              key={s.id}
+                              value={s.name}
+                              onSelect={() => {
+                                handleSalonChange(s.id);
+                                setSalonOpen(false);
+                              }}
+                            >
+                              <CheckIcon
+                                className={cn(
+                                  "mr-2 size-4",
+                                  salonId === s.id ? "opacity-100" : "opacity-0",
+                                )}
+                              />
+                              {s.name}
+                            </CommandItem>
+                          ))}
                         </CommandGroup>
-                      </>
-                    )}
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            {errors.therapist_id?.[0] ? (
-              <p className="text-xs text-destructive">{errors.therapist_id[0]}</p>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="therapist"
+                  className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
+                >
+                  <UserIcon className="size-3.5" />
+                  セラピスト
+                </Label>
+                <Popover
+                  open={therapistOpen}
+                  onOpenChange={(open) => {
+                    if (!salonId) return;
+                    setTherapistOpen(open);
+                  }}
+                >
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="therapist"
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={therapistOpen}
+                      disabled={!salonId}
+                      className={cn(
+                        "h-12 w-full justify-between rounded-xl border-input bg-background px-3.5 font-normal transition-all",
+                        "hover:border-ring/40 hover:bg-background",
+                        "aria-expanded:border-ring aria-expanded:ring-3 aria-expanded:ring-ring/20",
+                        !selectedTherapist && "text-muted-foreground",
+                        selectedTherapist &&
+                          "border-foreground/20 bg-muted/40 font-medium text-foreground",
+                      )}
+                    >
+                      <span className="truncate text-left">
+                        {selectedTherapist
+                          ? (selectedTherapist.display_name ??
+                            selectedTherapist.name)
+                          : salonId
+                            ? "セラピストを選択"
+                            : "先にサロンを選択"}
+                      </span>
+                      <ChevronsUpDownIcon className="size-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-[var(--radix-popover-trigger-width)] p-0"
+                    align="start"
+                  >
+                    <Command>
+                      <CommandInput placeholder="名前で検索..." />
+                      <CommandList>
+                        {therapistsLoading ? (
+                          <div className="flex items-center justify-center py-6 text-xs text-muted-foreground">
+                            <Loader2Icon className="mr-2 size-3 animate-spin" />
+                            読み込み中
+                          </div>
+                        ) : (
+                          <>
+                            <CommandEmpty>
+                              該当するセラピストがいません
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {therapists.map((t) => {
+                                const subParts: string[] = [];
+                                if (t.age) subParts.push(`${t.age}歳`);
+                                if (t.style_raw) subParts.push(t.style_raw);
+                                const sub = subParts.join(" / ");
+                                const label = t.display_name ?? t.name;
+                                return (
+                                  <CommandItem
+                                    key={t.id}
+                                    // 検索対象に display_name と (年齢括弧剥離後の) name を両方含める
+                                    value={`${label} ${t.name}`}
+                                    onSelect={() => {
+                                      setTherapistId(t.id);
+                                      setTherapistOpen(false);
+                                    }}
+                                  >
+                                    <CheckIcon
+                                      className={cn(
+                                        "mr-2 size-4 shrink-0",
+                                        therapistId === t.id
+                                          ? "opacity-100"
+                                          : "opacity-0",
+                                      )}
+                                    />
+                                    <div className="size-8 shrink-0 overflow-hidden rounded-md bg-muted">
+                                      {t.primary_image_url ? (
+                                        // eslint-disable-next-line @next/next/no-img-element -- 外部ホスト由来で next/image の許可リストに載せない
+                                        <img
+                                          src={t.primary_image_url}
+                                          alt=""
+                                          className="size-full object-cover"
+                                          loading="lazy"
+                                          decoding="async"
+                                          referrerPolicy="no-referrer"
+                                        />
+                                      ) : (
+                                        <div
+                                          className="flex size-full items-center justify-center text-muted-foreground"
+                                          aria-hidden
+                                        >
+                                          <UserRoundIcon
+                                            className="size-4"
+                                            strokeWidth={1.5}
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="ml-2 flex min-w-0 flex-col">
+                                      <span className="truncate text-sm">
+                                        {label}
+                                      </span>
+                                      {sub ? (
+                                        <span className="truncate text-xs text-muted-foreground">
+                                          {sub}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  </CommandItem>
+                                );
+                              })}
+                            </CommandGroup>
+                          </>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {errors.therapist_id?.[0] ? (
+                  <p className="text-xs text-destructive">
+                    {errors.therapist_id[0]}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+
+            {selectedTherapist && selectedSalon ? (
+              <TherapistSelectionCard
+                therapist={selectedTherapist}
+                salon={selectedSalon}
+              />
             ) : null}
           </div>
         </div>
@@ -720,6 +817,89 @@ function ToggleRow({
         <p className="text-xs text-muted-foreground">{description}</p>
       </div>
       <Switch checked={checked} onCheckedChange={onCheckedChange} />
+    </div>
+  );
+}
+
+/**
+ * 選択中のセラピストを確認できる小さなプレビューカード。
+ * 写真・表示名・補助メタ (年齢/スタイル)・所属サロンを表示し、
+ * 「本当にこの人で良いか」をフォーム上で目視確認できるようにする。
+ */
+function TherapistSelectionCard({
+  therapist,
+  salon,
+}: {
+  therapist: TherapistOption;
+  salon: SalonOption;
+}) {
+  const subParts: string[] = [];
+  if (therapist.age) subParts.push(`${therapist.age}歳`);
+  if (therapist.style_raw) subParts.push(therapist.style_raw);
+  const sub = subParts.join(" / ");
+  const label = therapist.display_name ?? therapist.name;
+  const detailHref = `/salons/${salon.id}/therapists/${therapist.id}`;
+
+  const locationPieces: string[] = [];
+  if (salon.prefecture) locationPieces.push(salon.prefecture);
+  if (salon.areas[0]) locationPieces.push(salon.areas[0]);
+  const location = locationPieces.join(" / ");
+
+  return (
+    <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 sm:p-4">
+      <div className="flex items-center justify-between gap-2 pb-2.5">
+        <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
+          <CheckCircle2Icon className="size-4" />
+          選択中のセラピスト
+        </div>
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="-mr-1 h-7 gap-1 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <Link href={detailHref} target="_blank" rel="noopener noreferrer">
+            詳細
+            <ExternalLinkIcon className="size-3" />
+          </Link>
+        </Button>
+      </div>
+      <div className="flex items-center gap-3 sm:gap-4">
+        <div className="size-16 shrink-0 overflow-hidden rounded-lg bg-muted sm:size-20">
+          {therapist.primary_image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element -- 外部ホスト由来で next/image の許可リストに載せない
+            <img
+              src={therapist.primary_image_url}
+              alt=""
+              className="size-full object-cover"
+              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div
+              className="flex size-full items-center justify-center text-muted-foreground"
+              aria-hidden
+            >
+              <UserRoundIcon className="size-8" strokeWidth={1.5} />
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <p className="truncate text-sm font-semibold tracking-tight sm:text-base">
+            {label}
+          </p>
+          {sub ? (
+            <p className="truncate text-xs text-muted-foreground">{sub}</p>
+          ) : null}
+          <p className="truncate text-xs text-muted-foreground">
+            <span className="text-foreground/80">{salon.name}</span>
+            {location ? (
+              <span className="text-muted-foreground/70"> ・ {location}</span>
+            ) : null}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
