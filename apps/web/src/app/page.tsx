@@ -26,7 +26,7 @@ export default async function Home() {
         <section className="relative overflow-hidden">
           <div aria-hidden className="absolute inset-0 -z-10">
             <Image
-              src="/landing/hero-bg-wave.png"
+              src="/landing/hero-bg-wave.webp"
               alt=""
               fill
               priority
@@ -39,7 +39,7 @@ export default async function Home() {
           <div className="mx-auto w-full max-w-5xl px-4 pb-20 pt-10 sm:pb-28 sm:pt-14">
             <div className="flex flex-col items-center text-center">
               <Image
-                src="/landing/hero-clock.png"
+                src="/landing/hero-clock.webp"
                 alt=""
                 width={1024}
                 height={1024}
@@ -89,7 +89,7 @@ export default async function Home() {
             <FeatureCard
               icon={
                 <Image
-                  src="/landing/icon-bell.png"
+                  src="/landing/icon-bell.webp"
                   alt=""
                   width={1536}
                   height={1024}
@@ -102,7 +102,7 @@ export default async function Home() {
             <FeatureCard
               icon={
                 <Image
-                  src="/landing/icon-clock.png"
+                  src="/landing/icon-clock.webp"
                   alt=""
                   width={1536}
                   height={1024}
@@ -115,7 +115,7 @@ export default async function Home() {
             <FeatureCard
               icon={
                 <Image
-                  src="/landing/icon-zap.png"
+                  src="/landing/icon-zap.webp"
                   alt=""
                   width={1536}
                   height={1024}

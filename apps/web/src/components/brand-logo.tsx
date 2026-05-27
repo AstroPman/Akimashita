@@ -39,7 +39,7 @@ export function BrandLogo({
       )}
     >
       <Image
-        src="/landing/logo-mark.png"
+        src="/landing/logo-mark.webp"
         alt={iconOnly ? "アキマシタ" : ""}
         width={1536}
         height={1024}
