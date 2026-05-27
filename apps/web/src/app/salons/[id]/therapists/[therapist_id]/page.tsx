@@ -428,7 +428,7 @@ export default async function PublicTherapistDetailPage({
               <h2 className="text-lg font-semibold tracking-tight">
                 同じ {salon.name} の他のセラピスト
               </h2>
-              <ul className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
                 {otherTherapists.map((t) => (
                   <li key={t.id}>
                     <Link
