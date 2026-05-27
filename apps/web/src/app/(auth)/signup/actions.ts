@@ -9,8 +9,12 @@ import { createClient } from "@/lib/supabase/server";
 export type SignupState = {
   ok: boolean;
   message?: string;
-  fieldErrors?: Partial<Record<"email" | "password", string[]>>;
+  fieldErrors?: Partial<
+    Record<"email" | "password" | "confirmPassword", string[]>
+  >;
   emailSent?: boolean;
+  /** 確認メールの送信先（確認画面で表示するため）。 */
+  sentTo?: string;
 };
 
 // アプリ内部のパスのみを許可するためのバリデーション
@@ -29,13 +33,16 @@ export async function signupAction(
   const parsed = SignupSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
   });
 
   if (!parsed.success) {
     return {
       ok: false,
       message: "入力内容を確認してください",
-      fieldErrors: parsed.error.flatten().fieldErrors,
+      fieldErrors: parsed.error.flatten().fieldErrors as Partial<
+        Record<"email" | "password" | "confirmPassword", string[]>
+      >,
     };
   }
 
@@ -64,7 +71,7 @@ export async function signupAction(
 
   // メール確認が必要な構成では session が返らない
   if (!data.session) {
-    return { ok: true, emailSent: true };
+    return { ok: true, emailSent: true, sentTo: parsed.data.email };
   }
 
   revalidatePath("/", "layout");
