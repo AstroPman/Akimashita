@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { ChevronRightIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -93,6 +96,23 @@ export default async function AccountPage() {
             <dt className="text-muted-foreground">登録日</dt>
             <dd>{createdAt ? formatJstDateTime(createdAt) : "—"}</dd>
           </dl>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>投稿した口コミ</CardTitle>
+          <CardDescription>
+            あなたが投稿した口コミと公開状況を確認できます。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline" className="gap-1.5">
+            <Link href="/account/reviews">
+              口コミ一覧を開く
+              <ChevronRightIcon className="size-4" />
+            </Link>
+          </Button>
         </CardContent>
       </Card>
 

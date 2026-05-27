@@ -22,14 +22,32 @@ import {
   getPublicTherapistStats,
   type PublicTherapistStats,
 } from "@/lib/salons";
+import {
+  getReviewAggregate,
+  getReviewsForTherapist,
+  type PublicReview,
+} from "@/lib/reviews";
 import { getCurrentUser } from "@/lib/supabase/auth";
 import { getUserPlanTier } from "@/lib/seats";
 import { isPaidTier } from "@/lib/plans";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { KillSecondsGateCard } from "../../../_components/kill-seconds-gate-card";
 import { WatchAddButton } from "../../../_components/watch-add-button";
+import { TherapistReviewsSection } from "./_components/therapist-reviews-section";
 
 interface PageProps {
   params: Promise<{ id: string; therapist_id: string }>;
+  searchParams: Promise<{ reviews_page?: string }>;
+}
+
+const REVIEWS_PAGE_SIZE = 5;
+
+/** レビューセクション用のページ番号を URL クエリから取り出す。1 始まり、最低 1。 */
+function parseReviewsPage(value: string | undefined): number {
+  if (!value) return 1;
+  const n = Number.parseInt(value, 10);
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return n;
 }
 
 const SITE_URL =
@@ -103,11 +121,38 @@ export async function generateMetadata({
 async function getCurrentUserPaidStatus(): Promise<{
   authenticated: boolean;
   paid: boolean;
+  userId: string | null;
 }> {
   const user = await getCurrentUser();
-  if (!user) return { authenticated: false, paid: false };
+  if (!user) return { authenticated: false, paid: false, userId: null };
   const tier = await getUserPlanTier(user.id);
-  return { authenticated: true, paid: isPaidTier(tier) };
+  return { authenticated: true, paid: isPaidTier(tier), userId: user.id };
+}
+
+/**
+ * ログインユーザが既に対象セラピストへ「生きている」レビューを投稿済みかを判定する。
+ * RLS の `reviews_select_public_or_own` の自分の行ルートに乗るため、
+ * Server Component から通常の supabase server client でも取れるが、
+ * service_role を避けて RLS パスで取得する。
+ */
+async function checkOwnReviewExists(
+  userId: string,
+  therapistId: string,
+): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("reviews")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("therapist_id", therapistId)
+    .is("deleted_at", null)
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.error("checkOwnReviewExists:", error.message);
+    return false;
+  }
+  return Boolean(data);
 }
 
 function hasAnyStatsData(stats: PublicTherapistStats | null): boolean {
@@ -124,21 +169,37 @@ function hasAnyStatsData(stats: PublicTherapistStats | null): boolean {
 
 export default async function PublicTherapistDetailPage({
   params,
+  searchParams,
 }: PageProps) {
   const { id, therapist_id } = await params;
+  const { reviews_page } = await searchParams;
+  const reviewsPage = parseReviewsPage(reviews_page);
 
-  const [salon, therapist, allTherapists, stats, paidStatus] =
+  const [salon, therapist, allTherapists, stats, paidStatus, reviewAggregate] =
     await Promise.all([
       getPublicSalon(id),
       getPublicSalonTherapist(id, therapist_id),
       getPublicSalonTherapists(id),
       getPublicTherapistStats(therapist_id),
       getCurrentUserPaidStatus(),
+      getReviewAggregate(therapist_id),
     ]);
 
   if (!salon || !therapist) {
     notFound();
   }
+
+  // ログイン状態が確定したあとに「自分の既投稿チェック」と「レビュー一覧」を並列に。
+  const [reviewsPageData, hasOwnReview] = await Promise.all([
+    getReviewsForTherapist(therapist_id, {
+      includeSensitive: paidStatus.paid,
+      limit: REVIEWS_PAGE_SIZE,
+      offset: (reviewsPage - 1) * REVIEWS_PAGE_SIZE,
+    }),
+    paidStatus.userId
+      ? checkOwnReviewExists(paidStatus.userId, therapist_id)
+      : Promise.resolve(false),
+  ]);
 
   const stylePieces: string[] = [];
   if (therapist.height) stylePieces.push(`T${therapist.height}`);
@@ -157,7 +218,10 @@ export default async function PublicTherapistDetailPage({
     .slice(0, 6);
 
   // 構造化データ (Person)
-  const personJsonLd = {
+  // aggregateRating は visibility='public' のレビューだけで算出済み。
+  // PR2 で sensitive レビューが入っても集計には含まれず、Google には健全な
+  // レビューだけが露出する。
+  const personJsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Person",
     name: therapist.displayName,
@@ -170,6 +234,39 @@ export default async function PublicTherapistDetailPage({
     },
     description: therapist.comment ?? undefined,
   };
+
+  if (reviewAggregate.reviewCount > 0 && reviewAggregate.averageRating !== null) {
+    personJsonLd.aggregateRating = {
+      "@type": "AggregateRating",
+      ratingValue: reviewAggregate.averageRating,
+      reviewCount: reviewAggregate.reviewCount,
+      bestRating: 5,
+      worstRating: 1,
+    };
+  }
+
+  // Review JSON-LD は public のレビューのみ最大 5 件。sensitive は除外。
+  const reviewJsonLdItems = reviewsPageData.items
+    .filter((r: PublicReview) => r.visibility === "public")
+    .slice(0, 5)
+    .map((r: PublicReview) => ({
+      "@type": "Review",
+      author: {
+        "@type": "Person",
+        name: r.displayName ?? "匿名の利用者",
+      },
+      datePublished: r.createdAt,
+      reviewBody: r.body ?? undefined,
+      reviewRating: {
+        "@type": "Rating",
+        ratingValue: r.ratingOverall,
+        bestRating: 5,
+        worstRating: 1,
+      },
+    }));
+  if (reviewJsonLdItems.length > 0) {
+    personJsonLd.review = reviewJsonLdItems;
+  }
 
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
@@ -427,6 +524,19 @@ export default async function PublicTherapistDetailPage({
               </div>
             )}
           </section>
+
+          <TherapistReviewsSection
+            therapistId={therapist_id}
+            therapistName={therapist.displayName}
+            salonId={id}
+            aggregate={reviewAggregate}
+            reviews={reviewsPageData.items}
+            totalCount={reviewsPageData.totalCount}
+            page={reviewsPage}
+            pageSize={REVIEWS_PAGE_SIZE}
+            isAuthenticated={paidStatus.authenticated}
+            hasOwnReview={hasOwnReview}
+          />
 
           {otherTherapists.length > 0 && (
             <section className="mt-8 space-y-3">

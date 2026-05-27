@@ -51,6 +51,20 @@ export type EventProps = {
   };
   /** Stripe Customer Portal を開いた瞬間 (解約導線の入口)。 */
   billing_portal_opened: Record<string, never>;
+  /** 口コミ投稿フォーム (Dialog) を開いた瞬間。 */
+  review_form_started: {
+    therapist_id: string;
+  };
+  /** 口コミの投稿を完了した瞬間 (Server Action 成功後)。 */
+  review_submitted: {
+    therapist_id: string;
+    rating: number;
+    has_body: boolean;
+  };
+  /** 自分の口コミを削除した瞬間 (account/reviews から)。 */
+  review_deleted: {
+    review_id: string;
+  };
 };
 
 export type AppEventName = keyof EventProps;
@@ -65,4 +79,7 @@ export const APP_EVENT_NAMES = [
   "checkout_started",
   "checkout_completed",
   "billing_portal_opened",
+  "review_form_started",
+  "review_submitted",
+  "review_deleted",
 ] as const satisfies readonly AppEventName[];
