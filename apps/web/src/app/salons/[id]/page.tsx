@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeftIcon, MapPinIcon } from "lucide-react";
+import { ChevronLeftIcon, MapPinIcon, UsersRoundIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/landing/site-footer";
@@ -122,83 +123,130 @@ export default async function SalonDetailPage({ params }: PageProps) {
         }}
       />
 
-      <SiteHeader />
+      <SiteHeader bordered={false} />
 
       <main className="flex-1">
-        <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:py-12">
-          <nav
-            aria-label="パンくず"
-            className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground"
-          >
-            <Link href="/" className="hover:text-foreground hover:underline">
-              ホーム
-            </Link>
-            <span aria-hidden>/</span>
-            <Link
-              href="/salons"
-              className="hover:text-foreground hover:underline"
+        <section className="relative overflow-hidden">
+          <div aria-hidden className="absolute inset-0 -z-10">
+            <Image
+              src="/landing/hero-bg-wave.webp"
+              alt=""
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover object-center"
+            />
+            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-white" />
+          </div>
+
+          <div className="mx-auto w-full max-w-5xl px-4 pb-14 pt-4 sm:pb-20 sm:pt-6">
+            <nav
+              aria-label="パンくず"
+              className="flex flex-wrap items-center gap-1 text-xs text-neutral-600"
             >
-              サロン・セラピスト検索
-            </Link>
-            <span aria-hidden>/</span>
-            <span className="text-foreground">{salon.name}</span>
-          </nav>
+              <Link href="/" className="hover:text-neutral-900 hover:underline">
+                ホーム
+              </Link>
+              <span aria-hidden>/</span>
+              <Link
+                href="/salons"
+                className="hover:text-neutral-900 hover:underline"
+              >
+                サロン・セラピスト検索
+              </Link>
+              <span aria-hidden>/</span>
+              <span className="text-neutral-900">{salon.name}</span>
+            </nav>
 
-          <Button asChild variant="ghost" size="sm" className="-ml-2 mt-2 gap-1">
-            <Link href="/salons">
-              <ChevronLeftIcon className="size-4" />
-              サロン・セラピスト検索へ
-            </Link>
-          </Button>
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="-ml-2 mt-2 gap-1 text-neutral-700 hover:bg-white/60 hover:text-neutral-900"
+            >
+              <Link href="/salons">
+                <ChevronLeftIcon className="size-4" />
+                サロン・セラピスト検索へ
+              </Link>
+            </Button>
 
-          <div className="mt-4">
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              {salon.name}
-            </h1>
-            {(salon.prefecture || salon.areas.length > 0) && (
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                <MapPinIcon className="size-4 shrink-0" aria-hidden />
-                {salon.prefecture && (
-                  <Badge variant="secondary" className="font-normal">
-                    {salon.prefecture}
-                  </Badge>
-                )}
-                {salon.areas.map((area) => (
-                  <span key={area} className="truncate">
-                    {area}
-                  </span>
-                ))}
+            <div className="mt-6 flex flex-col items-center text-center sm:mt-8">
+              <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl md:text-5xl">
+                {salon.name}
+              </h1>
+
+              {(salon.prefecture || salon.areas.length > 0) && (
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-sm text-neutral-700">
+                  <MapPinIcon
+                    className="size-4 shrink-0 text-neutral-500"
+                    aria-hidden
+                  />
+                  {salon.prefecture && (
+                    <Badge
+                      variant="secondary"
+                      className="bg-white/80 font-normal text-neutral-800 backdrop-blur-sm"
+                    >
+                      {salon.prefecture}
+                    </Badge>
+                  )}
+                  {salon.areas.map((area) => (
+                    <Badge
+                      key={area}
+                      variant="outline"
+                      className="border-neutral-300 bg-white/70 font-normal text-neutral-700 backdrop-blur-sm"
+                    >
+                      {area}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white/80 px-4 py-1.5 text-sm text-neutral-700 shadow-sm backdrop-blur">
+                <UsersRoundIcon
+                  className="size-4 text-neutral-500"
+                  aria-hidden
+                />
+                在籍セラピスト
+                <span className="font-semibold tabular-nums text-neutral-900">
+                  {salon.therapistCount}
+                </span>
+                名
               </div>
-            )}
-            <p className="mt-3 text-sm text-muted-foreground">
-              在籍セラピスト{" "}
-              <span className="font-semibold tabular-nums text-foreground">
-                {salon.therapistCount}
-              </span>{" "}
-              名
-            </p>
-          </div>
 
-          <div className="mt-8">
-            <h2 className="text-lg font-semibold tracking-tight">
-              在籍セラピスト
-            </h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              カードをタップするとプロフィールと出勤集計を確認できます。
-            </p>
-
-            {therapists.length === 0 ? (
-              <p className="mt-6 rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                セラピスト情報を準備中です。しばらくしてから再度ご確認ください。
+              <p className="mt-5 max-w-2xl text-sm leading-7 text-neutral-700">
+                空き枠が出た瞬間にメールで通知。
+                <br className="hidden sm:block" />
+                気になるセラピストを選んで、空き通知に登録しましょう。
               </p>
-            ) : (
-              <SalonTherapistGrid
-                salonId={id}
-                therapists={therapists}
-                isAuthenticated={Boolean(user)}
-              />
-            )}
+            </div>
           </div>
+        </section>
+
+        <section
+          aria-labelledby="salon-therapists-heading"
+          className="mx-auto w-full max-w-5xl px-4 pb-16 sm:pb-24"
+        >
+          <h2
+            id="salon-therapists-heading"
+            className="text-lg font-semibold tracking-tight"
+          >
+            在籍セラピスト
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            カードをタップするとプロフィールと出勤集計を確認できます。
+          </p>
+
+          {therapists.length === 0 ? (
+            <p className="mt-6 rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+              セラピスト情報を準備中です。しばらくしてから再度ご確認ください。
+            </p>
+          ) : (
+            <SalonTherapistGrid
+              salonId={id}
+              therapists={therapists}
+              isAuthenticated={Boolean(user)}
+            />
+          )}
         </section>
       </main>
 
