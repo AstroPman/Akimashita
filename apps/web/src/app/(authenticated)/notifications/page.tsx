@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { NotificationTimingDisclaimer } from "@/components/notification-timing-disclaimer";
 import { createClient } from "@/lib/supabase/server";
+import { MarkAllReadButton } from "./_components/mark-all-read-button";
 import { NotificationList } from "./_components/notification-list";
 import type {
   AnnouncementItem,
@@ -88,14 +89,19 @@ export default async function NotificationsPage() {
     a.occurredAt < b.occurredAt ? 1 : a.occurredAt > b.occurredAt ? -1 : 0,
   );
 
+  const hasUnread = items.some((item) => !item.readAt);
+
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">通知一覧</h1>
-          <p className="text-sm text-muted-foreground">
-            空き枠のメール通知履歴と運営からのお知らせを確認できます。
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight">通知一覧</h1>
+            <p className="text-sm text-muted-foreground">
+              空き枠のメール通知履歴と運営からのお知らせを確認できます。
+            </p>
+          </div>
+          {!error && hasUnread ? <MarkAllReadButton /> : null}
         </div>
         <NotificationTimingDisclaimer />
       </div>
