@@ -178,6 +178,7 @@ export function SalonTherapistGrid({
                   therapistId={t.id}
                   therapistName={t.displayName}
                   isAuthenticated={isAuthenticated}
+                  placement="salon_grid"
                   size="icon-sm"
                   className="rounded-full shadow-md sm:hidden"
                   ariaLabel={`${t.displayName} を空き通知に追加`}
@@ -204,6 +205,7 @@ export function SalonTherapistGrid({
                   therapistId={t.id}
                   therapistName={t.displayName}
                   isAuthenticated={isAuthenticated}
+                  placement="salon_grid"
                   size="sm"
                   className="pointer-events-auto hidden h-8 w-full gap-1.5 px-2 text-xs sm:inline-flex"
                 >

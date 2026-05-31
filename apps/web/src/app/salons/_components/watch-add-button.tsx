@@ -13,6 +13,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { track } from "@/lib/analytics/track";
+import type { WatchCtaPlacement } from "@/lib/analytics/events";
 
 type ButtonVariants = VariantProps<typeof buttonVariants>;
 
@@ -22,6 +24,8 @@ type Props = {
   therapistName: string;
   /** Server Component 側で判定したセッションの有無。 */
   isAuthenticated: boolean;
+  /** watch ファネル計測用の CTA 設置場所。 */
+  placement: WatchCtaPlacement;
   size?: ButtonVariants["size"];
   variant?: ButtonVariants["variant"];
   className?: string;
@@ -48,6 +52,7 @@ export function WatchAddButton({
   therapistId,
   therapistName,
   isAuthenticated,
+  placement,
   size,
   variant,
   className,
@@ -61,7 +66,17 @@ export function WatchAddButton({
   if (isAuthenticated) {
     return (
       <Button asChild size={size} variant={variant} className={className}>
-        <Link href={watchHref} aria-label={ariaLabel}>
+        <Link
+          href={watchHref}
+          aria-label={ariaLabel}
+          onClick={() =>
+            track("watch_cta_clicked", {
+              therapist_id: therapistId,
+              placement,
+              authenticated: true,
+            })
+          }
+        >
           {children}
         </Link>
       </Button>
@@ -71,6 +86,21 @@ export function WatchAddButton({
   const signupHref = `/signup?next=${encodeURIComponent(watchHref)}`;
   const loginHref = `/login?redirect=${encodeURIComponent(watchHref)}`;
 
+  // 未ログイン: クリックで「説明モーダルが開く」ことが価値なので、CTA クリックと
+  // モーダル表示を 1 クリック内で連続発火させ、後段 (signup) との脱落を測る。
+  const handleOpen = () => {
+    track("watch_cta_clicked", {
+      therapist_id: therapistId,
+      placement,
+      authenticated: false,
+    });
+    track("watch_explainer_viewed", {
+      therapist_id: therapistId,
+      placement,
+    });
+    setOpen(true);
+  };
+
   return (
     <>
       <Button
@@ -79,7 +109,7 @@ export function WatchAddButton({
         variant={variant}
         className={className}
         aria-label={ariaLabel}
-        onClick={() => setOpen(true)}
+        onClick={handleOpen}
       >
         {children}
       </Button>
@@ -147,7 +177,17 @@ export function WatchAddButton({
 
             <div className="space-y-2">
               <Button asChild size="lg" className="w-full">
-                <Link href={signupHref}>無料でアカウントを作成（1 分）</Link>
+                <Link
+                  href={signupHref}
+                  onClick={() =>
+                    track("watch_explainer_signup_clicked", {
+                      therapist_id: therapistId,
+                      placement,
+                    })
+                  }
+                >
+                  無料でアカウントを作成（1 分）
+                </Link>
               </Button>
               <p className="text-center text-xs text-muted-foreground">
                 すでにアカウントをお持ちの方は{" "}

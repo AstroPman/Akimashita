@@ -427,6 +427,7 @@ export default async function PublicTherapistDetailPage({
                     therapistId={therapist_id}
                     therapistName={therapist.displayName}
                     isAuthenticated={paidStatus.authenticated}
+                    placement="therapist_hero"
                     size="sm"
                     className="gap-1.5"
                   >
@@ -517,6 +518,7 @@ export default async function PublicTherapistDetailPage({
                         therapistId={therapist_id}
                         therapistName={therapist.displayName}
                         isAuthenticated={paidStatus.authenticated}
+                        placement="therapist_stats_empty"
                         size="sm"
                         className="gap-1.5"
                       >
@@ -597,6 +599,7 @@ export default async function PublicTherapistDetailPage({
           therapistId={therapist_id}
           therapistName={therapist.displayName}
           isAuthenticated={paidStatus.authenticated}
+          placement="therapist_mobile_sticky"
           className="w-full gap-1.5"
         >
           <BellPlusIcon className="size-4" />

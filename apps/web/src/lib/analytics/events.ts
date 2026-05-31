@@ -13,6 +13,20 @@
  */
 import type { BillingCycle, PaidTier } from "@/lib/plans";
 
+/**
+ * 「空き通知に追加」CTA の設置場所。watch ファネルの脱落箇所を特定するため、
+ * クリック・説明モーダル表示イベントに付与する。
+ */
+export type WatchCtaPlacement =
+  /** サロン詳細のセラピスト一覧グリッド上のボタン。 */
+  | "salon_grid"
+  /** セラピスト詳細ページ上部のヒーロー内ボタン。 */
+  | "therapist_hero"
+  /** セラピスト詳細ページの「集計データなし」カード内ボタン。 */
+  | "therapist_stats_empty"
+  /** セラピスト詳細ページのモバイル固定フッターボタン。 */
+  | "therapist_mobile_sticky";
+
 export type EventProps = {
   /** 料金カードの「このプランで始める」をクリック。 */
   pricing_cta_click: {
@@ -31,6 +45,30 @@ export type EventProps = {
    * リダイレクト先で発火する。「ユーザが実際にログイン可能になったか」とは別。
    */
   signup_complete: Record<string, never>;
+  /**
+   * 「空き通知に追加」CTA をクリックした瞬間。
+   * watch ファネルの最上段。`watch_created` が 0 の原因が「そもそもボタンが
+   * 押されていない」のか「押した後に離脱」なのかを切り分けるための主要指標。
+   */
+  watch_cta_clicked: {
+    therapist_id: string;
+    placement: WatchCtaPlacement;
+    /** クリック時点でログイン済みか。未ログインなら説明モーダルが開く。 */
+    authenticated: boolean;
+  };
+  /**
+   * 未ログインユーザに対し「空き通知」説明モーダルが表示された瞬間。
+   * `watch_cta_clicked` (未ログイン) → ここ → signup の脱落を測る。
+   */
+  watch_explainer_viewed: {
+    therapist_id: string;
+    placement: WatchCtaPlacement;
+  };
+  /** 説明モーダル内の「無料でアカウントを作成」CTA をクリックした瞬間。 */
+  watch_explainer_signup_clicked: {
+    therapist_id: string;
+    placement: WatchCtaPlacement;
+  };
   /** 監視 (watch_settings) を新規作成した瞬間。 */
   watch_created: {
     salon_id: string;
@@ -85,6 +123,9 @@ export const APP_EVENT_NAMES = [
   "pricing_cycle_toggled",
   "signup_submit",
   "signup_complete",
+  "watch_cta_clicked",
+  "watch_explainer_viewed",
+  "watch_explainer_signup_clicked",
   "watch_created",
   "checkout_started",
   "checkout_completed",
