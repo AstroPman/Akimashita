@@ -432,21 +432,8 @@ export default async function PublicTherapistDetailPage({
                     className="gap-1.5"
                   >
                     <BellPlusIcon className="size-4" />
-                    空き通知に追加
+                    空きが出たら即メール通知（無料）
                   </WatchAddButton>
-                  {therapist.profileUrl ? (
-                    <Button asChild size="sm" variant="outline">
-                      <a
-                        href={therapist.profileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="gap-1"
-                      >
-                        予約サイトを開く
-                        <ExternalLinkIcon className="size-3.5" />
-                      </a>
-                    </Button>
-                  ) : null}
                   {therapist.externalProfileUrl ? (
                     <Button asChild size="sm" variant="ghost">
                       <a
@@ -603,7 +590,7 @@ export default async function PublicTherapistDetailPage({
           className="w-full gap-1.5"
         >
           <BellPlusIcon className="size-4" />
-          空き通知に追加
+          空きが出たら即メール通知（無料）
         </WatchAddButton>
       </div>
 
