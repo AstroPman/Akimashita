@@ -3,8 +3,16 @@
 import { useActionState, useEffect, useId, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { Loader2Icon, PencilIcon, StarIcon } from "lucide-react";
+import {
+  Loader2Icon,
+  LockKeyholeIcon,
+  PencilIcon,
+  PlusIcon,
+  StarIcon,
+  XIcon,
+} from "lucide-react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,7 +28,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics/track";
-import { REVIEW_RATING_VALUES } from "@/lib/schema/review";
+import {
+  REVIEW_NEW_TAG_MAX_COUNT,
+  REVIEW_NEW_TAG_MAX_LENGTH,
+  REVIEW_RATING_VALUES,
+} from "@/lib/schema/review";
 import { submitReviewAction } from "../actions";
 import {
   REVIEW_ACTION_INITIAL_STATE,
@@ -60,6 +72,8 @@ export function ReviewSubmitDialog({
 }: ReviewSubmitDialogProps) {
   const [open, setOpen] = useState(false);
   const [rating, setRating] = useState<number>(5);
+  const [newTagLabels, setNewTagLabels] = useState<string[]>([]);
+  const [newTagInput, setNewTagInput] = useState("");
   const [state, formAction] = useActionState<ReviewActionState, FormData>(
     submitReviewAction,
     REVIEW_ACTION_INITIAL_STATE,
@@ -71,6 +85,26 @@ export function ReviewSubmitDialog({
   const courseId = useId();
   const priceId = useId();
   const nameId = useId();
+  const tagInputId = useId();
+
+  const canAddMoreTag = newTagLabels.length < REVIEW_NEW_TAG_MAX_COUNT;
+
+  const addNewTag = () => {
+    const trimmed = newTagInput.trim().replace(/^#+/, ""); // 先頭の '#' は除去
+    if (trimmed.length === 0) return;
+    if (trimmed.length > REVIEW_NEW_TAG_MAX_LENGTH) return;
+    if (!canAddMoreTag) return;
+    if (newTagLabels.includes(trimmed)) {
+      setNewTagInput("");
+      return;
+    }
+    setNewTagLabels((prev) => [...prev, trimmed]);
+    setNewTagInput("");
+  };
+
+  const removeNewTag = (label: string) => {
+    setNewTagLabels((prev) => prev.filter((l) => l !== label));
+  };
 
   useEffect(() => {
     if (state.ok === true) {
@@ -85,12 +119,15 @@ export function ReviewSubmitDialog({
         therapist_id: state.therapistId,
         rating: state.rating,
         has_body: state.hasBody,
+        tag_count: state.tagCount,
       });
-      // Server Action 完了通知に同期して Dialog を閉じ、評価をデフォルトに戻す。
+      // Server Action 完了通知に同期して Dialog を閉じ、UI 状態をデフォルトに戻す。
       // 外部 (Server Action の結果) と UI 状態の同期目的なので effect 内 setState を許容する。
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Server Action 完了に同期した UI クローズ
       setOpen(false);
       setRating(5);
+      setNewTagLabels([]);
+      setNewTagInput("");
     } else if (state.ok === false && state.message) {
       toast.error(state.message);
     }
@@ -142,13 +179,16 @@ export function ReviewSubmitDialog({
         <DialogHeader>
           <DialogTitle>口コミを書く</DialogTitle>
           <DialogDescription>
-            {therapistName} さんへの口コミを投稿します。投稿は運営の確認後に公開されます。
+            {therapistName} さんへの<strong>店舗内サービス</strong>の体験談を投稿します。投稿は運営の確認後に公開されます。
           </DialogDescription>
         </DialogHeader>
 
-        <form action={formAction} className="space-y-4">
+        <form action={formAction} className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
           <input type="hidden" name="therapist_id" value={therapistId} />
           <input type="hidden" name="rating_overall" value={rating} />
+          {newTagLabels.map((label) => (
+            <input key={label} type="hidden" name="new_tag_labels" value={label} />
+          ))}
 
           <div className="space-y-2">
             <Label htmlFor={ratingFieldId}>総合評価 (必須)</Label>
@@ -169,7 +209,7 @@ export function ReviewSubmitDialog({
             <Textarea
               id={bodyId}
               name="body"
-              placeholder="施術の感想・接客・雰囲気など、自由にお書きください。"
+              placeholder="施術内容・接客・店舗の雰囲気など、来店時の体験を自由にお書きください。"
               maxLength={2000}
               rows={5}
               aria-invalid={Boolean(
@@ -179,6 +219,85 @@ export function ReviewSubmitDialog({
             {state.ok === false && state.fieldErrors?.body?.[0] ? (
               <p className="text-xs text-destructive">
                 {state.fieldErrors.body[0]}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-amber-300/60 bg-amber-50/60 p-3 dark:border-amber-700/50 dark:bg-amber-950/20">
+            <div className="flex items-start gap-2">
+              <LockKeyholeIcon
+                className="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-400"
+                aria-hidden
+              />
+              <div className="space-y-0.5">
+                <p className="text-xs font-medium text-amber-900 dark:text-amber-200">
+                  タグを付ける (任意・最大 {REVIEW_NEW_TAG_MAX_COUNT} 個)
+                </p>
+                <p className="text-xs text-amber-800/80 dark:text-amber-200/70">
+                  タグを 1
+                  つでも付けると、この口コミは
+                  <span className="font-semibold">有料プランユーザのみ閲覧可能</span>
+                  になります。タグは運営の承認後に他の利用者にも表示されます。
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Input
+                id={tagInputId}
+                value={newTagInput}
+                onChange={(e) => setNewTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  // IME 変換中 / 変換確定の Enter ではタグを追加しない。
+                  // keyCode 229 は一部ブラウザで変換確定時に立つフラグの保険。
+                  if (e.nativeEvent.isComposing || e.keyCode === 229) {
+                    return;
+                  }
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addNewTag();
+                  }
+                }}
+                placeholder="例: 技術派、トーク楽しい"
+                maxLength={REVIEW_NEW_TAG_MAX_LENGTH}
+                disabled={!canAddMoreTag}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addNewTag}
+                disabled={!canAddMoreTag || newTagInput.trim().length === 0}
+                className="shrink-0 gap-1"
+              >
+                <PlusIcon className="size-4" />
+                追加
+              </Button>
+            </div>
+
+            {newTagLabels.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {newTagLabels.map((label) => (
+                  <Badge
+                    key={label}
+                    variant="outline"
+                    className="gap-1 border-amber-400/60 bg-amber-50 pr-1 font-normal text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200"
+                  >
+                    #{label}
+                    <button
+                      type="button"
+                      onClick={() => removeNewTag(label)}
+                      className="rounded-full p-0.5 hover:bg-background/80"
+                      aria-label={`${label} を削除`}
+                    >
+                      <XIcon className="size-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+            {state.ok === false && state.fieldErrors?.new_tag_labels?.[0] ? (
+              <p className="text-xs text-destructive">
+                {state.fieldErrors.new_tag_labels[0]}
               </p>
             ) : null}
           </div>
@@ -227,7 +346,7 @@ export function ReviewSubmitDialog({
 
           <p className="text-xs text-muted-foreground">
             投稿された内容は当サービスの掲載基準に沿って運営が確認のうえ公開します。
-            セラピスト個人および所属サロンへの誹謗中傷・違法行為の助長等は掲載されません。
+            <strong>店外サービス・違法行為を示唆する内容</strong>、セラピスト個人および所属サロンへの誹謗中傷・営業妨害等は掲載されません。
           </p>
 
           <DialogFooter>

@@ -45,6 +45,7 @@ export async function submitReviewAction(
   _prev: ReviewActionState,
   formData: FormData,
 ): Promise<ReviewActionState> {
+  // new_tag_labels はフォーム側で複数の hidden 要素を吐くため getAll で受ける。
   const raw = {
     therapist_id: formData.get("therapist_id"),
     rating_overall: formData.get("rating_overall"),
@@ -53,6 +54,7 @@ export async function submitReviewAction(
     course_label: formData.get("course_label"),
     course_price_yen: formData.get("course_price_yen"),
     display_name: formData.get("display_name"),
+    new_tag_labels: formData.getAll("new_tag_labels"),
   };
 
   const parsed = ReviewFormSchema.safeParse(raw);
@@ -96,6 +98,8 @@ export async function submitReviewAction(
     };
   }
 
+  const newTagLabels = parsed.data.new_tag_labels ?? [];
+
   const { data, error } = await supabase
     .rpc("submit_review", {
       p_therapist_id: parsed.data.therapist_id,
@@ -105,6 +109,7 @@ export async function submitReviewAction(
       p_course_label: parsed.data.course_label ?? null,
       p_course_price_yen: parsed.data.course_price_yen ?? null,
       p_display_name: parsed.data.display_name ?? null,
+      p_new_tag_labels: newTagLabels.length > 0 ? newTagLabels : null,
     })
     .maybeSingle();
 
@@ -128,5 +133,6 @@ export async function submitReviewAction(
     therapistId: parsed.data.therapist_id,
     rating: parsed.data.rating_overall,
     hasBody: Boolean(parsed.data.body),
+    tagCount: newTagLabels.length,
   };
 }

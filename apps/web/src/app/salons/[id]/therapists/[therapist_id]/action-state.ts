@@ -13,6 +13,8 @@ export type ReviewActionState =
       therapistId: string;
       rating: number;
       hasBody: boolean;
+      /** 投稿時に付けた新規タグの数 (PR2 で追加、アナリティクス用)。 */
+      tagCount: number;
     }
   | {
       ok: false;

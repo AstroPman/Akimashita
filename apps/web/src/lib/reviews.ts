@@ -12,6 +12,15 @@ import { createAdminClient } from "@/lib/supabase/admin";
  *   後者 (user_id = auth.uid()) のパスに乗る。
  */
 
+export type ReviewTagKind = "safe" | "sensitive";
+
+export interface ReviewTag {
+  id: string;
+  slug: string;
+  label: string;
+  kind: ReviewTagKind;
+}
+
 export interface PublicReview {
   id: string;
   ratingOverall: number;
@@ -23,11 +32,23 @@ export interface PublicReview {
   visibility: "public" | "paid_only";
   helpfulCount: number;
   createdAt: string;
+  /**
+   * 承認済みタグ (approved=true) のみ含む。
+   * 未承認タグは RPC 側でフィルタされるため、ここには現れない。
+   */
+  tags: ReviewTag[];
 }
 
 export interface PublicReviewsPage {
   items: PublicReview[];
   totalCount: number;
+}
+
+interface ReviewTagRow {
+  id: string;
+  slug: string;
+  label: string;
+  kind: ReviewTagKind;
 }
 
 interface PublicReviewRow {
@@ -41,14 +62,24 @@ interface PublicReviewRow {
   visibility: "public" | "paid_only";
   helpful_count: number;
   created_at: string;
+  tags: ReviewTagRow[] | null;
   total_count: number | string | null;
+}
+
+function mapTagRow(row: ReviewTagRow): ReviewTag {
+  return {
+    id: row.id,
+    slug: row.slug,
+    label: row.label,
+    kind: row.kind,
+  };
 }
 
 /**
  * セラピスト詳細ページ向け公開レビュー一覧。
  * `includeSensitive` は paid ユーザかどうかを呼び出し側で判定して渡す。
- * PR1 では paid_only な行は基本的に存在しないため、常に false で良いが、
- * PR2 で sensitive タグが入った瞬間から呼び分けが活きる。
+ * false の場合は paid_only な行が DB レイヤから除外されるため、未課金 SSR HTML に
+ * 本文・タグ label が含まれない。
  */
 export async function getReviewsForTherapist(
   therapistId: string,
@@ -85,6 +116,7 @@ export async function getReviewsForTherapist(
     visibility: r.visibility,
     helpfulCount: r.helpful_count,
     createdAt: r.created_at,
+    tags: Array.isArray(r.tags) ? r.tags.map(mapTagRow) : [],
   }));
 
   const totalCount = rows.length === 0 ? 0 : Number(rows[0].total_count ?? 0);
@@ -98,10 +130,17 @@ export async function getReviewsForTherapist(
 export interface ReviewAggregate {
   reviewCount: number;
   averageRating: number | null;
+  /** sensitive タグ付与 (visibility='paid_only') のレビュー件数。paywall CTA 用。 */
+  paidOnlyCount: number;
 }
 
 /**
- * AggregateRating JSON-LD 用の集計値。visibility='public' のみ。
+ * AggregateRating JSON-LD 用の集計値。
+ *
+ * - `reviewCount` / `averageRating` は visibility='public' のみ集計
+ *   (sensitive な評価を Google に流さない設計)。
+ * - `paidOnlyCount` は visibility='paid_only' の件数。未課金ユーザに
+ *   「有料で N 件の口コミを見る」CTA を出すために使う。
  */
 export async function getReviewAggregate(
   therapistId: string,
@@ -113,16 +152,57 @@ export async function getReviewAggregate(
 
   if (error) {
     console.error("getReviewAggregate (rpc):", error.message);
-    return { reviewCount: 0, averageRating: null };
+    return { reviewCount: 0, averageRating: null, paidOnlyCount: 0 };
   }
-  if (!data) return { reviewCount: 0, averageRating: null };
+  if (!data) return { reviewCount: 0, averageRating: null, paidOnlyCount: 0 };
 
-  const row = data as { review_count: number | null; average_rating: number | string | null };
+  const row = data as {
+    review_count: number | null;
+    average_rating: number | string | null;
+    paid_only_count: number | null;
+  };
   const avg = row.average_rating == null ? null : Number(row.average_rating);
   return {
     reviewCount: row.review_count ?? 0,
     averageRating: avg !== null && Number.isFinite(avg) ? avg : null,
+    paidOnlyCount: row.paid_only_count ?? 0,
   };
+}
+
+
+export interface ReviewTagSummaryItem extends ReviewTag {
+  count: number;
+}
+
+/**
+ * セラピストごとのタグ別件数 (chip サマリ用)。
+ *
+ * - 承認済みタグ (approved=true) のみが対象。未承認のユーザ作成タグは
+ *   ここには現れない (運営承認まで chip サマリに露出しない)。
+ * - `includeSensitive` は呼び出し側で paid 判定して渡す。false の場合は
+ *   `visibility='public'` の review のみが集計母集団になるため、
+ *   sensitive な集計値が未課金 SSR HTML に漏れない。
+ */
+export async function getReviewTagSummaryForTherapist(
+  therapistId: string,
+  options: { includeSensitive?: boolean } = {},
+): Promise<ReviewTagSummaryItem[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_therapist_tag_counts", {
+    p_therapist_id: therapistId,
+    p_include_sensitive: options.includeSensitive ?? false,
+  });
+
+  if (error) {
+    console.error("getReviewTagSummaryForTherapist:", error.message);
+    return [];
+  }
+
+  type Row = ReviewTagRow & { count: number | string };
+  return ((data ?? []) as Row[]).map((r) => ({
+    ...mapTagRow(r),
+    count: Number(r.count) || 0,
+  }));
 }
 
 

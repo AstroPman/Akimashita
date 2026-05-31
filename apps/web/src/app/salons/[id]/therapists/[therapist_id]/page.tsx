@@ -24,6 +24,7 @@ import {
 } from "@/lib/salons";
 import {
   getReviewAggregate,
+  getReviewTagSummaryForTherapist,
   getReviewsForTherapist,
   type PublicReview,
 } from "@/lib/reviews";
@@ -189,8 +190,9 @@ export default async function PublicTherapistDetailPage({
     notFound();
   }
 
-  // ログイン状態が確定したあとに「自分の既投稿チェック」と「レビュー一覧」を並列に。
-  const [reviewsPageData, hasOwnReview] = await Promise.all([
+  // ログイン状態が確定したあとに「自分の既投稿チェック」「レビュー一覧」「タグ集計」を並列に。
+  // includeSensitive を全て同じ paid 判定で揃え、未課金 SSR HTML に sensitive を出さない。
+  const [reviewsPageData, hasOwnReview, tagSummary] = await Promise.all([
     getReviewsForTherapist(therapist_id, {
       includeSensitive: paidStatus.paid,
       limit: REVIEWS_PAGE_SIZE,
@@ -199,6 +201,9 @@ export default async function PublicTherapistDetailPage({
     paidStatus.userId
       ? checkOwnReviewExists(paidStatus.userId, therapist_id)
       : Promise.resolve(false),
+    getReviewTagSummaryForTherapist(therapist_id, {
+      includeSensitive: paidStatus.paid,
+    }),
   ]);
 
   const stylePieces: string[] = [];
@@ -531,10 +536,12 @@ export default async function PublicTherapistDetailPage({
             salonId={id}
             aggregate={reviewAggregate}
             reviews={reviewsPageData.items}
+            tagSummary={tagSummary}
             totalCount={reviewsPageData.totalCount}
             page={reviewsPage}
             pageSize={REVIEWS_PAGE_SIZE}
             isAuthenticated={paidStatus.authenticated}
+            isPaidUser={paidStatus.paid}
             hasOwnReview={hasOwnReview}
           />
 

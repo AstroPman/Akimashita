@@ -1,10 +1,21 @@
 import Link from "next/link";
-import { ChevronRightIcon, MessageSquareIcon, StarIcon } from "lucide-react";
+import {
+  ChevronRightIcon,
+  LockKeyholeIcon,
+  MessageSquareIcon,
+  StarIcon,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatJstDate } from "@/lib/date";
-import type { PublicReview, ReviewAggregate } from "@/lib/reviews";
+import type {
+  PublicReview,
+  ReviewAggregate,
+  ReviewTagSummaryItem,
+} from "@/lib/reviews";
 import { ReviewSubmitDialog } from "./review-submit-dialog";
+import { SensitiveReviewsPaywall } from "./sensitive-reviews-paywall";
 
 interface TherapistReviewsSectionProps {
   therapistId: string;
@@ -12,10 +23,12 @@ interface TherapistReviewsSectionProps {
   salonId: string;
   aggregate: ReviewAggregate;
   reviews: PublicReview[];
+  tagSummary: ReviewTagSummaryItem[];
   totalCount: number;
   page: number;
   pageSize: number;
   isAuthenticated: boolean;
+  isPaidUser: boolean;
   hasOwnReview: boolean;
 }
 
@@ -23,9 +36,10 @@ interface TherapistReviewsSectionProps {
  * セラピスト詳細ページに差し込むレビューセクション。
  *
  * - 集計バッジ (平均星 + 件数) と「口コミを書く」ボタン (Dialog) をヘッダに置く
- * - レビュー一覧はサーバ側ページネーション (`?reviews_page=N`) で完結。
- *   1 ページ {pageSize} 件、件数が増えても詳細ページ自体は重くならない。
- * - 0 件のときは控えめな空状態 + 投稿 CTA を出す
+ * - 承認済みタグ chip サマリを表示
+ * - 未課金ユーザに対して visibility='paid_only' のレビュー本文・タグは SSR HTML
+ *   に含めず、件数とぼかしカード (SensitiveReviewsPaywall) で paywall に誘導
+ * - レビュー一覧はサーバ側ページネーション (`?reviews_page=N`) で完結
  */
 export function TherapistReviewsSection({
   therapistId,
@@ -33,15 +47,20 @@ export function TherapistReviewsSection({
   salonId,
   aggregate,
   reviews,
+  tagSummary,
   totalCount,
   page,
   pageSize,
   isAuthenticated,
+  isPaidUser,
   hasOwnReview,
 }: TherapistReviewsSectionProps) {
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const detailPath = `/salons/${salonId}/therapists/${therapistId}`;
   const hasAny = totalCount > 0;
+  const hasPaywallContent = aggregate.paidOnlyCount > 0 && !isPaidUser;
+  // 公開件数 + 限定件数。未課金時は paidOnlyCount は数値だけが渡るので OK。
+  const grandTotal = aggregate.reviewCount + aggregate.paidOnlyCount;
 
   return (
     <section className="mt-8 space-y-3" id="reviews">
@@ -49,7 +68,7 @@ export function TherapistReviewsSection({
         <h2 className="text-lg font-semibold tracking-tight">
           口コミ
           <span className="ml-2 text-sm font-normal tabular-nums text-muted-foreground">
-            {aggregate.reviewCount} 件
+            {grandTotal} 件
           </span>
         </h2>
         <ReviewSubmitDialog
@@ -61,9 +80,15 @@ export function TherapistReviewsSection({
         />
       </div>
 
-      {hasAny ? (
+      {aggregate.reviewCount > 0 && aggregate.averageRating !== null && (
         <ReviewAggregateBadge aggregate={aggregate} />
-      ) : null}
+      )}
+
+      <ReviewTagSummary
+        tagSummary={tagSummary}
+        paidOnlyCount={aggregate.paidOnlyCount}
+        isPaidUser={isPaidUser}
+      />
 
       {hasAny ? (
         <ul className="space-y-3">
@@ -93,6 +118,14 @@ export function TherapistReviewsSection({
         </div>
       )}
 
+      {hasPaywallContent && (
+        <SensitiveReviewsPaywall
+          therapistId={therapistId}
+          count={aggregate.paidOnlyCount}
+          isAuthenticated={isAuthenticated}
+        />
+      )}
+
       {totalPages > 1 && (
         <PaginationControls
           basePath={detailPath}
@@ -105,10 +138,8 @@ export function TherapistReviewsSection({
 }
 
 function ReviewAggregateBadge({ aggregate }: { aggregate: ReviewAggregate }) {
-  if (aggregate.reviewCount === 0 || aggregate.averageRating === null) {
-    return null;
-  }
   const avg = aggregate.averageRating;
+  if (avg === null) return null;
   return (
     <div className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-sm">
       <StarIcon
@@ -118,8 +149,56 @@ function ReviewAggregateBadge({ aggregate }: { aggregate: ReviewAggregate }) {
       />
       <span className="font-semibold tabular-nums">{avg.toFixed(1)}</span>
       <span className="text-xs text-muted-foreground">
-        / 5.0 ({aggregate.reviewCount} 件)
+        / 5.0 (公開 {aggregate.reviewCount} 件)
       </span>
+    </div>
+  );
+}
+
+function ReviewTagSummary({
+  tagSummary,
+  paidOnlyCount,
+  isPaidUser,
+}: {
+  tagSummary: ReviewTagSummaryItem[];
+  paidOnlyCount: number;
+  isPaidUser: boolean;
+}) {
+  // RPC 側で include_sensitive=false の場合は sensitive 母集団のタグは集計から
+  // 外れているが、防衛的にもう一段フィルタを入れる。
+  const visible = tagSummary.filter(
+    (t) => isPaidUser || t.kind !== "sensitive",
+  );
+
+  if (visible.length === 0 && paidOnlyCount === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {visible.slice(0, 12).map((t) => (
+        <Badge
+          key={t.id}
+          variant={t.kind === "sensitive" ? "outline" : "secondary"}
+          className={cn(
+            "font-normal",
+            t.kind === "sensitive" &&
+              "border-amber-400/60 bg-amber-50 text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200",
+          )}
+        >
+          {t.label}
+          <span className="ml-1 tabular-nums text-muted-foreground">
+            {t.count}
+          </span>
+        </Badge>
+      ))}
+      {!isPaidUser && paidOnlyCount > 0 && (
+        <Badge
+          variant="outline"
+          className="gap-1 border-amber-400/60 bg-amber-50 font-normal text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200"
+        >
+          <LockKeyholeIcon className="size-3" aria-hidden />
+          限定口コミ {paidOnlyCount} 件
+        </Badge>
+      )}
     </div>
   );
 }
@@ -137,13 +216,28 @@ function ReviewCard({ review }: { review: PublicReview }) {
   ].filter((v): v is string => Boolean(v));
 
   return (
-    <article className="rounded-xl border bg-card p-4">
+    <article
+      className={cn(
+        "rounded-xl border bg-card p-4",
+        review.visibility === "paid_only" &&
+          "border-amber-400/60 ring-1 ring-amber-200/40 dark:ring-amber-800/30",
+      )}
+    >
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <Stars rating={review.ratingOverall} />
         <span className="text-sm font-medium">{author}</span>
         <span className="text-xs text-muted-foreground" suppressHydrationWarning>
           {formatJstDate(review.createdAt)}
         </span>
+        {review.visibility === "paid_only" && (
+          <Badge
+            variant="outline"
+            className="gap-1 border-amber-400/60 bg-amber-50 text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200"
+          >
+            <LockKeyholeIcon className="size-3" aria-hidden />
+            有料限定
+          </Badge>
+        )}
       </header>
 
       {meta.length > 0 && (
@@ -157,6 +251,24 @@ function ReviewCard({ review }: { review: PublicReview }) {
           {review.body}
         </p>
       ) : null}
+
+      {review.tags.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {review.tags.map((t) => (
+            <Badge
+              key={t.id}
+              variant={t.kind === "sensitive" ? "outline" : "secondary"}
+              className={cn(
+                "font-normal",
+                t.kind === "sensitive" &&
+                  "border-amber-400/60 bg-amber-50 text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200",
+              )}
+            >
+              {t.label}
+            </Badge>
+          ))}
+        </div>
+      )}
     </article>
   );
 }

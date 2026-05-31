@@ -60,10 +60,20 @@ export type EventProps = {
     therapist_id: string;
     rating: number;
     has_body: boolean;
+    /** ユーザが入力した新規タグの数 (PR2 で追加)。 */
+    tag_count: number;
   };
   /** 自分の口コミを削除した瞬間 (account/reviews から)。 */
   review_deleted: {
     review_id: string;
+  };
+  /**
+   * 未課金ユーザが「限定口コミ (sensitive) を見る」CTA をクリックした瞬間。
+   * sensitive paywall の効果 (アップグレード転換) を測る主要指標。
+   */
+  paywall_sensitive_review_clicked: {
+    therapist_id: string;
+    count: number;
   };
 };
 
@@ -82,4 +92,5 @@ export const APP_EVENT_NAMES = [
   "review_form_started",
   "review_submitted",
   "review_deleted",
+  "paywall_sensitive_review_clicked",
 ] as const satisfies readonly AppEventName[];

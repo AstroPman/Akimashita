@@ -8,10 +8,16 @@ import { z } from "zod";
  * - 任意項目は trim 後の空文字列を `undefined` に正規化する。
  *   フォームの hidden/未入力フィールドが空文字で送られてきても
  *   サーバ側で valid 扱いにできるようにするため。
- * - PR1 ではタグ・写真・複数軸評価は対象外。スキーマも今は MVP 範囲。
+ * - PR2 でユーザ作成タグを追加。`new_tag_labels` のみ受け付け、
+ *   公式タグは持たない。すべてのユーザ作成タグはサーバ側で
+ *   `kind='sensitive', approved=false` 固定で作成される。
  */
 
 const RATING_VALUES = [1, 2, 3, 4, 5] as const;
+
+/** 1 投稿あたりの新規タグ上限。`submit_review` RPC 側 (5) と必ず同じ値にする。 */
+export const REVIEW_NEW_TAG_MAX_COUNT = 5;
+export const REVIEW_NEW_TAG_MAX_LENGTH = 20;
 
 /** 入力時刻の年月。`YYYY-MM` 形式の文字列。 */
 const visitYearMonthSchema = z
@@ -29,6 +35,36 @@ function optionalTrimmed(max: number, label: string) {
     })
     .optional();
 }
+
+/**
+ * `new_tag_labels` は `FormData.getAll()` 経由で受けるため string[] になる。
+ * 1 件のみのケースで文字列がそのまま来た場合や、null/undefined もハンドルする。
+ * trim 後の空文字は配列から除外する。
+ */
+const newTagLabelsField = z.preprocess(
+  (v) => {
+    if (v == null) return [];
+    if (Array.isArray(v)) return v.filter((x) => typeof x === "string");
+    if (typeof v === "string") return v.trim() === "" ? [] : [v];
+    return [];
+  },
+  z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1)
+        .max(
+          REVIEW_NEW_TAG_MAX_LENGTH,
+          `タグは ${REVIEW_NEW_TAG_MAX_LENGTH} 文字以内で入力してください`,
+        ),
+    )
+    .max(
+      REVIEW_NEW_TAG_MAX_COUNT,
+      `タグは ${REVIEW_NEW_TAG_MAX_COUNT} 個までです`,
+    )
+    .optional(),
+);
 
 export const ReviewFormSchema = z.object({
   therapist_id: z.string().uuid("セラピストの指定が不正です"),
@@ -51,6 +87,7 @@ export const ReviewFormSchema = z.object({
     .optional()
     .transform((v) => (v === "" || v === undefined ? undefined : v)),
   display_name: optionalTrimmed(20, "表示名"),
+  new_tag_labels: newTagLabelsField,
 });
 
 export type ReviewFormInput = z.input<typeof ReviewFormSchema>;
@@ -64,6 +101,7 @@ export const defaultReviewFormValues: ReviewFormInput = {
   course_label: "",
   course_price_yen: "",
   display_name: "",
+  new_tag_labels: [],
 };
 
 export const REVIEW_RATING_VALUES = RATING_VALUES;
