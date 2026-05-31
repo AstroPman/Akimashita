@@ -27,6 +27,64 @@ function normalizeText(text: string): string {
   return text.replace(/\r\n?/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 }
 
+/** 全角英数字を半角へ正規化し、後段の正規表現を単純化する。 */
+function toHalfWidth(s: string): string {
+  return s.replace(/[Ａ-Ｚａ-ｚ０-９]/g, (c) =>
+    String.fromCharCode(c.charCodeAt(0) - 0xfee0),
+  );
+}
+
+interface EdcBodyProfile {
+  height: number | null;
+  bust: number | null;
+  waist: number | null;
+  hip: number | null;
+  cup: string | null;
+}
+
+/**
+ * edc の予約ウィザードには身長・3 サイズ・カップの専用フィールドが無い。
+ * 観測した限り `itemComment` は自己紹介や料金案内が主で、サイズ表記を持つ
+ * ケースは稀だが、もし標準形 ("T.160cm B.85(D) W.55 H.85" 等) が書かれていれば
+ * 取りこぼさないよう、grow と同じ高確度パターンだけを保守的に拾う。
+ *
+ * - 3 サイズは `B..(cup) W.. H..` の連続パターンを必須にして誤検出を避ける。
+ * - 身長は cm 接尾辞付きの `T.160cm` 系トークンに限定する。
+ * - カップは B の括弧内を最優先、無ければ散文中の "Gカップ" を fallback。
+ * - 取れない項目は null のまま (= 既存挙動を壊さない)。
+ */
+function parseEdcBodyProfile(comment: string | null | undefined): EdcBodyProfile {
+  const out: EdcBodyProfile = { height: null, bust: null, waist: null, hip: null, cup: null };
+  if (!comment) return out;
+  const m = toHalfWidth(comment);
+
+  const bwh = m.match(
+    /B\s*[.．]?\s*(\d{2,3})\s*(?:[(（]\s*([A-Za-z]{1,3})\s*[)）])?\s*W\s*[.．]?\s*(\d{2,3})\s*H\s*[.．]?\s*(\d{2,3})/,
+  );
+  if (bwh) {
+    const bust = Number.parseInt(bwh[1]!, 10);
+    const waist = Number.parseInt(bwh[3]!, 10);
+    const hip = Number.parseInt(bwh[4]!, 10);
+    if (bust >= 50 && bust <= 150) out.bust = bust;
+    if (waist >= 30 && waist <= 120) out.waist = waist;
+    if (hip >= 50 && hip <= 150) out.hip = hip;
+    if (bwh[2]) out.cup = bwh[2].toUpperCase();
+  }
+
+  if (!out.cup) {
+    const cupMatch = m.match(/([A-Za-z])\s*カップ/);
+    if (cupMatch) out.cup = cupMatch[1]!.toUpperCase();
+  }
+
+  const heightMatch = m.match(/T\s*[.．]?\s*(\d{2,3})\s*(?:cm|㎝)/i);
+  if (heightMatch) {
+    const h = Number.parseInt(heightMatch[1]!, 10);
+    if (h >= 130 && h <= 200) out.height = h;
+  }
+
+  return out;
+}
+
 class EdcTherapistScraper implements TherapistScraper {
   async run(salon: Salon): Promise<TherapistRecord[]> {
     const baseUrl = buildBaseUrl(salon.shop_id);
@@ -71,7 +129,9 @@ class EdcTherapistScraper implements TherapistScraper {
         const imgSrc = $el.find('.photo img').first().attr('src') ?? null;
         const imageUrl = imgSrc ? toAbsoluteUrl(imgSrc, baseUrl) : null;
 
-        const description = normalizeText($el.find('.itemComment').first().text()) || null;
+        const rawComment = $el.find('.itemComment').first().text();
+        const description = normalizeText(rawComment) || null;
+        const { height, bust, waist, hip, cup } = parseEdcBodyProfile(rawComment);
 
         records.set(therapistId, {
           therapist_id: therapistId,
@@ -80,6 +140,11 @@ class EdcTherapistScraper implements TherapistScraper {
           image_url: imageUrl,
           description,
           age,
+          height,
+          bust,
+          waist,
+          hip,
+          cup,
         });
         pageCount += 1;
       });
