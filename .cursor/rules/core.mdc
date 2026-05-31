@@ -42,6 +42,8 @@ alwaysApply: true
 | Staging(ステージング) | wontinfwjortmtmwfhyj  | NaN 　　　　　　       |
 | Production(本番)     | zhvmhchwapavylwrchoe  | NAN　  　            |
 
+- migrationsは一度適用すると同じファイルを修正しても適用できないため、原則として適用済みのファイルは修正しない。適用済みかどうか判断がつかない場合は、修正前に確認すること。
+
 # AWS アカウント
 | 環境                 | プロジェクト名 | アカウントID    | 備考                  |
 | ------------------- | ------------ | ------------- | -------------------- |
