@@ -1,9 +1,16 @@
 "use client";
 
-import { useOptimistic, useState, useTransition } from "react";
+import {
+  useMemo,
+  useOptimistic,
+  useState,
+  useSyncExternalStore,
+  useTransition,
+} from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
+  ArrowUpDownIcon,
   ChevronRightIcon,
   MailIcon,
   MoreHorizontalIcon,
@@ -18,6 +25,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -93,6 +107,92 @@ function pickExternal(
   return Array.isArray(ext) ? (ext[0] ?? null) : ext;
 }
 
+function getDisplayName(item: WatchItem): string {
+  return pickExternal(item.therapists.external_therapists)?.display_name ?? item.therapists.name;
+}
+
+/**
+ * 次回出勤枠を比較用のキー（`YYYY-MM-DDTHH:mm:ss`）に変換する。
+ * いずれも JST 前提なので文字列の辞書順比較で時系列と一致する。
+ * 空き枠が無い場合は null（並びの末尾扱い）。
+ */
+function slotSortKey(item: WatchItem): string | null {
+  const slot = item.next_available_slot;
+  if (!slot) return null;
+  return `${slot.date}T${slot.start_time}`;
+}
+
+const SORT_OPTIONS = [
+  { value: "created_desc", label: "登録順" },
+  { value: "soonest", label: "出勤順" },
+  { value: "name", label: "名前順" },
+] as const;
+
+type SortKey = (typeof SORT_OPTIONS)[number]["value"];
+
+const DEFAULT_SORT: SortKey = "created_desc";
+const SORT_STORAGE_KEY = "watches:sort";
+
+function isSortKey(value: string | null): value is SortKey {
+  return SORT_OPTIONS.some((o) => o.value === value);
+}
+
+function sortItems(items: WatchItem[], sort: SortKey): WatchItem[] {
+  const sorted = [...items];
+  switch (sort) {
+    case "created_desc":
+      sorted.sort((a, b) => b.created_at.localeCompare(a.created_at));
+      break;
+    case "soonest":
+      sorted.sort((a, b) => {
+        const ka = slotSortKey(a);
+        const kb = slotSortKey(b);
+        // 空き枠が無いものは末尾に寄せ、その中では登録が新しい順。
+        if (ka === null && kb === null) return b.created_at.localeCompare(a.created_at);
+        if (ka === null) return 1;
+        if (kb === null) return -1;
+        if (ka !== kb) return ka.localeCompare(kb);
+        return b.created_at.localeCompare(a.created_at);
+      });
+      break;
+    case "name":
+      sorted.sort((a, b) => getDisplayName(a).localeCompare(getDisplayName(b), "ja"));
+      break;
+  }
+  return sorted;
+}
+
+// 並び順は localStorage に保持し、再訪時にも復元する。
+// useSyncExternalStore でハイドレーション時はサーバ既定値を使い、不一致を避ける。
+const sortListeners = new Set<() => void>();
+
+function subscribeSort(callback: () => void) {
+  sortListeners.add(callback);
+  window.addEventListener("storage", callback);
+  return () => {
+    sortListeners.delete(callback);
+    window.removeEventListener("storage", callback);
+  };
+}
+
+function readStoredSort(): SortKey {
+  const stored = window.localStorage.getItem(SORT_STORAGE_KEY);
+  return isSortKey(stored) ? stored : DEFAULT_SORT;
+}
+
+function useSortPreference(): [SortKey, (value: SortKey) => void] {
+  const sort = useSyncExternalStore(
+    subscribeSort,
+    readStoredSort,
+    () => DEFAULT_SORT,
+  );
+  const setSort = (value: SortKey) => {
+    window.localStorage.setItem(SORT_STORAGE_KEY, value);
+    for (const listener of sortListeners) listener();
+  };
+  return [sort, setSort];
+}
+
 type OptimisticAction =
   | { type: "toggle"; id: string; is_active: boolean }
   | { type: "delete"; id: string };
@@ -128,12 +228,49 @@ export function WatchList({ items }: { items: WatchItem[] }) {
     },
   );
 
+  const [sort, setSort] = useSortPreference();
+
+  const handleSortChange = (value: string) => {
+    if (isSortKey(value)) setSort(value);
+  };
+
+  const sortedItems = useMemo(
+    () => sortItems(optimisticItems, sort),
+    [optimisticItems, sort],
+  );
+
   return (
-    <ul className="grid w-full gap-4">
-      {optimisticItems.map((item) => (
-        <WatchRow key={item.id} item={item} onOptimistic={applyOptimistic} />
-      ))}
-    </ul>
+    <div className="space-y-4">
+      {optimisticItems.length > 1 ? (
+        <div className="flex items-center justify-end gap-2">
+          <label
+            htmlFor="watch-sort"
+            className="flex items-center gap-1.5 text-xs text-muted-foreground"
+          >
+            <ArrowUpDownIcon className="size-3.5" aria-hidden />
+            並び替え
+          </label>
+          <Select value={sort} onValueChange={handleSortChange}>
+            <SelectTrigger id="watch-sort" size="sm" className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : null}
+
+      <ul className="grid w-full gap-4">
+        {sortedItems.map((item) => (
+          <WatchRow key={item.id} item={item} onOptimistic={applyOptimistic} />
+        ))}
+      </ul>
+    </div>
   );
 }
 
