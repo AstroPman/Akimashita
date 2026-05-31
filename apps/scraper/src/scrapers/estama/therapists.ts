@@ -31,6 +31,39 @@ function parseHeight(raw: string): number | null {
   return v;
 }
 
+interface BodySize {
+  bust: number | null;
+  waist: number | null;
+  hip: number | null;
+  cup: string | null;
+}
+
+/**
+ * estama のサイズ表記 "T.155 B.85(D) W.58 H.87" から 3 サイズ + カップを抽出する。
+ *
+ * - `B`/`W`/`H` は cm 値、`B` 直後の括弧内 (任意) がカップ。
+ * - 各項目は独立して欠落しうるため個別に optional 扱いし、非現実的な値は捨てる。
+ */
+function parseBodySize(raw: string): BodySize {
+  const pickCm = (label: string): number | null => {
+    const m = raw.match(new RegExp(`${label}\\.?\\s*(\\d{2,3})`));
+    if (!m) return null;
+    const v = Number.parseInt(m[1]!, 10);
+    if (!Number.isFinite(v) || v < 30 || v > 150) return null;
+    return v;
+  };
+
+  const cupMatch = raw.match(/B\.?\s*\d{2,3}\s*\(\s*([A-Za-z]{1,3})\s*\)/);
+  const cup = cupMatch ? cupMatch[1]!.toUpperCase() : null;
+
+  return {
+    bust: pickCm('B'),
+    waist: pickCm('W'),
+    hip: pickCm('H'),
+    cup,
+  };
+}
+
 function normalizeWhitespace(text: string): string {
   return text.replace(/\r\n?/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n+/g, ' ').trim();
 }
@@ -63,6 +96,7 @@ class EstamaTherapistScraper implements TherapistScraper {
 
       const heightText = $card.find('p').first().text();
       const height = parseHeight(heightText);
+      const { bust, waist, hip, cup } = parseBodySize(heightText);
 
       const imgSrc = $card.find('img.therapist__img').first().attr('src') ?? null;
       const imageUrl = imgSrc ? toAbsoluteUrl(imgSrc) : null;
@@ -80,6 +114,10 @@ class EstamaTherapistScraper implements TherapistScraper {
         description,
         age,
         height,
+        bust,
+        waist,
+        hip,
+        cup,
       });
     });
 
