@@ -134,7 +134,7 @@ export function parseTherapistRow(
   if (!displayName) return null;
 
   const { name, age } = splitNameAndAge(displayName);
-  const { height, cup } = parseStyle(raw.style ?? null);
+  const { height, bust, waist, hip, cup } = parseStyle(raw.style ?? null);
 
   const images: string[] = [];
   for (const key of ['image1', 'image2', 'image3', 'image4', 'image5', 'image6'] as const) {
@@ -150,6 +150,9 @@ export function parseTherapistRow(
     kana: nullable(raw.kana),
     age,
     height,
+    bust,
+    waist,
+    hip,
     cup,
     style_raw: nullable(raw.style),
     image_urls: images,
@@ -188,26 +191,83 @@ export function splitNameAndAge(displayName: string): { name: string; age: numbe
   return { name, age: Number.isFinite(age) ? age : null };
 }
 
+interface ParsedStyle {
+  height: number | null;
+  bust: number | null;
+  waist: number | null;
+  hip: number | null;
+  cup: string | null;
+}
+
+/** 全角英数字を半角へ正規化し、後段の正規表現を単純化する。 */
+function toHalfWidth(s: string): string {
+  return s.replace(/[Ａ-Ｚａ-ｚ０-９]/g, (c) =>
+    String.fromCharCode(c.charCodeAt(0) - 0xfee0),
+  );
+}
+
 /**
- * "T153 G" / "T166" / "150 / G" / "ぽっちゃり" 等から (height, cup) を取り出す。
- * - 身長: `T(\d+)` (men-esthe 慣習) または先頭の `\d+` (cm 想定)
- * - カップ: アルファベット 1 文字 (A-Z) を独立トークン or "G カップ" のような形で。
- * 未パースなら null を返す (style_raw 側で原文を保持)。
+ * "T153 G" / "T166" / "150 / G" / "T160/B85(E)/W56/H85" / "155cm B:87 W:56 H:86" /
+ * "ぽっちゃり" 等から (height, bust, waist, hip, cup) を取り出す。
+ *
+ * - 身長: `T(\d+)` (men-esthe 慣習) または先頭の `\d+` (cm 想定)。
+ * - 3 サイズ: `B/W/H` ラベル + 数値。区切り (`/` `:` `.` 空白 全角) のばらつきは
+ *   ラベル単位の独立抽出で吸収する。各値は妥当な範囲外なら捨てる。
+ * - カップ:
+ *   1. `B85(E)` / `B(D)` のようにバスト直後の括弧内を最優先。
+ *   2. 無ければ、採寸ラベル (`B85` `W55` `H85` 等の数値) を含む文字列では
+ *      カップ無しとみなす (null)。`B` をカップと誤認しないため。
+ *   3. それ以外 ("T153 G" 等) は単独英字 (A-N) を拾う。
+ *   旧実装は (1)(2)(3) を区別できず、フル 3 サイズ表記で bust の "B" を
+ *   カップとして誤抽出していた (cup='B') ため、ここで構造的に切り分ける。
+ *   ※ Postgres の backfill と挙動を一致させるため、正規表現の先読みは使わない。
+ * 未パースな項目は null を返す (style_raw 側で原文を保持)。
  */
-export function parseStyle(style: string | null): { height: number | null; cup: string | null } {
-  if (!style) return { height: null, cup: null };
-  let height: number | null = null;
-  const heightMatch = style.match(/T\s*(\d{2,3})/i) ?? style.match(/\b(\d{3})\b/);
-  if (heightMatch) {
-    const n = Number.parseInt(heightMatch[1] ?? '', 10);
-    if (Number.isFinite(n) && n >= 130 && n <= 200) height = n;
+export function parseStyle(style: string | null): ParsedStyle {
+  const out: ParsedStyle = { height: null, bust: null, waist: null, hip: null, cup: null };
+  if (!style) return out;
+  const s = toHalfWidth(style);
+
+  const pickCm = (label: string, min: number, max: number): number | null => {
+    const m = s.match(new RegExp(`${label}[.:：．]?\\s*(\\d{2,3})`));
+    if (!m) return null;
+    const n = Number.parseInt(m[1] ?? '', 10);
+    if (!Number.isFinite(n) || n < min || n > max) return null;
+    return n;
+  };
+
+  out.height =
+    pickCm('T', 130, 200) ??
+    (() => {
+      const m = s.match(/\b(\d{3})\b/);
+      if (!m) return null;
+      const n = Number.parseInt(m[1] ?? '', 10);
+      return Number.isFinite(n) && n >= 130 && n <= 200 ? n : null;
+    })();
+  out.bust = pickCm('B', 60, 130);
+  out.waist = pickCm('W', 40, 90);
+  out.hip = pickCm('H', 60, 130);
+
+  // (1) "Dカップ" のような明示カップ表記を最優先 ("(Dカップ)" / "カップ数： Dカップ" も含む)。
+  //     "160cm" の小文字 m を拾わないよう、カップ字は大文字 (T除く) に限定する。
+  const kanaCup = s.match(/([A-SU-Z])\s*カップ/);
+  // (2) バスト直後の括弧内カップ ("B85(E)" / "B(D)" / "B:85cm(D)")。
+  const parenCup = s.match(/B[.:：．]?\s*\d{0,3}\s*(?:cm|㎝)?\s*[(（]\s*([A-Za-z])\s*[)）]/);
+  if (kanaCup) {
+    out.cup = (kanaCup[1] ?? '').toUpperCase();
+  } else if (parenCup) {
+    out.cup = (parenCup[1] ?? '').toUpperCase();
+  } else if (/[BWH][.:：．]?\d{2,3}/.test(s)) {
+    // (3) 採寸ラベル (B/W/H + 数値) を含むが括弧カップが無い → カップ情報なし。
+    out.cup = null;
+  } else {
+    // (4) 単独英字カップ。前後を非英字で挟まれた 1 文字のみ採用 ("T153 G" → G)。
+    //     身長の "T" と被らないよう T を除外 (旧実装と同じ [A-SU-Z])。
+    const cupMatch = s.match(/(?:^|[^A-Za-z])([A-SU-Z])(?:$|[^A-Za-z])/);
+    if (cupMatch) out.cup = (cupMatch[1] ?? '').toUpperCase();
   }
-  let cup: string | null = null;
-  // 単独の 1 文字 (A-Z) を「カップ」とみなす。身長の T と被らないよう A-S までに絞る。
-  // 例: "T153 G" → "G"、"150 / G" → "G"、"T166" → null
-  const cupMatch = style.match(/(?:^|[^A-Za-z])([A-SU-Z])(?=$|[^A-Za-z])/);
-  if (cupMatch) cup = (cupMatch[1] ?? '').toUpperCase();
-  return { height, cup };
+
+  return out;
 }
 
 function toAbsoluteImageUrl(filename: string): string {

@@ -290,6 +290,10 @@ export interface PublicSalonTherapist {
   displayName: string;
   age: number | null;
   height: number | null;
+  /** スリーサイズ (cm)。therapists 優先・external_therapists フォールバック。 */
+  bust: number | null;
+  waist: number | null;
+  hip: number | null;
   cup: string | null;
   styleRaw: string | null;
   primaryImageUrl: string | null;
@@ -307,6 +311,9 @@ interface PublicSalonTherapistRow {
   display_name: string | null;
   age: number | null;
   height: number | null;
+  bust: number | null;
+  waist: number | null;
+  hip: number | null;
   cup: string | null;
   style_raw: string | null;
   primary_image_url: string | null;
@@ -334,6 +341,9 @@ export async function getPublicSalonTherapists(
     displayName: r.display_name ?? r.name,
     age: r.age ?? null,
     height: r.height ?? null,
+    bust: r.bust ?? null,
+    waist: r.waist ?? null,
+    hip: r.hip ?? null,
     cup: r.cup ?? null,
     styleRaw: r.style_raw ?? null,
     primaryImageUrl: r.primary_image_url ?? null,

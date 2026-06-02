@@ -185,6 +185,9 @@ export interface ExternalTherapistRecord {
   kana: string | null;
   age: number | null;
   height: number | null;
+  bust: number | null;
+  waist: number | null;
+  hip: number | null;
   cup: string | null;
   style_raw: string | null;
   image_urls: string[];

@@ -59,6 +59,22 @@ function buildCanonical(salonId: string, therapistId: string): string {
   return `${SITE_URL}/salons/${salonId}/therapists/${therapistId}`;
 }
 
+/**
+ * スリーサイズ (cm) を "B85 W58 H86" 形式に整形する。
+ * 揃っている項目だけを連結し、すべて欠損なら null を返す。
+ */
+function formatThreeSize(
+  bust: number | null,
+  waist: number | null,
+  hip: number | null,
+): string | null {
+  const pieces: string[] = [];
+  if (bust != null) pieces.push(`B${bust}`);
+  if (waist != null) pieces.push(`W${waist}`);
+  if (hip != null) pieces.push(`H${hip}`);
+  return pieces.length > 0 ? pieces.join(" ") : null;
+}
+
 function buildMetaDescription(
   salonName: string,
   displayName: string,
@@ -92,6 +108,12 @@ export async function generateMetadata({
   if (therapist.height) stylePieces.push(`T${therapist.height}`);
   if (therapist.cup) stylePieces.push(`${therapist.cup}カップ`);
   if (therapist.age) stylePieces.push(`${therapist.age}歳`);
+  const threeSize = formatThreeSize(
+    therapist.bust,
+    therapist.waist,
+    therapist.hip,
+  );
+  if (threeSize) stylePieces.push(threeSize);
 
   const title = `${therapist.displayName} - ${salon.name}`;
   const description = buildMetaDescription(
@@ -212,6 +234,11 @@ export default async function PublicTherapistDetailPage({
   if (therapist.age) stylePieces.push(`${therapist.age}歳`);
   const styleLabel =
     stylePieces.length > 0 ? stylePieces.join(" / ") : therapist.styleRaw;
+  const threeSizeLabel = formatThreeSize(
+    therapist.bust,
+    therapist.waist,
+    therapist.hip,
+  );
 
   const canonicalUrl = buildCanonical(id, therapist_id);
 
@@ -397,6 +424,11 @@ export default async function PublicTherapistDetailPage({
                   {styleLabel ? (
                     <p className="mt-1 text-sm text-muted-foreground">
                       {styleLabel}
+                    </p>
+                  ) : null}
+                  {threeSizeLabel ? (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      スリーサイズ {threeSizeLabel}
                     </p>
                   ) : null}
                 </div>
