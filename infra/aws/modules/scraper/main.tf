@@ -14,7 +14,9 @@ locals {
   stages = {
     salons = {
       handler            = "salons.handler"
-      memory_mb          = 512
+      # Playwright Chromium で men-esthe CF warmup するため 2048MB。
+      # 日次数回の短時間起動なので GB-秒は Always Free 枠内に収まる想定。
+      memory_mb          = 2048
       timeout_seconds    = 900
       log_retention_days = 14
     }

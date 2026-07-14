@@ -17,6 +17,19 @@ export interface RequestOverrides {
   maxRetries?: number;
 }
 
+/** Playwright / 外部ブラウザから CookieJar へ注入する Cookie 1 件分。 */
+export type InjectedCookie = {
+  name: string;
+  value: string;
+  domain?: string;
+  path?: string;
+  /** Unix 秒。未指定 or <=0 ならセッション Cookie 扱い。 */
+  expires?: number;
+  httpOnly?: boolean;
+  secure?: boolean;
+  sameSite?: 'Strict' | 'Lax' | 'None';
+};
+
 export interface SiteHttp {
   name: string;
   getHtml(url: string, init?: RequestInit, overrides?: RequestOverrides): Promise<string>;
@@ -51,6 +64,16 @@ export interface SiteHttp {
    * 任意のタイミングで「ここから別人」を表現できる。
    */
   rotateCookies(): void;
+  /**
+   * 外部取得した Cookie を Jar に注入する (Cloudflare cf_clearance 等)。
+   * `rotateCookies()` 後は消えるので、注入し直す必要がある。
+   */
+  setCookies(url: string, cookies: InjectedCookie[]): Promise<void>;
+  /**
+   * 下位の HTTP 実装を差し替える (Playwright APIRequest で TLS 指紋を揃える等)。
+   * `null` を渡すとグローバル `fetch` に戻す。
+   */
+  setFetchImpl(impl: typeof fetch | null): void;
   /**
    * 指定 URL に対する CookieJar の cookie 値を取得する (生 raw 値、URL decode 前)。
    * XSRF-TOKEN を AJAX の X-XSRF-TOKEN ヘッダに乗せる用途を想定。
@@ -434,9 +457,10 @@ async function fetchWithAutoRedirect(
   url: string,
   init: RequestInit | undefined,
   signal: AbortSignal,
+  fetchImpl: typeof fetch,
 ): Promise<Response> {
   const cookieHeader = (await jar.getCookieString(url)) || null;
-  const response = await fetch(url, {
+  const response = await fetchImpl(url, {
     ...init,
     method: init?.method ?? 'GET',
     redirect: init?.redirect ?? 'follow',
@@ -470,6 +494,7 @@ async function fetchWithManualRedirect(
   url: string,
   init: RequestInit | undefined,
   signal: AbortSignal,
+  fetchImpl: typeof fetch,
 ): Promise<Response> {
   const MAX_HOPS = 20;
   let current = url;
@@ -478,7 +503,7 @@ async function fetchWithManualRedirect(
 
   for (let hop = 0; hop < MAX_HOPS; hop++) {
     const cookieHeader = (await jar.getCookieString(current)) || null;
-    const response = await fetch(current, {
+    const response = await fetchImpl(current, {
       ...init,
       method,
       body,
@@ -544,6 +569,8 @@ export function createHttp(preset: HttpPreset, opts?: CreateHttpOptions): SiteHt
       0,
   );
   const manualRedirect = opts?.manualRedirect ?? false;
+  // Cloudflare warmup 等で Playwright の TLS 指紋付き fetch に差し替える。
+  let fetchImpl: typeof fetch = globalThis.fetch.bind(globalThis);
 
   // サーキットブレーカ状態。preset (=site) に閉じたインスタンス。
   // 利用するかどうかは opts?.circuitBreaker の有無で決まる。
@@ -639,8 +666,24 @@ export function createHttp(preset: HttpPreset, opts?: CreateHttpOptions): SiteHt
             const timer = setTimeout(() => controller.abort(), timeoutMs);
             try {
               const response = manualRedirect
-                ? await fetchWithManualRedirect(jar, preset, mode, url, init, controller.signal)
-                : await fetchWithAutoRedirect(jar, preset, mode, url, init, controller.signal);
+                ? await fetchWithManualRedirect(
+                    jar,
+                    preset,
+                    mode,
+                    url,
+                    init,
+                    controller.signal,
+                    fetchImpl,
+                  )
+                : await fetchWithAutoRedirect(
+                    jar,
+                    preset,
+                    mode,
+                    url,
+                    init,
+                    controller.signal,
+                    fetchImpl,
+                  );
 
               if (!response.ok) {
                 const retryAfterMs = parseRetryAfter(response.headers.get('Retry-After'));
@@ -697,6 +740,23 @@ export function createHttp(preset: HttpPreset, opts?: CreateHttpOptions): SiteHt
     rotateCookies() {
       jar = new CookieJar();
       jarRequestCount = 0;
+    },
+    async setCookies(url, cookies) {
+      for (const c of cookies) {
+        const parts = [`${c.name}=${c.value}`];
+        if (c.domain) parts.push(`Domain=${c.domain}`);
+        parts.push(`Path=${c.path && c.path.length > 0 ? c.path : '/'}`);
+        if (typeof c.expires === 'number' && c.expires > 0) {
+          parts.push(`Expires=${new Date(c.expires * 1000).toUTCString()}`);
+        }
+        if (c.secure) parts.push('Secure');
+        if (c.httpOnly) parts.push('HttpOnly');
+        if (c.sameSite) parts.push(`SameSite=${c.sameSite}`);
+        await jar.setCookie(parts.join('; '), url);
+      }
+    },
+    setFetchImpl(impl) {
+      fetchImpl = impl ?? globalThis.fetch.bind(globalThis);
     },
     async getCookieValue(url, name) {
       const cookies = await jar.getCookies(url);

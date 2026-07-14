@@ -17,6 +17,7 @@ import {
   shouldSoftDeleteExternalSalonForHomepageFailure,
 } from '../scrapers/menesthe/homepage_resolver.js';
 import { fetchExternalTherapists } from '../scrapers/menesthe/therapist_list.js';
+import { warmMenestheSession } from '../scrapers/menesthe/cf_warmup.js';
 
 const log = createLogger('job:external_salons');
 
@@ -67,60 +68,79 @@ export async function runExternalSalonsJob(
 
   log.info('Starting external_salons job', { phase, limit, stale_after_days: staleAfterDays });
 
-  // 各 phase の成果件数（recordsProcessed）を合算する。phase 単独実行のときは
-  // 対応する phase 分のみが加算されるので、Lambda 1 呼び出し = 1 phase の場合は
-  // その phase の成果件数がそのまま CloudWatch メトリクスに記録される。
-  let recordsProcessed = 0;
-
-  if (phase === 'areas' || phase === 'all') {
-    recordsProcessed += await syncAreas();
+  // men-esthe.jp は Cloudflare チャレンジを挟むことがある。link (SQL のみ) 以外は
+  // Playwright で解き、ジョブ期間中はブラウザ TLS 経由で fetch する。
+  // Step Functions は phase ごとに別 Invoke なので、各 Task 先頭で warmup が走る。
+  let warmupDispose: (() => Promise<void>) | null = null;
+  if (phase !== 'link') {
+    const warmup = await warmMenestheSession();
+    warmupDispose = warmup.dispose;
   }
 
-  if (phase === 'discover' || phase === 'all') {
-    if (overBudget()) {
-      log.warn('Budget exhausted before discover phase, skipping');
-    } else {
-      recordsProcessed += await discoverSalonsByArea({ deadlineAt });
+  try {
+    // 各 phase の成果件数（recordsProcessed）を合算する。phase 単独実行のときは
+    // 対応する phase 分のみが加算されるので、Lambda 1 呼び出し = 1 phase の場合は
+    // その phase の成果件数がそのまま CloudWatch メトリクスに記録される。
+    let recordsProcessed = 0;
+
+    if (phase === 'areas' || phase === 'all') {
+      recordsProcessed += await syncAreas();
+    }
+
+    if (phase === 'discover' || phase === 'all') {
+      if (overBudget()) {
+        log.warn('Budget exhausted before discover phase, skipping');
+      } else {
+        recordsProcessed += await discoverSalonsByArea({ deadlineAt });
+      }
+    }
+
+    if (phase === 'details' || phase === 'all') {
+      if (overBudget()) {
+        log.warn('Budget exhausted before details phase, skipping');
+      } else {
+        recordsProcessed += await syncSalonDetails({ limit, staleAfterDays, deadlineAt });
+      }
+    }
+
+    if (phase === 'bookings' || phase === 'all') {
+      if (overBudget()) {
+        log.warn('Budget exhausted before bookings phase, skipping');
+      } else {
+        recordsProcessed += await resolveBookings({ limit, staleAfterDays, deadlineAt });
+      }
+    }
+
+    if (phase === 'therapists' || phase === 'all') {
+      if (overBudget()) {
+        log.warn('Budget exhausted before therapists phase, skipping');
+      } else {
+        recordsProcessed += await syncExternalTherapists({ limit, staleAfterDays, deadlineAt });
+      }
+    }
+
+    if (phase === 'link' || phase === 'all') {
+      if (overBudget()) {
+        log.warn('Budget exhausted before link phase, skipping');
+      } else {
+        recordsProcessed += await linkSalonsToExternal();
+      }
+    }
+
+    log.info('Finished external_salons job');
+    emitJobMetrics('salons', {
+      durationMs: Date.now() - startedAt,
+      recordsProcessed,
+    });
+  } finally {
+    if (warmupDispose) {
+      await warmupDispose().catch((err) => {
+        log.warn('warmup dispose failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
     }
   }
-
-  if (phase === 'details' || phase === 'all') {
-    if (overBudget()) {
-      log.warn('Budget exhausted before details phase, skipping');
-    } else {
-      recordsProcessed += await syncSalonDetails({ limit, staleAfterDays, deadlineAt });
-    }
-  }
-
-  if (phase === 'bookings' || phase === 'all') {
-    if (overBudget()) {
-      log.warn('Budget exhausted before bookings phase, skipping');
-    } else {
-      recordsProcessed += await resolveBookings({ limit, staleAfterDays, deadlineAt });
-    }
-  }
-
-  if (phase === 'therapists' || phase === 'all') {
-    if (overBudget()) {
-      log.warn('Budget exhausted before therapists phase, skipping');
-    } else {
-      recordsProcessed += await syncExternalTherapists({ limit, staleAfterDays, deadlineAt });
-    }
-  }
-
-  if (phase === 'link' || phase === 'all') {
-    if (overBudget()) {
-      log.warn('Budget exhausted before link phase, skipping');
-    } else {
-      recordsProcessed += await linkSalonsToExternal();
-    }
-  }
-
-  log.info('Finished external_salons job');
-  emitJobMetrics('salons', {
-    durationMs: Date.now() - startedAt,
-    recordsProcessed,
-  });
 }
 
 

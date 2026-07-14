@@ -6,6 +6,9 @@
 #
 # Build context は **repo root** にすること:
 #   docker build -t akimashita-scraper -f apps/scraper/Dockerfile .
+#
+# men-esthe Cloudflare warmup 用に Playwright Chromium を同梱する。
+# (@sparticuz/chromium は ARM64 非対応のため使わない)
 
 ARG NODE_VERSION=22
 
@@ -26,10 +29,61 @@ COPY apps/scraper ./apps/scraper
 RUN npm run build --workspace scraper
 
 
+# === Playwright Chromium (must match Lambda TARGETPLATFORM / arm64) ===
+FROM --platform=$TARGETPLATFORM node:${NODE_VERSION}-bookworm AS browsers
+
+WORKDIR /pw
+RUN npm init -y && npm install --no-save playwright-core@1.59.1
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+# --with-deps で Debian 側の共有ライブラリ依存も入れる。Lambda 実行時は
+# chromium バイナリだけコピーし、AL2023 側にも同等パッケージを入れる。
+RUN npx playwright-core install --with-deps chromium
+
+
 # === Runtime stage ===================================================
 FROM public.ecr.aws/lambda/nodejs:${NODE_VERSION}
 
+# Chromium 実行に必要な共有ライブラリ (Amazon Linux 2023 / dnf)
+RUN dnf install -y \
+      atk \
+      at-spi2-atk \
+      cups-libs \
+      gtk3 \
+      libXcomposite \
+      libXcursor \
+      libXdamage \
+      libXext \
+      libXi \
+      libXrandr \
+      libXScrnSaver \
+      libXtst \
+      pango \
+      alsa-lib \
+      nss \
+      nss-util \
+      nspr \
+      libdrm \
+      mesa-libgbm \
+      libxkbcommon \
+      libxcb \
+    && dnf clean all \
+    && rm -rf /var/cache/dnf
+
 COPY --from=builder /build/apps/scraper/dist/ ${LAMBDA_TASK_ROOT}/
+
+# playwright-core は esbuild external。ハンドラ隣の node_modules から解決する。
+COPY --from=builder /build/node_modules/playwright-core ${LAMBDA_TASK_ROOT}/node_modules/playwright-core
+
+COPY --from=browsers /ms-playwright /opt/ms-playwright
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
+
+# フル Chromium を優先 (headless_shell より CF 通過率が高い)
+RUN CHROME="$(find /opt/ms-playwright -type f \( -name chrome -o -name chromium -o -name 'Google Chrome for Testing' \) ! -path '*headless*' | head -n 1)" \
+    && if [ -z "$CHROME" ]; then CHROME="$(find /opt/ms-playwright -type f \( -name chrome-headless-shell -o -name headless_shell \) | head -n 1)"; fi \
+    && test -n "$CHROME" \
+    && ln -sf "$CHROME" /opt/chromium \
+    && echo "Linked Chromium: $CHROME -> /opt/chromium"
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/opt/chromium
 
 # デフォルトは availability ハンドラ。各 Lambda Function は Terraform の
 # aws_lambda_function.image_config.command で上書きする。

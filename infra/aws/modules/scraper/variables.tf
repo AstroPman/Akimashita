@@ -6,9 +6,9 @@ variable "name_prefix" {
 # === ECR ====================================================================
 
 variable "ecr_keep_image_count" {
-  description = "ECR に保持するタグ付きイメージの最大数。古いものから自動削除。"
+  description = "ECR に保持するタグ付きイメージの最大数。古いものから自動削除。Chromium 同梱でイメージが膨らむため少数に抑える。"
   type        = number
-  default     = 10
+  default     = 3
 }
 
 variable "ecr_untagged_expire_days" {

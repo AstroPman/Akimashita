@@ -39,8 +39,9 @@ await build({
       'const __dirname = __esm_dirname(__filename);',
     ].join('\n'),
   },
-  // Lambda Node.js ランタイムが提供するため、AWS SDK は bundle に含めない。
-  external: ['@aws-sdk/*', 'aws-sdk'],
+  // Lambda Node.js ランタイムが提供するため AWS SDK は bundle に含めない。
+  // playwright-core は Chromium バイナリとセットで runtime image に置くため external。
+  external: ['@aws-sdk/*', 'aws-sdk', 'playwright-core', 'playwright'],
   mainFields: ['module', 'main'],
   conditions: ['node', 'import'],
   logLevel: 'info',
