@@ -50,7 +50,10 @@ interface MenestheTherapistRow {
  *
  * URL: `therapistlist.php?id={salon_id}&more&p={page}` (p は 0-indexed)
  *
- * - 初回呼び出しでサーバが空配列を返したら終了。
+ * - 初回呼び出しでサーバが空配列を返したら終了 (= 在籍 0 の正当な結果)。
+ * - HTTP / JSON パース失敗、または配列以外のレスポンスは **例外を throw** する。
+ *   呼び出し側が空配列と失敗を混同して既存行を soft-delete しないための契約。
+ * - ページ途中の失敗も throw（部分結果を返さない）。不完全一覧での誤削除を防ぐ。
  * - 1 ページしか返さないサロン (= 全件 8 件以下) も多数なので、
  *   `MAX_PAGES` で安全弁を設ける。
  * - 同一 source_id が複数回現れる挙動 (シャッフル + ページング) があり得るので
@@ -72,20 +75,19 @@ export async function fetchExternalTherapists(
     try {
       body = await httpMenesthe.getJson<unknown>(url);
     } catch (err) {
-      log.warn('Therapist list fetch failed, stopping pagination', {
+      log.warn('Therapist list fetch failed', {
         salon_id: menestheSalonId,
         page,
         error: err instanceof Error ? err.message : String(err),
       });
-      break;
+      // 呼び出し側で replace をスキップするため、空配列には落とさず再 throw する。
+      throw err;
     }
 
     if (!Array.isArray(body)) {
-      log.warn('Therapist list response is not an array, stopping', {
-        salon_id: menestheSalonId,
-        page,
-      });
-      break;
+      throw new Error(
+        `Therapist list response is not an array (salon_id=${menestheSalonId}, page=${page})`,
+      );
     }
 
     if (body.length === 0) {

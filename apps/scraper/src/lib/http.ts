@@ -745,12 +745,22 @@ export const httpEstama = createHttp({
 });
 
 // men-esthe.jp は外部ポータルでサロンマスタの参照元。
-// area-list.php / area.php / salon.php を巡回するナビゲーション主体。
-export const httpMenesthe = createHttp({
-  name: 'menesthe',
-  baseUrl: 'https://men-esthe.jp',
-  headers: {},
-});
+// area-list.php / area.php / salon.php / therapistlist.php を巡回する。
+// Cloudflare がローカル IP 等にチャレンジ (403 + "Just a moment...") を返すことがあり、
+// 連続 403 でジョブが数百サロンを空振りしないよう circuit breaker を付ける。
+export const httpMenesthe = createHttp(
+  {
+    name: 'menesthe',
+    baseUrl: 'https://men-esthe.jp',
+    headers: {},
+  },
+  {
+    circuitBreaker: {
+      consecutiveBlockingThreshold: 5,
+      cooldownMs: 30 * 60 * 1000,
+    },
+  },
+);
 
 // e-yoyaku.jp は ranking-deli.jp グループ (駅ちか) の「eネット予約」汎用予約システム。
 // 初回アクセスで ranking-deli.jp 側 (/member/checklogin/...) に cross-domain redirect され、

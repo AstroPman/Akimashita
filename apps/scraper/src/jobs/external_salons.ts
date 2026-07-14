@@ -4,6 +4,7 @@ import type {
   ExternalSalonRecord,
   ExternalTherapistRecord,
 } from '@alimashita/shared';
+import { isCircuitBreakerError } from '../lib/http.js';
 import { supabase } from '../lib/supabase.js';
 import { env } from '../lib/env.js';
 import { createLogger } from '../lib/logger.js';
@@ -610,27 +611,41 @@ async function syncExternalTherapists(ctx: {
     }
     try {
       const records = await fetchExternalTherapists(row.source_id);
+      // 取得成功時のみ差し替え。失敗 (403 等) で空配列扱いにしないこと
+      // (誤 soft-delete 防止)。本当に 0 件のサロンは records=[] で orphan 削除される。
       const { upserted, softDeleted } = await replaceExternalTherapistsForSalon(row.id, records);
       counters.upserted += upserted;
       counters.softDeleted += softDeleted;
       counters.success += 1;
+      await markTherapistsSynced(row.id);
     } catch (err) {
       counters.failure += 1;
-      log.warn('Failed to sync external therapists', {
+      if (isCircuitBreakerError(err)) {
+        // サイト全体が弾かれている。残りを synced 扱いすると 30 日ロスするので中断。
+        // 当該サロンも synced_at は進めない (次回ジョブで再試行)。
+        log.error('menesthe circuit breaker tripped; aborting therapists phase', {
+          external_salon_id: row.id,
+          source_id: row.source_id,
+          cooldown_until: err.cooldownUntil.toISOString(),
+          reason: err.reason,
+        });
+        break;
+      }
+      log.warn('Failed to sync external therapists (skipping replace)', {
         external_salon_id: row.id,
         source_id: row.source_id,
         error: err instanceof Error ? err.message : String(err),
       });
-    }
-    // 取得失敗でも therapists_synced_at は進める: 同じサロンが nullsFirst で先頭に
-    // 張り付くのを防ぐ。次回 stale で再訪する。
-    try {
-      await markTherapistsSynced(row.id);
-    } catch (markErr) {
-      log.warn('markTherapistsSynced failed', {
-        external_salon_id: row.id,
-        error: markErr instanceof Error ? markErr.message : String(markErr),
-      });
+      // 取得失敗でも therapists_synced_at は進める: 同じサロンが nullsFirst で先頭に
+      // 張り付くのを防ぐ。external_therapists は触らない。次回 stale で再訪する。
+      try {
+        await markTherapistsSynced(row.id);
+      } catch (markErr) {
+        log.warn('markTherapistsSynced failed', {
+          external_salon_id: row.id,
+          error: markErr instanceof Error ? markErr.message : String(markErr),
+        });
+      }
     }
   }
 
