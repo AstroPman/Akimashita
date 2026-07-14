@@ -160,10 +160,11 @@ bootstrap-output:
 # AWS_ACCOUNT_ID は STS から動的取得し、Makefile にハードコードしない。
 
 scraper-image-build:
-	docker build \
+	docker buildx build \
 	  --platform $(SCRAPER_PLATFORM) \
 	  --provenance=false \
 	  --sbom=false \
+	  --load \
 	  -t $(SCRAPER_REPO_NAME):$(SCRAPER_IMAGE_TAG) \
 	  -f apps/scraper/Dockerfile .
 
