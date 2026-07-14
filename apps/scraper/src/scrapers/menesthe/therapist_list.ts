@@ -1,5 +1,5 @@
 import type { ExternalTherapistRecord } from '@alimashita/shared';
-import { httpMenesthe } from '../../lib/http.js';
+import { HttpError, httpMenesthe } from '../../lib/http.js';
 import { createLogger } from '../../lib/logger.js';
 
 const log = createLogger('menesthe:therapist_list');
@@ -53,7 +53,9 @@ interface MenestheTherapistRow {
  * - 初回呼び出しでサーバが空配列を返したら終了 (= 在籍 0 の正当な結果)。
  * - HTTP / JSON パース失敗、または配列以外のレスポンスは **例外を throw** する。
  *   呼び出し側が空配列と失敗を混同して既存行を soft-delete しないための契約。
- * - ページ途中の失敗も throw（部分結果を返さない）。不完全一覧での誤削除を防ぐ。
+ * - ページ途中の失敗も原則 throw（部分結果を返さない）。不完全一覧での誤削除を防ぐ。
+ * - 例外: page>0 で HTTP 404 のときは「最終ページ超え」とみなし、それまでの結果を返す。
+ *   men-esthe は 1 ページ分しか無いサロンで p=1 以降を 404 にすることがある。
  * - 1 ページしか返さないサロン (= 全件 8 件以下) も多数なので、
  *   `MAX_PAGES` で安全弁を設ける。
  * - 同一 source_id が複数回現れる挙動 (シャッフル + ページング) があり得るので
@@ -75,6 +77,14 @@ export async function fetchExternalTherapists(
     try {
       body = await httpMenesthe.getJson<unknown>(url);
     } catch (err) {
+      // 2 ページ目以降の 404 は「これ以上無い」シグナル。page0 で得た分は返してよい。
+      if (page > 0 && err instanceof HttpError && err.status === 404) {
+        log.info('Therapist list page past end (404); stopping pagination', {
+          salon_id: menestheSalonId,
+          page,
+        });
+        break;
+      }
       log.warn('Therapist list fetch failed', {
         salon_id: menestheSalonId,
         page,
