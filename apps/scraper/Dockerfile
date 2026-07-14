@@ -77,12 +77,19 @@ COPY --from=builder /build/node_modules/playwright-core ${LAMBDA_TASK_ROOT}/node
 COPY --from=browsers /ms-playwright /opt/ms-playwright
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
 
-# フル Chromium を優先 (headless_shell より CF 通過率が高い)
-RUN CHROME="$(find /opt/ms-playwright -type f \( -name chrome -o -name chromium -o -name 'Google Chrome for Testing' \) ! -path '*headless*' | head -n 1)" \
-    && if [ -z "$CHROME" ]; then CHROME="$(find /opt/ms-playwright -type f \( -name chrome-headless-shell -o -name headless_shell \) | head -n 1)"; fi \
-    && test -n "$CHROME" \
-    && ln -sf "$CHROME" /opt/chromium \
-    && echo "Linked Chromium: $CHROME -> /opt/chromium"
+# Lambda base に findutils が無いので glob でフル Chromium を特定する。
+RUN set -eu; \
+    linked=""; \
+    for c in /opt/ms-playwright/chromium-*/chrome-linux*/chrome; do \
+      if [ -f "$c" ]; then ln -sf "$c" /opt/chromium; linked="$c"; break; fi; \
+    done; \
+    if [ -z "$linked" ]; then \
+      for c in /opt/ms-playwright/chromium_headless_shell-*/chrome-headless-shell-*/chrome-headless-shell; do \
+        if [ -f "$c" ]; then ln -sf "$c" /opt/chromium; linked="$c"; break; fi; \
+      done; \
+    fi; \
+    test -n "$linked"; \
+    echo "Linked Chromium: $linked -> /opt/chromium"
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/opt/chromium
 
 # デフォルトは availability ハンドラ。各 Lambda Function は Terraform の
