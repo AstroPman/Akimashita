@@ -12,7 +12,9 @@ alert_emails = ["astroqman@gmail.com"]
 
 # Schedule の初期状態。ENABLED にすると本物の cron 起動が始まる。
 # スモークテストを完了してから "ENABLED" に変更する。
-scraper_schedule_state = "ENABLED"
+# 2026-07-15: men-esthe.jp 側にスクレイピングを検知されたため、全環境のスクレイピングを
+# 一時停止する目的で DISABLED に切り替え。再開時に "ENABLED" へ戻す。
+scraper_schedule_state = "DISABLED"
 scraper_schedules = {
   therapists   = "cron(0 19 * * ? *)" # JST 04:00 daily (eyoyaku 除外)
   availability = "cron(0 * * * ? *)"  #  1 時間間隔 (eyoyaku 除外)
